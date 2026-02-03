@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>QR Code for Restaurant</title>
+    <style>
+        body {
+            text-align: center;
+            padding: 50px;
+            font-family: Arial, sans-serif;
+        }
+        
+        .qr-container {
+            margin: 20px auto;
+            padding: 20px;
+            border: 2px solid #333;
+            display: inline-block;
+            border-radius: 10px;
+        }
+        
+        h1 {
+            color: #2c3e50;
+        }
+        
+        .instructions {
+            max-width: 600px;
+            margin: 30px auto;
+            text-align: left;
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🍽️ Restaurant QR Code</h1>
+    <p>Print this QR code and place it on restaurant tables</p>
+    
+    <div class="qr-container">
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=https://smart-waiter-frontend.onrender.com/auth/index.html?table=SCAN" 
+             alt="QR Code">
+        <p>Scan to order food</p>
+    </div>
+    
+    <div class="instructions">
+        <h3>📋 Instructions for Restaurant:</h3>
+        <ol>
+            <li>Print this QR code</li>
+            <li>Laminate for durability</li>
+            <li>Place one on each table</li>
+            <li>Customers scan with phone camera</li>
+            <li>They can order directly from phone</li>
+        </ol>
+        
+        <h3>🔗 Direct Links:</h3>
+        <ul>
+            <li><a href="https://smart-waiter-frontend.onrender.com">Main Portal</a></li>
+            <li><a href="https://smart-waiter-frontend.onrender.com/auth/index.html">Customer Login</a></li>
+            <li><a href="https://smart-waiter-frontend.onrender.com/chef/dashboard.html">Chef Dashboard</a></li>
+            <li><a href="https://smart-waiter-frontend.onrender.com/admin/dashboard.html">Admin Dashboard</a></li>
+        </ul>
+    </div>
+</body>
+</html>
