@@ -1,12 +1,7 @@
 // Production configuration
 const CONFIG = {
-  // Backend URL - Will be set automatically
-  BACKEND_URL: window.location.hostname === 'localhost' 
-    ? 'http://localhost:5000' 
-    : 'https://smart-waiter-backend.onrender.com',
-  
-  // Frontend URL
-  FRONTEND_URL: window.location.origin,
+  BACKEND_URL: 'https://smart-waiter-backend.onrender.com',
+  FRONTEND_URL: 'https://smart-waiter-frontend.onrender.com',
   
   // Demo accounts
   DEMO_ACCOUNTS: {
