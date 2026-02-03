@@ -75,7 +75,9 @@ app.get('/', (req, res) => {
       api: '/api',
       health: '/health',
       demo: '/api/demo',
-      menu: '/api/menu'
+      menu: '/api/menu',
+      login: 'POST /api/auth/login',
+      register: 'POST /api/auth/register'
     },
     timestamp: new Date().toISOString(),
     uptime: process.uptime()
@@ -199,6 +201,83 @@ app.post('/api/auth/login', (req, res) => {
       message: 'Invalid email or password'
     });
   }
+});
+
+// ==================== REGISTRATION ENDPOINT ====================
+app.post('/api/auth/register', (req, res) => {
+  console.log('📝 Registration attempt:', req.body);
+  
+  const { firstName, lastName, email, password, confirmPassword, phone } = req.body;
+  
+  // Validation
+  const errors = [];
+  
+  if (!firstName || firstName.trim().length < 2) {
+    errors.push('First name must be at least 2 characters');
+  }
+  
+  if (!lastName || lastName.trim().length < 2) {
+    errors.push('Last name must be at least 2 characters');
+  }
+  
+  if (!email || !email.includes('@') || !email.includes('.')) {
+    errors.push('Valid email is required');
+  }
+  
+  if (!password || password.length < 6) {
+    errors.push('Password must be at least 6 characters');
+  }
+  
+  if (password !== confirmPassword) {
+    errors.push('Passwords do not match');
+  }
+  
+  if (!phone || phone.length < 10) {
+    errors.push('Valid phone number is required');
+  }
+  
+  // Check for errors
+  if (errors.length > 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Validation failed',
+      errors: errors
+    });
+  }
+  
+  // Check if email already exists in demo accounts
+  if (demoAccounts[email]) {
+    return res.status(400).json({
+      success: false,
+      message: 'Email already registered. Please use a different email or login with demo accounts'
+    });
+  }
+  
+  // Generate user ID
+  const userId = Date.now();
+  
+  // Create new user object
+  const newUser = {
+    id: userId,
+    firstName: firstName.trim(),
+    lastName: lastName.trim(),
+    email: email.trim().toLowerCase(),
+    phone: phone.trim(),
+    role: 'customer',
+    createdAt: new Date().toISOString(),
+    tableNumber: Math.floor(Math.random() * 20) + 1
+  };
+  
+  console.log('✅ New user registered:', newUser.email);
+  
+  // Success response
+  res.status(201).json({
+    success: true,
+    message: '🎉 Registration successful! Welcome to Smart Waiter System.',
+    user: newUser,
+    token: 'reg_token_' + userId,
+    instructions: 'You can now login with your credentials'
+  });
 });
 
 // API: Get menu
