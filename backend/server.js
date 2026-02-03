@@ -1,36 +1,43 @@
+// Production-ready server.js for Render
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const http = require('http');
 const socketIo = require('socket.io');
-const helmet = require('helmet');
-const compression = require('compression');
+const path = require('path');
 require('dotenv').config();
 
 const app = express();
 const server = http.createServer(app);
 
-// Security and performance middleware
-app.use(helmet());
-app.use(compression());
+// Production CORS configuration
+const allowedOrigins = [
+  'https://smart-waiter-frontend.onrender.com',
+  'http://localhost:3000',
+  'http://localhost:5500'
+];
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || '*',
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.log('Blocked by CORS:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Socket.io configuration for production
-const io = socketIo(server, {
-  cors: {
-    origin: process.env.FRONTEND_URL || '*',
-    methods: ["GET", "POST"],
-    credentials: true
-  },
-  transports: ['websocket', 'polling']
-});
+// Serve static files from frontend in production
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, '../frontend')));
+}
 
-// MongoDB Connection
+// MongoDB Atlas Connection
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/smart_waiter';
 
 mongoose.connect(MONGODB_URI, {
@@ -42,123 +49,133 @@ mongoose.connect(MONGODB_URI, {
 .then(() => console.log('✅ MongoDB Atlas Connected'))
 .catch(err => {
   console.error('❌ MongoDB Connection Error:', err.message);
-  console.log('⚠️  Using in-memory database for demo...');
+  console.log('⚠️  Using in-memory storage for demo');
+});
+
+// Socket.io for Real-time Communication
+const io = socketIo(server, {
+  cors: {
+    origin: allowedOrigins,
+    methods: ["GET", "POST"],
+    credentials: true
+  },
+  transports: ['websocket', 'polling']
 });
 
 // ==================== ROOT ROUTE ====================
 app.get('/', (req, res) => {
   res.json({
     success: true,
-    message: '🚀 Smart Waiter System - Live Production API',
-    version: '1.0.0',
-    environment: process.env.NODE_ENV || 'production',
-    timestamp: new Date().toISOString(),
+    message: '🚀 Smart Waiter System API - Live on Render',
+    version: '2.0.0',
+    environment: process.env.NODE_ENV || 'development',
+    deployment: 'Render.com',
+    realtime: 'Socket.io Active',
     endpoints: {
       api: '/api',
       health: '/health',
-      menu: '/api/menu',
-      login: 'POST /api/auth/login'
+      demo: '/api/demo',
+      menu: '/api/menu'
     },
-    realtime: {
-      socket: true,
-      events: ['order-update', 'status-change', 'service-request']
-    }
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
   });
 });
 
-// Health check endpoint (required by Render)
+// ==================== HEALTH CHECK ====================
 app.get('/health', (req, res) => {
-  const healthcheck = {
+  res.json({
     status: 'healthy',
+    service: 'smart-waiter-backend',
     timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
     database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
-    memory: process.memoryUsage()
-  };
-  res.status(200).json(healthcheck);
+    uptime: process.uptime(),
+    memory: {
+      used: `${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB`,
+      total: `${Math.round(process.memoryUsage().heapTotal / 1024 / 1024)}MB`
+    }
+  });
 });
 
 // ==================== API ROUTES ====================
 
-// Demo menu endpoint
-app.get('/api/menu', (req, res) => {
-  const menuItems = [
-    {
+// Demo accounts data
+const demoAccounts = {
+  'customer@demo.com': {
+    password: '123456',
+    user: {
       id: 1,
-      name: 'Classic Burger',
-      description: 'Juicy beef patty with lettuce, tomato, and special sauce',
-      price: 12.99,
-      category: 'main',
-      image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80',
-      available: true
-    },
-    {
-      id: 2,
-      name: 'Caesar Salad',
-      description: 'Fresh romaine lettuce with Caesar dressing, croutons, and parmesan',
-      price: 9.99,
-      category: 'appetizer',
-      image: 'https://images.unsplash.com/photo-1546793665-c74683f339c1?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80',
-      available: true
-    },
-    {
-      id: 3,
-      name: 'Grilled Salmon',
-      description: 'Atlantic salmon with lemon butter sauce and seasonal vegetables',
-      price: 22.99,
-      category: 'main',
-      image: 'https://images.unsplash.com/photo-1467003909585-2f8a72700288?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80',
-      available: true
+      firstName: 'John',
+      lastName: 'Doe',
+      email: 'customer@demo.com',
+      role: 'customer',
+      phone: '555-1234',
+      tableNumber: 5
     }
-  ];
-  
+  },
+  'chef@demo.com': {
+    password: '123456',
+    user: {
+      id: 2,
+      firstName: 'Master',
+      lastName: 'Chef',
+      email: 'chef@demo.com',
+      role: 'chef',
+      phone: '555-5678'
+    }
+  },
+  'admin@demo.com': {
+    password: '123456',
+    user: {
+      id: 3,
+      firstName: 'Admin',
+      lastName: 'User',
+      email: 'admin@demo.com',
+      role: 'admin',
+      phone: '555-9012'
+    }
+  }
+};
+
+// Menu items
+const menuItems = [
+  {
+    id: 1,
+    name: 'Classic Burger',
+    description: 'Juicy beef patty with lettuce, tomato, and special sauce',
+    price: 12.99,
+    category: 'main',
+    image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80',
+    available: true
+  },
+  {
+    id: 2,
+    name: 'Caesar Salad',
+    description: 'Fresh romaine lettuce with Caesar dressing, croutons, and parmesan',
+    price: 9.99,
+    category: 'appetizer',
+    image: 'https://images.unsplash.com/photo-1546793665-c74683f339c1?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80',
+    available: true
+  }
+];
+
+// API: Get demo info
+app.get('/api/demo', (req, res) => {
   res.json({
     success: true,
-    count: menuItems.length,
-    menuItems
+    message: 'Demo accounts available',
+    accounts: Object.keys(demoAccounts).map(email => ({
+      email,
+      role: demoAccounts[email].user.role,
+      password: '123456'
+    })),
+    frontendUrl: process.env.FRONTEND_URL || 'https://smart-waiter-frontend.onrender.com'
   });
 });
 
-// Login endpoint
+// API: Login
 app.post('/api/auth/login', (req, res) => {
   const { email, password } = req.body;
-  
-  // Demo accounts
-  const demoAccounts = {
-    'customer@demo.com': { 
-      password: '123456', 
-      user: {
-        id: 1,
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'customer@demo.com',
-        role: 'customer',
-        phone: '555-1234'
-      }
-    },
-    'chef@demo.com': { 
-      password: '123456', 
-      user: {
-        id: 2,
-        firstName: 'Master',
-        lastName: 'Chef',
-        email: 'chef@demo.com',
-        role: 'chef',
-        phone: '555-5678'
-      }
-    },
-    'admin@demo.com': { 
-      password: '123456', 
-      user: {
-        id: 3,
-        firstName: 'Admin',
-        lastName: 'User',
-        email: 'admin@demo.com',
-        role: 'admin',
-        phone: '555-9012'
-      }
-    }
-  };
   
   if (!email || !password) {
     return res.status(400).json({
@@ -173,7 +190,7 @@ app.post('/api/auth/login', (req, res) => {
     res.json({
       success: true,
       message: 'Login successful',
-      token: 'demo_jwt_token_' + Date.now(),
+      token: 'render_jwt_' + Date.now(),
       user: account.user
     });
   } else {
@@ -184,26 +201,31 @@ app.post('/api/auth/login', (req, res) => {
   }
 });
 
-// Order endpoint
+// API: Get menu
+app.get('/api/menu', (req, res) => {
+  res.json({
+    success: true,
+    count: menuItems.length,
+    menuItems
+  });
+});
+
+// API: Place order
+const orders = [];
 app.post('/api/orders', (req, res) => {
-  const { tableNumber, items, totalAmount, customerName } = req.body;
-  
-  if (!tableNumber || !items || !totalAmount) {
-    return res.status(400).json({
-      success: false,
-      message: 'Table number, items, and total amount are required'
-    });
-  }
+  const { tableNumber, items, customerId } = req.body;
   
   const order = {
-    orderId: 'ORD' + Date.now().toString().slice(-6),
+    id: 'ORD-' + Date.now(),
     tableNumber,
     items,
-    totalAmount,
-    customerName: customerName || 'Guest',
+    customerId,
     status: 'pending',
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    total: items.reduce((sum, item) => sum + (item.price * item.quantity), 0)
   };
+  
+  orders.push(order);
   
   // Emit real-time event
   io.emit('new-order', order);
@@ -215,23 +237,28 @@ app.post('/api/orders', (req, res) => {
   });
 });
 
+// API: Get orders
+app.get('/api/orders', (req, res) => {
+  res.json({
+    success: true,
+    count: orders.length,
+    orders
+  });
+});
+
 // ==================== SOCKET.IO REAL-TIME ====================
 
 const connectedUsers = new Map();
-const activeOrders = new Map();
 
 io.on('connection', (socket) => {
-  console.log(`🔌 New connection: ${socket.id}`);
+  console.log(`🔌 New connection: ${socket.id} from ${socket.handshake.address}`);
   
-  // User registration
-  socket.on('register-user', (userData) => {
-    connectedUsers.set(socket.id, {
-      ...userData,
-      socketId: socket.id,
-      connectedAt: new Date().toISOString()
-    });
+  // Register user
+  socket.on('register', (userData) => {
+    connectedUsers.set(socket.id, userData);
+    console.log(`👤 ${userData.role.toUpperCase()} connected: ${userData.email || 'Anonymous'}`);
     
-    // Join role-specific room
+    // Join role room
     socket.join(`role-${userData.role}`);
     
     // Join table room if customer
@@ -239,158 +266,121 @@ io.on('connection', (socket) => {
       socket.join(`table-${userData.tableNumber}`);
     }
     
-    console.log(`👤 ${userData.role.toUpperCase()} connected: ${userData.email}`);
-    
     // Send welcome message
     socket.emit('welcome', {
-      message: `Welcome ${userData.name}!`,
-      role: userData.role,
-      serverTime: new Date().toISOString()
+      message: `Welcome ${userData.role}! Real-time connection established.`,
+      serverTime: new Date().toISOString(),
+      connectedUsers: connectedUsers.size
     });
   });
   
-  // Customer places order
+  // Place order (real-time)
   socket.on('place-order', (orderData) => {
     const order = {
       ...orderData,
-      orderId: 'ORD' + Date.now().toString().slice(-6),
+      id: 'RT-' + Date.now(),
       status: 'pending',
       timestamp: new Date().toISOString()
     };
     
-    activeOrders.set(order.orderId, order);
+    // Store order
+    orders.push(order);
     
-    console.log('📦 New order placed:', order.orderId);
+    // Real-time notifications
+    io.to('role-chef').emit('new-order-realtime', order);
+    io.to('role-admin').emit('order-created', order);
     
-    // Notify all chefs
-    io.to('role-chef').emit('new-order', {
-      ...order,
-      notification: `New order from Table ${order.tableNumber}`
-    });
-    
-    // Notify all admins
-    io.to('role-admin').emit('order-placed', order);
-    
-    // Confirm to customer
+    // Confirmation to customer
     socket.emit('order-confirmed', {
-      success: true,
-      orderId: order.orderId,
-      message: 'Order received! Chef has been notified.',
-      estimatedTime: '15-20 minutes'
+      ...order,
+      message: 'Your order has been received!'
     });
+    
+    console.log(`📦 New order placed: ${order.id} for table ${order.tableNumber}`);
   });
   
-  // Chef updates order status
+  // Update order status
   socket.on('update-order-status', (data) => {
     const { orderId, status, chefName } = data;
-    const order = activeOrders.get(orderId);
+    const order = orders.find(o => o.id === orderId);
     
     if (order) {
       order.status = status;
       order.updatedAt = new Date().toISOString();
       order.chefName = chefName;
       
-      console.log(`🔄 Order ${orderId} status: ${status}`);
-      
       // Notify customer
-      io.to(`table-${order.tableNumber}`).emit('order-status-update', {
-        orderId,
-        status,
-        message: getStatusMessage(status),
-        chefName,
-        timestamp: new Date().toISOString()
-      });
+      io.to(`table-${order.tableNumber}`).emit('order-status-updated', order);
       
       // Notify all chefs
-      io.to('role-chef').emit('order-updated', {
-        orderId,
-        status,
-        tableNumber: order.tableNumber
-      });
+      io.to('role-chef').emit('order-status-changed', order);
       
       // Notify admin
-      io.to('role-admin').emit('order-status-changed', {
-        orderId,
-        status,
-        tableNumber: order.tableNumber,
-        chefName
-      });
+      io.to('role-admin').emit('order-updated', order);
+      
+      console.log(`🔄 Order ${orderId} status changed to: ${status}`);
     }
   });
   
   // Service requests
   socket.on('request-service', (serviceData) => {
-    const { type, tableNumber, details } = serviceData;
-    
-    console.log(`🛎️  Service request: ${type} for Table ${tableNumber}`);
-    
-    io.to('role-chef').emit('service-request', {
-      type,
-      tableNumber,
-      details,
+    const request = {
+      ...serviceData,
+      id: 'SRV-' + Date.now(),
       timestamp: new Date().toISOString(),
-      priority: type === 'bill' ? 'high' : 'medium'
+      status: 'pending'
+    };
+    
+    io.to('role-chef').emit('service-requested', request);
+    io.to('role-admin').emit('service-log', request);
+    
+    socket.emit('service-acknowledged', {
+      ...request,
+      message: 'Service request sent to kitchen'
     });
     
-    // Acknowledge to customer
-    socket.emit('service-acknowledged', {
-      type,
-      tableNumber,
-      message: `${getServiceName(type)} request sent to kitchen`,
-      estimatedResponse: '5 minutes'
-    });
+    console.log(`🛎️  Service request: ${request.type} for table ${request.tableNumber}`);
   });
   
   // Real-time chat
   socket.on('send-message', (messageData) => {
-    const { to, message, tableNumber, fromName } = messageData;
+    const { to, message, from, tableNumber } = messageData;
     
     if (to === 'chef') {
       io.to('role-chef').emit('customer-message', {
+        from: from || 'Customer',
         tableNumber,
         message,
-        fromName,
         timestamp: new Date().toISOString()
       });
-    } else if (to === 'customer') {
+    } else if (to === 'customer' && tableNumber) {
       io.to(`table-${tableNumber}`).emit('chef-message', {
+        from: from || 'Chef',
         message,
-        fromName: 'Chef',
         timestamp: new Date().toISOString()
+      });
+    }
+  });
+  
+  // Ping/Pong for connection monitoring
+  socket.on('ping', (callback) => {
+    if (typeof callback === 'function') {
+      callback({
+        serverTime: new Date().toISOString(),
+        uptime: process.uptime()
       });
     }
   });
   
   // Disconnect
   socket.on('disconnect', () => {
-    const user = connectedUsers.get(socket.id);
-    if (user) {
-      console.log(`👋 ${user.role.toUpperCase()} disconnected: ${user.email}`);
+    const userData = connectedUsers.get(socket.id);
+    if (userData) {
+      console.log(`👋 ${userData.role} disconnected: ${userData.email || socket.id}`);
       connectedUsers.delete(socket.id);
     }
   });
 });
-
-function getStatusMessage(status) {
-  const messages = {
-    'pending': 'Order received and waiting for chef',
-    'preparing': 'Chef is preparing your order',
-    'ready': 'Your order is ready for pickup!',
-    'completed': 'Order completed. Thank you!',
-    'rejected': 'Order cannot be processed'
-  };
-  return messages[status] || 'Order status updated';
-}
-
-function getServiceName(type) {
-  const services = {
-    'water': 'Water Refill',
-    'cleaning': 'Table Cleaning',
-    'bill': 'Bill Payment',
-    'utensils': 'Extra Utensils'
-  };
-  return services[type] || 'Service';
-}
 
 // ==================== ERROR HANDLING ====================
 
@@ -398,14 +388,14 @@ function getServiceName(type) {
 app.use((req, res) => {
   res.status(404).json({
     success: false,
-    message: `Endpoint ${req.method} ${req.url} not found`,
-    availableEndpoints: ['/', '/health', '/api/menu', '/api/auth/login', '/api/orders']
+    message: `Cannot ${req.method} ${req.url}`,
+    suggestion: 'Try GET / for available endpoints'
   });
 });
 
 // Error handler
 app.use((err, req, res, next) => {
-  console.error('❌ Server Error:', err.stack);
+  console.error('❌ Server Error:', err);
   res.status(500).json({
     success: false,
     message: 'Internal server error',
@@ -414,16 +404,16 @@ app.use((err, req, res, next) => {
 });
 
 // ==================== START SERVER ====================
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 server.listen(PORT, () => {
   console.log('='.repeat(60));
-  console.log('🚀 SMART WAITER SYSTEM - PRODUCTION SERVER');
+  console.log('🚀 SMART WAITER SYSTEM - DEPLOYED ON RENDER');
   console.log('='.repeat(60));
-  console.log(`📍 Environment: ${process.env.NODE_ENV || 'production'}`);
   console.log(`📍 Port: ${PORT}`);
-  console.log(`📍 URL: ${process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`}`);
-  console.log(`📍 MongoDB: ${MONGODB_URI.includes('mongodb+srv') ? 'Atlas' : 'Local'}`);
+  console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`📍 Database: ${MONGODB_URI.includes('mongodb+srv') ? 'MongoDB Atlas' : 'Local'}`);
+  console.log(`📍 Frontend URL: ${process.env.FRONTEND_URL || 'Not set'}`);
   console.log('='.repeat(60));
-  console.log('\n✅ Server is running! Real-time features enabled.');
+  console.log('\n✅ Server is LIVE and ready for real-time connections!');
   console.log('='.repeat(60));
 });

@@ -3,8 +3,10 @@ services:
     name: smart-waiter-backend
     env: node
     plan: free
+    region: oregon  # or singapore, frankfurt, ohio
     buildCommand: npm install
     startCommand: npm start
+    healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
@@ -12,7 +14,6 @@ services:
         value: 10000
       - key: MONGODB_URI
         sync: false
-      - key: JWT_SECRET
-        generateValue: true
       - key: FRONTEND_URL
         value: https://smart-waiter-frontend.onrender.com
+    autoDeploy: true
