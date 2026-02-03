@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Smart Waiter System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --secondary: #e74c3c;
+            --light: #ecf0f1;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .auth-container {
+            background-color: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+            width: 100%;
+            max-width: 900px;
+        }
+
+        .auth-left {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .auth-right {
+            padding: 40px;
+        }
+
+        .auth-logo {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+        }
+
+        .auth-feature {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .auth-feature i {
+            font-size: 1.5rem;
+            margin-right: 15px;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .auth-tabs .nav-link {
+            border: none;
+            padding: 15px;
+            font-weight: 600;
+            color: #6c757d;
+            background: transparent;
+        }
+
+        .auth-tabs .nav-link.active {
+            color: var(--primary);
+            border-bottom: 3px solid var(--primary);
+        }
+
+        .form-control:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 0.2rem rgba(44, 62, 80, 0.25);
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .btn-primary:hover {
+            background-color: #1a252f;
+            border-color: #1a252f;
+        }
+
+        .auth-divider {
+            display: flex;
+            align-items: center;
+            margin: 20px 0;
+        }
+
+        .auth-divider::before,
+        .auth-divider::after {
+            content: "";
+            flex: 1;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .auth-divider span {
+            padding: 0 10px;
+            color: #6c757d;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="row g-0">
+            <div class="col-md-6 auth-left">
+                <div class="auth-logo">
+                    <i class="fas fa-utensils me-2"></i>Smart Waiter
+                </div>
+                <p class="mb-4">Experience the future of restaurant dining with our QR-based ordering system.</p>
+                <div class="auth-feature">
+                    <i class="fas fa-qrcode"></i>
+                    <div>
+                        <h5>QR Code Ordering</h5>
+                        <p class="mb-0">Scan, order, and pay from your table</p>
+                    </div>
+                </div>
+                <div class="auth-feature">
+                    <i class="fas fa-bolt"></i>
+                    <div>
+                        <h5>Fast Service</h5>
+                        <p class="mb-0">Quick order processing and delivery</p>
+                    </div>
+                </div>
+                <div class="auth-feature">
+                    <i class="fas fa-chart-line"></i>
+                    <div>
+                        <h5>Live Tracking</h5>
+                        <p class="mb-0">Track your order status in real-time</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 auth-right">
+                <ul class="nav nav-tabs auth-tabs mb-4" id="authTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="login-tab" data-bs-toggle="tab" 
+                                data-bs-target="#login" type="button" role="tab">Login</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="register-tab" data-bs-toggle="tab" 
+                                data-bs-target="#register" type="button" role="tab">Register</button>
+                    </li>
+                </ul>
+
+                <div class="tab-content" id="authTabsContent">
+                    <!-- Login Form -->
+                    <div class="tab-pane fade show active" id="login" role="tabpanel">
+                        <form id="loginForm">
+                            <div class="mb-3">
+                                <label for="loginEmail" class="form-label">Email address</label>
+                                <input type="email" class="form-control" id="loginEmail" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="loginPassword" class="form-label">Password</label>
+                                <input type="password" class="form-control" id="loginPassword" required>
+                            </div>
+                            <div class="mb-3 form-check">
+                                <input type="checkbox" class="form-check-input" id="rememberMe">
+                                <label class="form-check-label" for="rememberMe">Remember me</label>
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100 mb-3">Login</button>
+                            <div class="text-center">
+                                <a href="#" id="forgotPassword">Forgot password?</a>
+                            </div>
+                        </form>
+
+                        <div class="auth-divider">
+                            <span>Demo Accounts</span>
+                        </div>
+                        <div class="row g-2">
+                            <div class="col-4">
+                                <button class="btn btn-outline-secondary w-100" onclick="setDemoAccount('customer')">
+                                    Customer
+                                </button>
+                            </div>
+                            <div class="col-4">
+                                <button class="btn btn-outline-secondary w-100" onclick="setDemoAccount('chef')">
+                                    Chef
+                                </button>
+                            </div>
+                            <div class="col-4">
+                                <button class="btn btn-outline-secondary w-100" onclick="setDemoAccount('admin')">
+                                    Admin
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Register Form -->
+                    <div class="tab-pane fade" id="register" role="tabpanel">
+                        <form id="registerForm">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="firstName" class="form-label">First Name</label>
+                                    <input type="text" class="form-control" id="firstName" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="lastName" class="form-label">Last Name</label>
+                                    <input type="text" class="form-control" id="lastName" required>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="registerEmail" class="form-label">Email address</label>
+                                <input type="email" class="form-control" id="registerEmail" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="phone" class="form-label">Phone Number</label>
+                                <input type="tel" class="form-control" id="phone" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="registerPassword" class="form-label">Password</label>
+                                <input type="password" class="form-control" id="registerPassword" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="confirmPassword" class="form-label">Confirm Password</label>
+                                <input type="password" class="form-control" id="confirmPassword" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100">Register</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script>
+        // Initialize socket connection
+        const socket = io('http://localhost:5000');
+        
+        // Demo accounts
+        const demoAccounts = {
+            customer: { email: 'customer@demo.com', password: '123456' },
+            chef: { email: 'chef@demo.com', password: '123456' },
+            admin: { email: 'admin@demo.com', password: '123456' }
+        };
+
+        function setDemoAccount(role) {
+            const account = demoAccounts[role];
+            document.getElementById('loginEmail').value = account.email;
+            document.getElementById('loginPassword').value = account.password;
+            
+            const loginTab = new bootstrap.Tab(document.getElementById('login-tab'));
+            loginTab.show();
+        }
+
+        // Login Form Submission
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            
+            try {
+                const response = await fetch('http://localhost:5000/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    
+                    // Redirect based on role
+                    switch(data.user.role) {
+                        case 'customer':
+                            window.location.href = '../customer/dashboard.html';
+                            break;
+                        case 'chef':
+                            window.location.href = '../chef/dashboard.html';
+                            break;
+                        case 'admin':
+                            window.location.href = '../admin/dashboard.html';
+                            break;
+                    }
+                } else {
+                    alert(data.message || 'Login failed');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Login failed. Please try again.');
+            }
+        });
+
+        // Register Form Submission
+        document.getElementById('registerForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const firstName = document.getElementById('firstName').value;
+            const lastName = document.getElementById('lastName').value;
+            const email = document.getElementById('registerEmail').value;
+            const phone = document.getElementById('phone').value;
+            const password = document.getElementById('registerPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            
+            if (password !== confirmPassword) {
+                alert('Passwords do not match');
+                return;
+            }
+            
+            try {
+                const response = await fetch('http://localhost:5000/api/auth/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        firstName,
+                        lastName,
+                        email,
+                        phone,
+                        password,
+                        role: 'customer'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    alert('Registration successful! Please login with your credentials.');
+                    
+                    // Switch to login tab
+                    const loginTab = new bootstrap.Tab(document.getElementById('login-tab'));
+                    loginTab.show();
+                    
+                    // Pre-fill login form
+                    document.getElementById('loginEmail').value = email;
+                    document.getElementById('loginPassword').value = password;
+                } else {
+                    alert(data.message || 'Registration failed');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Registration failed. Please try again.');
+            }
+        });
+
+        // Forgot Password
+        document.getElementById('forgotPassword').addEventListener('click', function(e) {
+            e.preventDefault();
+            const email = prompt('Please enter your email address:');
+            if (email) {
+                // Simulate password reset
+                alert('If this email exists in our system, you will receive a password reset link.');
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "name": "smart-waiter-frontend",
+  "version": "1.0.0",
+  "description": "Smart Waiter System Frontend",
+  "scripts": {
+    "start": "serve ."
+  },
+  "dependencies": {
+    "serve": "^14.0.0"
+  },
+  "devDependencies": {
+    "serve": "^14.0.0"
+  }
+}

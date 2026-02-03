@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: smart-waiter-frontend
+    env: static
+    buildCommand: npm install
+    startCommand: npm start
+    staticPublishPath: .
+    envVars:
+      - key: BACKEND_URL
+        value: https://smart-waiter-backend.onrender.com

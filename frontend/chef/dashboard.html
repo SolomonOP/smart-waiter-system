@@ -1,0 +1,1254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chef Dashboard - Smart Waiter</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --secondary: #e74c3c;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+        }
+        
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            width: 250px;
+            background: var(--primary);
+            color: white;
+            padding: 20px 0;
+            transition: all 0.3s;
+            z-index: 1000;
+        }
+        
+        .main-content {
+            margin-left: 250px;
+            padding: 20px;
+            transition: all 0.3s;
+        }
+        
+        .sidebar.collapsed {
+            width: 70px;
+        }
+        
+        .sidebar.collapsed + .main-content {
+            margin-left: 70px;
+        }
+        
+        .sidebar-header {
+            padding: 0 20px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .sidebar-menu {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .sidebar-menu li {
+            padding: 0;
+        }
+        
+        .sidebar-menu a {
+            display: flex;
+            align-items: center;
+            padding: 12px 20px;
+            color: rgba(255,255,255,0.8);
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+        
+        .sidebar-menu a:hover,
+        .sidebar-menu a.active {
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border-left: 3px solid var(--secondary);
+        }
+        
+        .sidebar-menu .icon {
+            margin-right: 10px;
+            font-size: 1.2rem;
+            width: 25px;
+            text-align: center;
+        }
+        
+        .sidebar.collapsed .menu-text {
+            display: none;
+        }
+        
+        .sidebar.collapsed .sidebar-header h3 {
+            display: none;
+        }
+        
+        .notification-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: var(--secondary);
+            color: white;
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            font-size: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .order-card {
+            border: none;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        
+        .order-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .order-pending { border-left: 4px solid #ffc107; }
+        .order-preparing { border-left: 4px solid #17a2b8; }
+        .order-ready { border-left: 4px solid #28a745; }
+        .order-completed { border-left: 4px solid #6c757d; }
+        
+        .status-badge {
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .badge-pending { background: #fff3cd; color: #856404; }
+        .badge-preparing { background: #d1ecf1; color: #0c5460; }
+        .badge-ready { background: #d4edda; color: #155724; }
+        .badge-completed { background: #e2e3e5; color: #383d41; }
+        
+        .service-request {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-left: 4px solid #6f42c1;
+        }
+        
+        .notification-panel {
+            position: fixed;
+            top: 0;
+            right: -400px;
+            width: 400px;
+            height: 100vh;
+            background: white;
+            box-shadow: -5px 0 15px rgba(0,0,0,0.1);
+            transition: right 0.3s;
+            z-index: 1050;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        .notification-panel.active {
+            right: 0;
+        }
+        
+        .overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1040;
+        }
+        
+        .overlay.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h3 class="text-center">Chef Dashboard</h3>
+        </div>
+        <ul class="sidebar-menu">
+            <li>
+                <a href="#" class="active" onclick="showSection('dashboard')">
+                    <i class="fas fa-tachometer-alt icon"></i>
+                    <span class="menu-text">Dashboard</span>
+                </a>
+            </li>
+            <li>
+                <a href="#" onclick="showSection('menu-management')">
+                    <i class="fas fa-utensils icon"></i>
+                    <span class="menu-text">Menu Management</span>
+                </a>
+            </li>
+            <li>
+                <a href="#" onclick="showSection('new-order')">
+                    <i class="fas fa-plus-circle icon"></i>
+                    <span class="menu-text">New Order</span>
+                </a>
+            </li>
+            <li>
+                <a href="#" onclick="logout()">
+                    <i class="fas fa-sign-out-alt icon"></i>
+                    <span class="menu-text">Logout</span>
+                </a>
+            </li>
+        </ul>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content" id="mainContent">
+        <!-- Top Navigation -->
+        <nav class="navbar navbar-light bg-white shadow-sm mb-4">
+            <div class="container-fluid">
+                <button class="btn btn-outline-secondary" onclick="toggleSidebar()">
+                    <i class="fas fa-bars"></i>
+                </button>
+                
+                <div class="d-flex align-items-center">
+                    <div class="position-relative me-4">
+                        <button class="btn btn-outline-secondary position-relative" onclick="toggleNotifications()">
+                            <i class="fas fa-bell"></i>
+                            <span class="notification-badge" id="notificationCount">0</span>
+                        </button>
+                    </div>
+                    <div class="dropdown">
+                        <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-user me-2"></i>
+                            <span id="chefName">Master Chef</span>
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#"><i class="fas fa-user me-2"></i>Profile</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="logout()"><i class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Dashboard Section -->
+        <section id="dashboardSection" class="section-content">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>Kitchen Dashboard</h2>
+                <div>
+                    <button class="btn btn-primary me-2" onclick="loadDashboard()">
+                        <i class="fas fa-sync-alt me-1"></i> Refresh
+                    </button>
+                    <button class="btn btn-success" onclick="showSection('new-order')">
+                        <i class="fas fa-plus me-1"></i> New Order
+                    </button>
+                </div>
+            </div>
+
+            <!-- Statistics Cards -->
+            <div class="row mb-4">
+                <div class="col-md-3 mb-3">
+                    <div class="card bg-warning text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">Pending Orders</h5>
+                            <h2 class="mb-0" id="pendingCount">0</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card bg-info text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">Preparing</h5>
+                            <h2 class="mb-0" id="preparingCount">0</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card bg-success text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">Ready to Serve</h5>
+                            <h2 class="mb-0" id="readyCount">0</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card bg-secondary text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">Completed Today</h5>
+                            <h2 class="mb-0" id="completedCount">0</h2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Current Orders with Filter -->
+            <div class="card mb-4">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Current Orders</h5>
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-outline-primary active" onclick="filterOrders('all')">All</button>
+                        <button type="button" class="btn btn-outline-warning" onclick="filterOrders('pending')">Pending</button>
+                        <button type="button" class="btn btn-outline-info" onclick="filterOrders('preparing')">Preparing</button>
+                        <button type="button" class="btn btn-outline-success" onclick="filterOrders('ready')">Ready</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="currentOrders" class="row">
+                        <!-- Orders will be loaded here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Service Requests -->
+            <div class="card">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Service Requests</h5>
+                </div>
+                <div class="card-body">
+                    <div id="serviceRequests">
+                        <!-- Service requests will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Menu Management Section -->
+        <section id="menuManagementSection" class="section-content" style="display: none;">
+            <h2 class="mb-4">Menu Management</h2>
+            
+            <div class="card">
+                <div class="card-header bg-white">
+                    <ul class="nav nav-tabs card-header-tabs">
+                        <li class="nav-item">
+                            <button class="nav-link active" onclick="showMenuCategory('available')">Available</button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link" onclick="showMenuCategory('unavailable')">Not Available</button>
+                        </li>
+                    </ul>
+                </div>
+                <div class="card-body">
+                    <div id="availableMenu" class="row">
+                        <!-- Available items will be loaded here -->
+                    </div>
+                    <div id="unavailableMenu" class="row" style="display: none;">
+                        <!-- Unavailable items will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- New Order Section -->
+        <section id="newOrderSection" class="section-content" style="display: none;">
+            <h2 class="mb-4">Place New Order</h2>
+            
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="card mb-4">
+                        <div class="card-body">
+                            <h5 class="card-title">Table Details</h5>
+                            <div class="mb-3">
+                                <label class="form-label">Table Number</label>
+                                <input type="number" id="newOrderTable" class="form-control" min="1" max="50" value="1">
+                            </div>
+                            <button class="btn btn-primary w-100" onclick="loadMenuForNewOrder()">
+                                Load Menu
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Order Summary</h5>
+                            <div id="newOrderSummary">
+                                <p class="text-muted">No items added</p>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Total:</span>
+                                <strong>$<span id="newOrderTotal">0.00</span></strong>
+                            </div>
+                            <button class="btn btn-success w-100" onclick="submitNewOrder()" disabled id="submitOrderBtn">
+                                Place Order
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-8">
+                    <div id="newOrderMenu" class="row">
+                        <!-- Menu for new order will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Notifications Panel -->
+    <div class="notification-panel" id="notificationPanel">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h4>Notifications</h4>
+            <button class="btn btn-sm btn-outline-secondary" onclick="toggleNotifications()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div id="notificationsList">
+            <!-- Notifications will be loaded here -->
+        </div>
+    </div>
+
+    <!-- Overlay -->
+    <div class="overlay" id="overlay" onclick="toggleNotifications()"></div>
+
+    <!-- Order Modal -->
+    <div class="modal fade" id="orderModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Order Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="orderDetailsContent">
+                        <!-- Order details will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script>
+        // Initialize
+        const socket = io('http://localhost:5000');
+        const chef = JSON.parse(localStorage.getItem('user')) || {};
+        let currentOrders = [];
+        let serviceRequests = [];
+        let notifications = [];
+        let newOrderItems = [];
+
+        // Check authentication and role
+        if (!localStorage.getItem('token') || chef.role !== 'chef') {
+            window.location.href = '../auth/index.html';
+        }
+
+        // Set chef name
+        document.getElementById('chefName').textContent = `${chef.firstName} ${chef.lastName}`;
+
+        // Sidebar toggle
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.getElementById('mainContent');
+            sidebar.classList.toggle('collapsed');
+            mainContent.classList.toggle('collapsed');
+        }
+
+        // Show section
+        function showSection(sectionId) {
+            // Hide all sections
+            document.querySelectorAll('.section-content').forEach(section => {
+                section.style.display = 'none';
+            });
+            
+            // Show selected section
+            document.getElementById(`${sectionId}Section`).style.display = 'block';
+            
+            // Update active menu
+            document.querySelectorAll('.sidebar-menu a').forEach(link => {
+                link.classList.remove('active');
+            });
+            event.target.closest('a').classList.add('active');
+            
+            // Load data for section
+            if (sectionId === 'dashboard') {
+                loadDashboard();
+            } else if (sectionId === 'menu-management') {
+                loadMenuItems();
+            } else if (sectionId === 'new-order') {
+                loadMenuForNewOrder();
+            }
+        }
+
+        // Toggle notifications
+        function toggleNotifications() {
+            const panel = document.getElementById('notificationPanel');
+            const overlay = document.getElementById('overlay');
+            panel.classList.toggle('active');
+            overlay.classList.toggle('active');
+            
+            if (panel.classList.contains('active')) {
+                loadNotifications();
+            }
+        }
+
+        // Load dashboard data
+        async function loadDashboard() {
+            try {
+                const token = localStorage.getItem('token');
+                
+                // Load orders
+                const ordersResponse = await fetch('http://localhost:5000/api/chef/orders', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const ordersData = await ordersResponse.json();
+                currentOrders = ordersData.orders || [];
+                
+                // Load service requests
+                const requestsResponse = await fetch('http://localhost:5000/api/chef/service-requests', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const requestsData = await requestsResponse.json();
+                serviceRequests = requestsData.requests || [];
+                
+                // Update statistics
+                const pending = currentOrders.filter(o => o.status === 'pending').length;
+                const preparing = currentOrders.filter(o => o.status === 'preparing').length;
+                const ready = currentOrders.filter(o => o.status === 'ready').length;
+                const completed = currentOrders.filter(o => o.status === 'completed').length;
+                
+                document.getElementById('pendingCount').textContent = pending;
+                document.getElementById('preparingCount').textContent = preparing;
+                document.getElementById('readyCount').textContent = ready;
+                document.getElementById('completedCount').textContent = completed;
+                
+                // Display current orders
+                displayOrders('all');
+                
+                // Display service requests
+                displayServiceRequests();
+                
+            } catch (error) {
+                console.error('Error loading dashboard:', error);
+            }
+        }
+
+        // Display orders with filter
+        function displayOrders(filter) {
+            const container = document.getElementById('currentOrders');
+            container.innerHTML = '';
+            
+            let filteredOrders = currentOrders;
+            if (filter !== 'all') {
+                filteredOrders = currentOrders.filter(order => order.status === filter);
+            }
+            
+            if (filteredOrders.length === 0) {
+                container.innerHTML = '<div class="col-12 text-center text-muted py-4">No orders found</div>';
+                return;
+            }
+            
+            filteredOrders.forEach(order => {
+                const orderCard = `
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card order-card order-${order.status}" onclick="viewOrderDetails('${order._id}')">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <h6 class="mb-0">Order #${order.orderNumber}</h6>
+                                    <span class="status-badge badge-${order.status}">
+                                        ${order.status.toUpperCase()}
+                                    </span>
+                                </div>
+                                <p class="text-muted mb-1">Table: ${order.tableNumber}</p>
+                                <p class="mb-1">Items: ${order.items.length}</p>
+                                <p class="mb-2">Total: $${order.totalAmount.toFixed(2)}</p>
+                                <div class="d-flex justify-content-between">
+                                    <small class="text-muted">
+                                        ${new Date(order.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                    </small>
+                                    <div>
+                                        ${order.status === 'pending' ? `
+                                            <button class="btn btn-sm btn-success me-1" onclick="acceptOrder('${order._id}', event)">
+                                                <i class="fas fa-check"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-danger" onclick="rejectOrder('${order._id}', event)">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                        ` : ''}
+                                        ${order.status === 'preparing' ? `
+                                            <button class="btn btn-sm btn-success" onclick="completeOrder('${order._id}', event)">
+                                                Mark Ready
+                                            </button>
+                                        ` : ''}
+                                        ${order.status === 'ready' ? `
+                                            <button class="btn btn-sm btn-primary me-1" onclick="downloadBill('${order._id}', event)">
+                                                <i class="fas fa-download"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-success" onclick="completeOrder('${order._id}', event)">
+                                                Complete
+                                            </button>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += orderCard;
+            });
+        }
+
+        // Filter orders
+        function filterOrders(status) {
+            // Update active button
+            document.querySelectorAll('.btn-group .btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            displayOrders(status);
+        }
+
+        // Display service requests
+        function displayServiceRequests() {
+            const container = document.getElementById('serviceRequests');
+            container.innerHTML = '';
+            
+            if (serviceRequests.length === 0) {
+                container.innerHTML = '<p class="text-muted text-center">No service requests</p>';
+                return;
+            }
+            
+            serviceRequests.forEach(request => {
+                const requestElement = `
+                    <div class="service-request">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">
+                                    <i class="fas ${getServiceIcon(request.type)} me-2"></i>
+                                    ${getServiceName(request.type)} Request
+                                </h6>
+                                <p class="mb-1">Table: ${request.tableNumber}</p>
+                                <small class="text-muted">${new Date(request.createdAt).toLocaleTimeString()}</small>
+                            </div>
+                            <div>
+                                <button class="btn btn-sm btn-primary" onclick="assignServiceRequest('${request._id}', event)">
+                                    <i class="fas fa-check me-1"></i> Assign to Me
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += requestElement;
+            });
+        }
+
+        function getServiceIcon(type) {
+            switch(type) {
+                case 'water': return 'fa-tint';
+                case 'cleaning': return 'fa-broom';
+                case 'bill': return 'fa-file-invoice-dollar';
+                default: return 'fa-bell';
+            }
+        }
+
+        function getServiceName(type) {
+            switch(type) {
+                case 'water': return 'Water Refill';
+                case 'cleaning': return 'Table Cleaning';
+                case 'bill': return 'Bill Payment';
+                default: return 'Service';
+            }
+        }
+
+        // Order actions
+        async function acceptOrder(orderId, event) {
+            event.stopPropagation();
+            
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`http://localhost:5000/api/chef/orders/${orderId}/accept`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ chefId: chef._id })
+                });
+                
+                if (response.ok) {
+                    // Emit socket event for real-time update
+                    socket.emit('order-status-change', {
+                        orderId: orderId,
+                        status: 'preparing',
+                        chefId: chef._id
+                    });
+                    
+                    // Update local data
+                    const order = currentOrders.find(o => o._id === orderId);
+                    if (order) {
+                        order.status = 'preparing';
+                        order.assignedChef = chef._id;
+                    }
+                    
+                    // Refresh display
+                    displayOrders('all');
+                    
+                    // Show notification
+                    addNotification('Order accepted', 'success');
+                }
+            } catch (error) {
+                console.error('Error accepting order:', error);
+            }
+        }
+
+        async function rejectOrder(orderId, event) {
+            event.stopPropagation();
+            
+            if (!confirm('Are you sure you want to reject this order?')) return;
+            
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`http://localhost:5000/api/chef/orders/${orderId}/reject`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (response.ok) {
+                    // Emit socket event
+                    socket.emit('order-status-change', {
+                        orderId: orderId,
+                        status: 'rejected'
+                    });
+                    
+                    // Update local data
+                    currentOrders = currentOrders.filter(o => o._id !== orderId);
+                    
+                    // Refresh display
+                    displayOrders('all');
+                    
+                    addNotification('Order rejected', 'warning');
+                }
+            } catch (error) {
+                console.error('Error rejecting order:', error);
+            }
+        }
+
+        async function completeOrder(orderId, event) {
+            event.stopPropagation();
+            
+            try {
+                const token = localStorage.getItem('token');
+                const order = currentOrders.find(o => o._id === orderId);
+                
+                const endpoint = order.status === 'preparing' ? 'ready' : 'complete';
+                const response = await fetch(`http://localhost:5000/api/chef/orders/${orderId}/${endpoint}`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (response.ok) {
+                    // Emit socket event
+                    const newStatus = order.status === 'preparing' ? 'ready' : 'completed';
+                    socket.emit('order-status-change', {
+                        orderId: orderId,
+                        status: newStatus
+                    });
+                    
+                    // Update local data
+                    if (newStatus === 'ready') {
+                        order.status = 'ready';
+                    } else {
+                        currentOrders = currentOrders.filter(o => o._id !== orderId);
+                    }
+                    
+                    // Refresh display
+                    displayOrders('all');
+                    
+                    addNotification(`Order marked as ${newStatus}`, 'success');
+                }
+            } catch (error) {
+                console.error('Error completing order:', error);
+            }
+        }
+
+        async function assignServiceRequest(requestId, event) {
+            event.stopPropagation();
+            
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`http://localhost:5000/api/chef/service-requests/${requestId}/assign`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ chefId: chef._id })
+                });
+                
+                if (response.ok) {
+                    // Remove from local data
+                    serviceRequests = serviceRequests.filter(r => r._id !== requestId);
+                    
+                    // Refresh display
+                    displayServiceRequests();
+                    
+                    addNotification('Service request assigned to you', 'info');
+                }
+            } catch (error) {
+                console.error('Error assigning request:', error);
+            }
+        }
+
+        // Menu management
+        async function loadMenuItems() {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch('http://localhost:5000/api/chef/menu', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                const data = await response.json();
+                
+                // Display available items
+                const availableContainer = document.getElementById('availableMenu');
+                availableContainer.innerHTML = '';
+                
+                const unavailableContainer = document.getElementById('unavailableMenu');
+                unavailableContainer.innerHTML = '';
+                
+                data.menuItems.forEach(item => {
+                    const menuCard = `
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="card h-100">
+                                <img src="${item.image || 'https://via.placeholder.com/300x200'}" 
+                                     class="card-img-top" alt="${item.name}" style="height: 150px; object-fit: cover;">
+                                <div class="card-body">
+                                    <h6 class="card-title">${item.name}</h6>
+                                    <p class="card-text small text-muted">${item.description}</p>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="text-primary">$${item.price.toFixed(2)}</span>
+                                        <div class="dropdown">
+                                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" 
+                                                    type="button" data-bs-toggle="dropdown">
+                                                ${item.available ? 'Available' : 'Unavailable'}
+                                            </button>
+                                            <ul class="dropdown-menu">
+                                                <li>
+                                                    <a class="dropdown-item" href="#" onclick="updateMenuItemStatus('${item._id}', true, event)">
+                                                        Set as Available
+                                                    </a>
+                                                </li>
+                                                <li>
+                                                    <a class="dropdown-item" href="#" onclick="updateMenuItemStatus('${item._id}', false, event)">
+                                                        Set as Unavailable
+                                                    </a>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    if (item.available) {
+                        availableContainer.innerHTML += menuCard;
+                    } else {
+                        unavailableContainer.innerHTML += menuCard;
+                    }
+                });
+                
+            } catch (error) {
+                console.error('Error loading menu:', error);
+            }
+        }
+
+        function showMenuCategory(category) {
+            const availableTab = document.querySelector('.nav-link[onclick="showMenuCategory(\'available\')"]');
+            const unavailableTab = document.querySelector('.nav-link[onclick="showMenuCategory(\'unavailable\')"]');
+            
+            if (category === 'available') {
+                document.getElementById('availableMenu').style.display = 'flex';
+                document.getElementById('unavailableMenu').style.display = 'none';
+                availableTab.classList.add('active');
+                unavailableTab.classList.remove('active');
+            } else {
+                document.getElementById('availableMenu').style.display = 'none';
+                document.getElementById('unavailableMenu').style.display = 'flex';
+                availableTab.classList.remove('active');
+                unavailableTab.classList.add('active');
+            }
+        }
+
+        async function updateMenuItemStatus(itemId, available, event) {
+            event.stopPropagation();
+            
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`http://localhost:5000/api/chef/menu/${itemId}/status`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ available })
+                });
+                
+                if (response.ok) {
+                    // Reload menu
+                    loadMenuItems();
+                    
+                    addNotification(`Item ${available ? 'made available' : 'made unavailable'}`, 'success');
+                }
+            } catch (error) {
+                console.error('Error updating menu item:', error);
+            }
+        }
+
+        // New order functions
+        async function loadMenuForNewOrder() {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch('http://localhost:5000/api/chef/menu?available=true', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                const data = await response.json();
+                const container = document.getElementById('newOrderMenu');
+                container.innerHTML = '';
+                
+                data.menuItems.forEach(item => {
+                    const menuCard = `
+                        <div class="col-md-6 mb-3">
+                            <div class="card h-100">
+                                <img src="${item.image || 'https://via.placeholder.com/300x200'}" 
+                                     class="card-img-top" alt="${item.name}" style="height: 120px; object-fit: cover;">
+                                <div class="card-body">
+                                    <h6 class="card-title">${item.name}</h6>
+                                    <p class="card-text small text-muted">${item.description}</p>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="text-primary">$${item.price.toFixed(2)}</span>
+                                        <button class="btn btn-sm btn-outline-primary" 
+                                                onclick="addToNewOrder('${item._id}', '${item.name}', ${item.price})">
+                                            <i class="fas fa-plus"></i> Add
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    container.innerHTML += menuCard;
+                });
+                
+            } catch (error) {
+                console.error('Error loading menu for new order:', error);
+            }
+        }
+
+        function addToNewOrder(itemId, name, price) {
+            const existingItem = newOrderItems.find(item => item.id === itemId);
+            
+            if (existingItem) {
+                existingItem.quantity += 1;
+            } else {
+                newOrderItems.push({
+                    id: itemId,
+                    name: name,
+                    price: price,
+                    quantity: 1
+                });
+            }
+            
+            updateNewOrderSummary();
+        }
+
+        function updateNewOrderSummary() {
+            const container = document.getElementById('newOrderSummary');
+            const total = newOrderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            
+            document.getElementById('newOrderTotal').textContent = total.toFixed(2);
+            document.getElementById('submitOrderBtn').disabled = newOrderItems.length === 0;
+            
+            container.innerHTML = '';
+            newOrderItems.forEach((item, index) => {
+                const itemElement = `
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div>
+                            <small>${item.name}</small>
+                            <br>
+                            <small class="text-muted">$${item.price.toFixed(2)} × ${item.quantity}</small>
+                        </div>
+                        <div>
+                            <button class="btn btn-sm btn-outline-secondary" 
+                                    onclick="updateNewOrderQuantity(${index}, -1)">
+                                <i class="fas fa-minus"></i>
+                            </button>
+                            <span class="mx-2">${item.quantity}</span>
+                            <button class="btn btn-sm btn-outline-secondary" 
+                                    onclick="updateNewOrderQuantity(${index}, 1)">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger ms-2" 
+                                    onclick="removeFromNewOrder(${index})">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += itemElement;
+            });
+            
+            if (newOrderItems.length === 0) {
+                container.innerHTML = '<p class="text-muted">No items added</p>';
+            }
+        }
+
+        function updateNewOrderQuantity(index, change) {
+            newOrderItems[index].quantity += change;
+            
+            if (newOrderItems[index].quantity <= 0) {
+                newOrderItems.splice(index, 1);
+            }
+            
+            updateNewOrderSummary();
+        }
+
+        function removeFromNewOrder(index) {
+            newOrderItems.splice(index, 1);
+            updateNewOrderSummary();
+        }
+
+        async function submitNewOrder() {
+            const tableNumber = document.getElementById('newOrderTable').value;
+            
+            if (!tableNumber || newOrderItems.length === 0) {
+                alert('Please add items to the order');
+                return;
+            }
+            
+            try {
+                const token = localStorage.getItem('token');
+                const order = {
+                    tableNumber: parseInt(tableNumber),
+                    items: newOrderItems.map(item => ({
+                        itemId: item.id,
+                        name: item.name,
+                        price: item.price,
+                        quantity: item.quantity
+                    })),
+                    totalAmount: newOrderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0),
+                    chefId: chef._id
+                };
+                
+                const response = await fetch('http://localhost:5000/api/chef/orders/new', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(order)
+                });
+                
+                if (response.ok) {
+                    alert('Order placed successfully!');
+                    newOrderItems = [];
+                    updateNewOrderSummary();
+                    
+                    // Emit socket event
+                    socket.emit('new-order', {
+                        tableNumber: tableNumber,
+                        status: 'pending'
+                    });
+                    
+                    // Switch to dashboard
+                    showSection('dashboard');
+                }
+            } catch (error) {
+                console.error('Error placing order:', error);
+                alert('Failed to place order');
+            }
+        }
+
+        // Notifications
+        function addNotification(message, type = 'info') {
+            const notification = {
+                id: Date.now(),
+                message: message,
+                type: type,
+                timestamp: new Date(),
+                read: false
+            };
+            
+            notifications.unshift(notification);
+            updateNotificationCount();
+        }
+
+        function loadNotifications() {
+            const container = document.getElementById('notificationsList');
+            container.innerHTML = '';
+            
+            if (notifications.length === 0) {
+                container.innerHTML = '<p class="text-muted text-center">No notifications</p>';
+                return;
+            }
+            
+            notifications.forEach(notification => {
+                const notificationElement = `
+                    <div class="alert alert-${notification.type} alert-dismissible fade show mb-2" role="alert">
+                        <small>${notification.message}</small>
+                        <br>
+                        <small class="text-muted">
+                            ${new Date(notification.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                        </small>
+                        <button type="button" class="btn-close btn-sm" data-bs-dismiss="alert" 
+                                onclick="removeNotification(${notification.id})"></button>
+                    </div>
+                `;
+                container.innerHTML += notificationElement;
+            });
+        }
+
+        function removeNotification(id) {
+            notifications = notifications.filter(n => n.id !== id);
+            updateNotificationCount();
+            loadNotifications();
+        }
+
+        function updateNotificationCount() {
+            const unreadCount = notifications.filter(n => !n.read).length;
+            document.getElementById('notificationCount').textContent = unreadCount;
+        }
+
+        // Socket listeners
+        socket.on('new-service-request', (request) => {
+            serviceRequests.push(request);
+            displayServiceRequests();
+            
+            addNotification(`New ${getServiceName(request.type)} request for Table ${request.tableNumber}`, 'warning');
+        });
+
+        socket.on('order-update', (order) => {
+            loadDashboard();
+            addNotification(`New order received for Table ${order.tableNumber}`, 'info');
+        });
+
+        // View order details
+        function viewOrderDetails(orderId) {
+            const order = currentOrders.find(o => o._id === orderId);
+            if (!order) return;
+            
+            const modal = new bootstrap.Modal(document.getElementById('orderModal'));
+            const content = document.getElementById('orderDetailsContent');
+            
+            let itemsHtml = '';
+            order.items.forEach(item => {
+                itemsHtml += `
+                    <div class="d-flex justify-content-between border-bottom pb-2 mb-2">
+                        <div>
+                            <h6>${item.name}</h6>
+                            <small class="text-muted">Qty: ${item.quantity}</small>
+                        </div>
+                        <div class="text-end">
+                            <div>$${(item.price * item.quantity).toFixed(2)}</div>
+                            <small class="text-muted">$${item.price.toFixed(2)} each</small>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            content.innerHTML = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Order Information</h6>
+                        <p><strong>Order #:</strong> ${order.orderNumber}</p>
+                        <p><strong>Table:</strong> ${order.tableNumber}</p>
+                        <p><strong>Status:</strong> <span class="badge bg-${getStatusColor(order.status)}">${order.status.toUpperCase()}</span></p>
+                        <p><strong>Created:</strong> ${new Date(order.createdAt).toLocaleString()}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Order Items</h6>
+                        ${itemsHtml}
+                        <div class="d-flex justify-content-between mt-3 pt-2 border-top">
+                            <h6>Total Amount:</h6>
+                            <h6>$${order.totalAmount.toFixed(2)}</h6>
+                        </div>
+                    </div>
+                </div>
+                ${order.instructions ? `
+                    <div class="mt-3">
+                        <h6>Special Instructions</h6>
+                        <p class="text-muted">${order.instructions}</p>
+                    </div>
+                ` : ''}
+            `;
+            
+            modal.show();
+        }
+
+        function getStatusColor(status) {
+            switch(status) {
+                case 'pending': return 'warning';
+                case 'preparing': return 'info';
+                case 'ready': return 'success';
+                case 'completed': return 'secondary';
+                default: return 'dark';
+            }
+        }
+
+        // Download bill
+        function downloadBill(orderId, event) {
+            event.stopPropagation();
+            
+            const order = currentOrders.find(o => o._id === orderId);
+            if (!order) return;
+            
+            // Create bill content
+            const billContent = `
+                GOURMET DELIGHT RESTAURANT
+                ---------------------------------
+                Date: ${new Date().toLocaleDateString()}
+                Time: ${new Date().toLocaleTimeString()}
+                Order #: ${order.orderNumber}
+                Table: ${order.tableNumber}
+                ---------------------------------
+                ITEMS:
+                ${order.items.map(item => 
+                    `${item.name} x${item.quantity} = $${(item.price * item.quantity).toFixed(2)}`
+                ).join('\n')}
+                ---------------------------------
+                Subtotal: $${order.totalAmount.toFixed(2)}
+                Tax (8%): $${(order.totalAmount * 0.08).toFixed(2)}
+                Total: $${(order.totalAmount * 1.08).toFixed(2)}
+                ---------------------------------
+                Thank you for dining with us!
+                www.gourmetdelight.com
+            `;
+            
+            // Create and download text file
+            const blob = new Blob([billContent], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Bill_Order_${order.orderNumber}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }
+
+        // Logout
+        function logout() {
+            localStorage.clear();
+            window.location.href = '../auth/index.html';
+        }
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadDashboard();
+            
+            // Check for new orders every 30 seconds
+            setInterval(loadDashboard, 30000);
+        });
+    </script>
+</body>
+</html>

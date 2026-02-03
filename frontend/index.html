@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Waiter System - Live Production</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+        
+        .logo {
+            font-size: 4rem;
+            margin-bottom: 20px;
+        }
+        
+        h1 {
+            font-size: 3.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #fff, #f0f0f0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .tagline {
+            font-size: 1.5rem;
+            opacity: 0.9;
+            margin-bottom: 30px;
+        }
+        
+        .status-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            margin: 20px auto;
+            max-width: 800px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        }
+        
+        .status-item {
+            display: flex;
+            align-items: center;
+            margin: 15px 0;
+            padding: 10px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+        }
+        
+        .status-icon {
+            font-size: 2rem;
+            margin-right: 15px;
+        }
+        
+        .online { color: #4CAF50; }
+        .offline { color: #f44336; }
+        
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-top: 40px;
+        }
+        
+        .dashboard-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+            transition: transform 0.3s, box-shadow 0.3s;
+            cursor: pointer;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .dashboard-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        }
+        
+        .card-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+        }
+        
+        .card-title {
+            font-size: 1.8rem;
+            margin-bottom: 15px;
+        }
+        
+        .card-desc {
+            opacity: 0.8;
+            margin-bottom: 20px;
+        }
+        
+        .btn {
+            display: inline-block;
+            background: white;
+            color: #667eea;
+            padding: 15px 30px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 1.1rem;
+            transition: all 0.3s;
+            border: 2px solid transparent;
+        }
+        
+        .btn:hover {
+            background: transparent;
+            color: white;
+            border-color: white;
+        }
+        
+        .demo-info {
+            background: rgba(255,255,255,0.05);
+            border-radius: 15px;
+            padding: 25px;
+            margin-top: 40px;
+        }
+        
+        .demo-account {
+            display: flex;
+            align-items: center;
+            margin: 15px 0;
+            padding: 15px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+        }
+        
+        .account-icon {
+            font-size: 2rem;
+            margin-right: 15px;
+        }
+        
+        .real-time-events {
+            background: rgba(0,0,0,0.2);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 30px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .event {
+            padding: 10px;
+            margin: 5px 0;
+            background: rgba(255,255,255,0.05);
+            border-radius: 5px;
+            border-left: 4px solid #4CAF50;
+        }
+        
+        @media (max-width: 768px) {
+            h1 { font-size: 2.5rem; }
+            .logo { font-size: 3rem; }
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">🍽️</div>
+            <h1>Smart Waiter System</h1>
+            <p class="tagline">Real-time Restaurant Management - Live Production</p>
+        </header>
+        
+        <div class="status-card">
+            <h2>🌐 System Status</h2>
+            <div class="status-item">
+                <div class="status-icon" id="api-status">⏳</div>
+                <div>
+                    <h3>Backend API</h3>
+                    <p id="api-message">Connecting to production server...</p>
+                </div>
+            </div>
+            <div class="status-item">
+                <div class="status-icon" id="socket-status">⏳</div>
+                <div>
+                    <h3>Real-time Socket</h3>
+                    <p id="socket-message">Establishing WebSocket connection...</p>
+                </div>
+            </div>
+            <div class="status-item">
+                <div class="status-icon" id="database-status">⏳</div>
+                <div>
+                    <h3>Database</h3>
+                    <p id="database-message">Checking MongoDB connection...</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="dashboard-grid">
+            <div class="dashboard-card" onclick="window.location.href='auth/index.html'">
+                <div class="card-icon">👤</div>
+                <h3 class="card-title">Customer Portal</h3>
+                <p class="card-desc">Scan QR code, view menu, place orders, request services</p>
+                <button class="btn">Enter as Customer</button>
+            </div>
+            
+            <div class="dashboard-card" onclick="window.location.href='chef/dashboard.html'">
+                <div class="card-icon">👨‍🍳</div>
+                <h3 class="card-title">Chef Dashboard</h3>
+                <p class="card-desc">View orders, update status, manage kitchen operations</p>
+                <button class="btn">Enter as Chef</button>
+            </div>
+            
+            <div class="dashboard-card" onclick="window.location.href='admin/dashboard.html'">
+                <div class="card-icon">👑</div>
+                <h3 class="card-title">Admin Dashboard</h3>
+                <p class="card-desc">Manage menu, tables, staff, and view analytics</p>
+                <button class="btn">Enter as Admin</button>
+            </div>
+        </div>
+        
+        <div class="demo-info">
+            <h2>🔐 Demo Accounts</h2>
+            <div class="demo-account">
+                <div class="account-icon">👤</div>
+                <div>
+                    <h3>Customer</h3>
+                    <p>Email: customer@demo.com | Password: 123456</p>
+                </div>
+            </div>
+            <div class="demo-account">
+                <div class="account-icon">👨‍🍳</div>
+                <div>
+                    <h3>Chef</h3>
+                    <p>Email: chef@demo.com | Password: 123456</p>
+                </div>
+            </div>
+            <div class="demo-account">
+                <div class="account-icon">👑</div>
+                <div>
+                    <h3>Admin</h3>
+                    <p>Email: admin@demo.com | Password: 123456</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="real-time-events">
+            <h3>📡 Live Events</h3>
+            <div id="events-container">
+                <div class="event">System initialized. Waiting for real-time events...</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script>
+        // Configuration
+        const BACKEND_URL = 'https://smart-waiter-backend.onrender.com';
+        const socket = io(BACKEND_URL, {
+            transports: ['websocket', 'polling'],
+            reconnection: true,
+            reconnectionAttempts: 10,
+            reconnectionDelay: 1000
+        });
+        
+        // DOM Elements
+        const apiStatus = document.getElementById('api-status');
+        const apiMessage = document.getElementById('api-message');
+        const socketStatus = document.getElementById('socket-status');
+        const socketMessage = document.getElementById('socket-message');
+        const dbStatus = document.getElementById('database-status');
+        const dbMessage = document.getElementById('database-message');
+        const eventsContainer = document.getElementById('events-container');
+        
+        // Event logging
+        function logEvent(message, type = 'info') {
+            const eventDiv = document.createElement('div');
+            eventDiv.className = 'event';
+            eventDiv.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`;
+            eventsContainer.prepend(eventDiv);
+            
+            // Keep only last 10 events
+            if (eventsContainer.children.length > 10) {
+                eventsContainer.removeChild(eventsContainer.lastChild);
+            }
+        }
+        
+        // Update status display
+        function updateStatus(element, icon, message, color = '') {
+            element.textContent = icon;
+            element.className = `status-icon ${color}`;
+            if (element === apiStatus) apiMessage.textContent = message;
+            if (element === socketStatus) socketMessage.textContent = message;
+            if (element === dbStatus) dbMessage.textContent = message;
+        }
+        
+        // Test API connection
+        async function testAPI() {
+            try {
+                const response = await fetch(`${BACKEND_URL}/health`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    updateStatus(apiStatus, '✅', `API Online (${data.database})`, 'online');
+                    updateStatus(dbStatus, '✅', `MongoDB: ${data.database}`, 'online');
+                    logEvent(`API Health: ${data.status}, Uptime: ${Math.floor(data.uptime)}s`);
+                } else {
+                    updateStatus(apiStatus, '❌', 'API Error', 'offline');
+                }
+            } catch (error) {
+                updateStatus(apiStatus, '❌', 'Cannot connect to backend', 'offline');
+                logEvent(`API Error: ${error.message}`);
+            }
+        }
+        
+        // Socket.io events
+        socket.on('connect', () => {
+            updateStatus(socketStatus, '✅', 'WebSocket Connected', 'online');
+            logEvent('Real-time socket connection established');
+            
+            // Register as system monitor
+            socket.emit('register-user', {
+                role: 'admin',
+                email: 'monitor@system.com',
+                name: 'System Monitor'
+            });
+        });
+        
+        socket.on('connect_error', (error) => {
+            updateStatus(socketStatus, '❌', 'Connection Failed', 'offline');
+            logEvent(`Socket Error: ${error.message}`);
+        });
+        
+        socket.on('disconnect', () => {
+            updateStatus(socketStatus, '⚠️', 'Disconnected', 'offline');
+            logEvent('Lost connection to server');
+        });
+        
+        socket.on('welcome', (data) => {
+            logEvent(`Server: ${data.message}`);
+        });
+        
+        socket.on('new-order', (order) => {
+            logEvent(`📦 New Order #${order.orderId} from Table ${order.tableNumber}`);
+        });
+        
+        socket.on('order-updated', (data) => {
+            logEvent(`🔄 Order #${data.orderId} updated to ${data.status}`);
+        });
+        
+        socket.on('service-request', (service) => {
+            logEvent(`🛎️  ${service.type} requested for Table ${service.tableNumber}`);
+        });
+        
+        // Initialize
+        window.onload = () => {
+            logEvent('System initialized. Connecting to production servers...');
+            testAPI();
+            
+            // Auto-refresh health every 30 seconds
+            setInterval(testAPI, 30000);
+        };
+    </script>
+</body>
+</html>
