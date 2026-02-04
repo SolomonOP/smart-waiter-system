@@ -29,11 +29,13 @@
             padding: 20px 0;
             z-index: 1000;
             overflow-y: auto;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
         }
         
         .main-content {
             margin-left: 250px;
             padding: 20px;
+            min-height: 100vh;
         }
         
         .sidebar-header {
@@ -48,7 +50,7 @@
         }
         
         .sidebar-menu li {
-            margin-bottom: 5px;
+            margin-bottom: 2px;
         }
         
         .sidebar-menu a {
@@ -58,6 +60,7 @@
             color: rgba(255,255,255,0.8);
             text-decoration: none;
             transition: all 0.3s;
+            border-left: 3px solid transparent;
         }
         
         .sidebar-menu a:hover,
@@ -68,23 +71,33 @@
         }
         
         .sidebar-menu .icon {
-            margin-right: 10px;
-            font-size: 1.2rem;
-            width: 25px;
+            margin-right: 12px;
+            font-size: 1.1rem;
+            width: 24px;
             text-align: center;
         }
         
         .stat-card {
-            border-radius: 10px;
+            border-radius: 12px;
             padding: 20px;
             color: white;
             margin-bottom: 20px;
+            border: none;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
         
-        .stat-card.revenue { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-        .stat-card.customers { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
-        .stat-card.orders { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
-        .stat-card.tables { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
+        .stat-card.revenue { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .stat-card.customers { 
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+        .stat-card.orders { 
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+        .stat-card.tables { 
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        }
         
         .table-grid {
             display: grid;
@@ -104,10 +117,13 @@
             font-weight: bold;
             cursor: pointer;
             transition: all 0.3s;
+            flex-direction: column;
+            box-shadow: 0 3px 5px rgba(0,0,0,0.2);
         }
         
         .table-item:hover {
             transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
         }
         
         .table-available { background: #28a745; }
@@ -119,6 +135,8 @@
             border-radius: 10px;
             padding: 15px;
             margin-bottom: 15px;
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
         
         .menu-item-card {
@@ -126,6 +144,8 @@
             border-radius: 10px;
             overflow: hidden;
             margin-bottom: 20px;
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
         
         .menu-item-image {
@@ -136,6 +156,34 @@
         
         .modal-xl {
             max-width: 900px;
+        }
+        
+        .card {
+            border: none;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+        }
+        
+        .card-header {
+            background: white;
+            border-bottom: 1px solid #eee;
+            font-weight: 600;
+        }
+        
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 70px;
+            }
+            .sidebar .menu-text {
+                display: none;
+            }
+            .sidebar-header h3 {
+                display: none;
+            }
+            .main-content {
+                margin-left: 70px;
+                padding: 15px;
+            }
         }
     </style>
 </head>
@@ -149,37 +197,37 @@
             <li>
                 <a href="#" class="active" onclick="showSection('dashboard')">
                     <i class="fas fa-tachometer-alt icon"></i>
-                    Dashboard
+                    <span class="menu-text">Dashboard</span>
                 </a>
             </li>
             <li>
                 <a href="#" onclick="showSection('menu-management')">
                     <i class="fas fa-utensils icon"></i>
-                    Menu Management
+                    <span class="menu-text">Menu Management</span>
                 </a>
             </li>
             <li>
                 <a href="#" onclick="showSection('table-management')">
                     <i class="fas fa-chair icon"></i>
-                    Table Management
+                    <span class="menu-text">Table Management</span>
                 </a>
             </li>
             <li>
                 <a href="#" onclick="showSection('staff-management')">
                     <i class="fas fa-users icon"></i>
-                    Staff Management
+                    <span class="menu-text">Staff Management</span>
                 </a>
             </li>
             <li>
                 <a href="#" onclick="showSection('sales-analytics')">
                     <i class="fas fa-chart-line icon"></i>
-                    Sales Analytics
+                    <span class="menu-text">Sales Analytics</span>
                 </a>
             </li>
             <li>
                 <a href="#" onclick="logout()">
                     <i class="fas fa-sign-out-alt icon"></i>
-                    Logout
+                    <span class="menu-text">Logout</span>
                 </a>
             </li>
         </ul>
@@ -188,17 +236,18 @@
     <!-- Main Content -->
     <div class="main-content">
         <!-- Top Navigation -->
-        <nav class="navbar navbar-light bg-white shadow-sm mb-4">
+        <nav class="navbar navbar-light bg-white shadow-sm mb-4 rounded">
             <div class="container-fluid">
-                <h4 class="mb-0">Admin Dashboard</h4>
+                <h4 class="mb-0 text-primary">Admin Dashboard</h4>
                 <div class="d-flex align-items-center">
-                    <div class="dropdown me-3">
-                        <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    <div class="dropdown">
+                        <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
                             <i class="fas fa-user me-2"></i>
-                            <span id="adminName">Admin User</span>
+                            <span id="adminName">Loading...</span>
                         </button>
                         <ul class="dropdown-menu">
                             <li><a class="dropdown-item" href="#"><i class="fas fa-cog me-2"></i>Settings</a></li>
+                            <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="#" onclick="logout()"><i class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
                         </ul>
                     </div>
@@ -208,7 +257,7 @@
 
         <!-- Dashboard Section -->
         <section id="dashboardSection" class="section-content">
-            <h2 class="mb-4">Admin Dashboard</h2>
+            <h2 class="mb-4">Dashboard Overview</h2>
             
             <!-- Statistics Cards -->
             <div class="row">
@@ -262,7 +311,7 @@
             <div class="row mb-4">
                 <div class="col-lg-8 mb-4">
                     <div class="card">
-                        <div class="card-header bg-white">
+                        <div class="card-header">
                             <h5 class="mb-0">Revenue Overview (Last 7 Days)</h5>
                         </div>
                         <div class="card-body">
@@ -272,7 +321,7 @@
                 </div>
                 <div class="col-lg-4 mb-4">
                     <div class="card">
-                        <div class="card-header bg-white">
+                        <div class="card-header">
                             <h5 class="mb-0">Today's Status</h5>
                         </div>
                         <div class="card-body">
@@ -284,10 +333,10 @@
 
             <!-- Recent Orders -->
             <div class="card">
-                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">Recent Orders</h5>
                     <button class="btn btn-sm btn-primary" onclick="loadDashboard()">
-                        <i class="fas fa-sync-alt"></i>
+                        <i class="fas fa-sync-alt"></i> Refresh
                     </button>
                 </div>
                 <div class="card-body">
@@ -304,7 +353,7 @@
                                 </tr>
                             </thead>
                             <tbody id="recentOrdersTable">
-                                <!-- Orders will be loaded here -->
+                                <tr><td colspan="6" class="text-center">Loading orders...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -322,7 +371,7 @@
             </div>
             
             <div class="card">
-                <div class="card-header bg-white">
+                <div class="card-header">
                     <ul class="nav nav-tabs card-header-tabs">
                         <li class="nav-item">
                             <button class="nav-link active" onclick="showMenuTab('available')">Available</button>
@@ -337,7 +386,7 @@
                 </div>
                 <div class="card-body">
                     <div id="menuItemsContainer">
-                        <!-- Menu items will be loaded here -->
+                        <p class="text-center text-muted py-4">Loading menu items...</p>
                     </div>
                 </div>
             </div>
@@ -358,12 +407,12 @@
             </div>
             
             <div class="card">
-                <div class="card-header bg-white">
+                <div class="card-header">
                     <h5 class="mb-0">Tables Layout</h5>
                 </div>
                 <div class="card-body">
                     <div class="table-grid" id="tablesGrid">
-                        <!-- Tables will be loaded here -->
+                        <p class="text-center text-muted py-4">Loading tables...</p>
                     </div>
                 </div>
             </div>
@@ -379,12 +428,12 @@
             </div>
             
             <div class="card">
-                <div class="card-header bg-white">
+                <div class="card-header">
                     <h5 class="mb-0">Chef Staff</h5>
                 </div>
                 <div class="card-body">
                     <div id="staffList" class="row">
-                        <!-- Staff members will be loaded here -->
+                        <div class="col-12 text-center text-muted py-4">Loading staff members...</div>
                     </div>
                 </div>
             </div>
@@ -397,18 +446,18 @@
             <div class="row mb-4">
                 <div class="col-md-6">
                     <div class="card">
-                        <div class="card-header bg-white">
+                        <div class="card-header">
                             <h5 class="mb-0">Select Date Range</h5>
                         </div>
                         <div class="card-body">
                             <div class="row">
                                 <div class="col-md-6 mb-3">
                                     <label class="form-label">From Date</label>
-                                    <input type="date" id="fromDate" class="form-control" value="${getDateString(-7)}">
+                                    <input type="date" id="fromDate" class="form-control" value="2024-01-01">
                                 </div>
                                 <div class="col-md-6 mb-3">
                                     <label class="form-label">To Date</label>
-                                    <input type="date" id="toDate" class="form-control" value="${getDateString(0)}">
+                                    <input type="date" id="toDate" class="form-control" value="2024-01-07">
                                 </div>
                             </div>
                             <button class="btn btn-primary w-100" onclick="loadSalesAnalytics()">
@@ -419,7 +468,7 @@
                 </div>
                 <div class="col-md-6">
                     <div class="card">
-                        <div class="card-header bg-white">
+                        <div class="card-header">
                             <h5 class="mb-0">Summary</h5>
                         </div>
                         <div class="card-body">
@@ -445,7 +494,7 @@
             </div>
             
             <div class="card mb-4">
-                <div class="card-header bg-white">
+                <div class="card-header">
                     <h5 class="mb-0">Detailed Sales Report</h5>
                 </div>
                 <div class="card-body">
@@ -461,7 +510,7 @@
                                 </tr>
                             </thead>
                             <tbody id="salesReportTable">
-                                <!-- Sales report will be loaded here -->
+                                <tr><td colspan="5" class="text-center">Select date range and generate report</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -483,11 +532,11 @@
                     <form id="addMenuItemForm">
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Item Name</label>
+                                <label class="form-label">Item Name *</label>
                                 <input type="text" class="form-control" name="name" required>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Category</label>
+                                <label class="form-label">Category *</label>
                                 <select class="form-control" name="category" required>
                                     <option value="appetizer">Appetizer</option>
                                     <option value="main">Main Course</option>
@@ -497,16 +546,16 @@
                             </div>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Description</label>
+                            <label class="form-label">Description *</label>
                             <textarea class="form-control" name="description" rows="3" required></textarea>
                         </div>
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Price ($)</label>
-                                <input type="number" step="0.01" class="form-control" name="price" required>
+                                <label class="form-label">Price ($) *</label>
+                                <input type="number" step="0.01" min="0" class="form-control" name="price" required>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Availability</label>
+                                <label class="form-label">Availability *</label>
                                 <select class="form-control" name="available" required>
                                     <option value="true">Available</option>
                                     <option value="false">Not Available</option>
@@ -516,10 +565,6 @@
                         <div class="mb-3">
                             <label class="form-label">Image URL</label>
                             <input type="text" class="form-control" name="image" placeholder="https://example.com/image.jpg">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Or Upload Image</label>
-                            <input type="file" class="form-control" id="menuImageUpload" accept="image/*">
                         </div>
                     </form>
                 </div>
@@ -544,11 +589,11 @@
                         <input type="hidden" id="editItemId" name="id">
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Item Name</label>
+                                <label class="form-label">Item Name *</label>
                                 <input type="text" class="form-control" id="editItemName" name="name" required>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Category</label>
+                                <label class="form-label">Category *</label>
                                 <select class="form-control" id="editItemCategory" name="category" required>
                                     <option value="appetizer">Appetizer</option>
                                     <option value="main">Main Course</option>
@@ -558,16 +603,16 @@
                             </div>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Description</label>
+                            <label class="form-label">Description *</label>
                             <textarea class="form-control" id="editItemDescription" name="description" rows="3" required></textarea>
                         </div>
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Price ($)</label>
-                                <input type="number" step="0.01" class="form-control" id="editItemPrice" name="price" required>
+                                <label class="form-label">Price ($) *</label>
+                                <input type="number" step="0.01" min="0" class="form-control" id="editItemPrice" name="price" required>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Availability</label>
+                                <label class="form-label">Availability *</label>
                                 <select class="form-control" id="editItemAvailable" name="available" required>
                                     <option value="true">Available</option>
                                     <option value="false">Not Available</option>
@@ -577,10 +622,6 @@
                         <div class="mb-3">
                             <label class="form-label">Image URL</label>
                             <input type="text" class="form-control" id="editItemImage" name="image">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Or Upload New Image</label>
-                            <input type="file" class="form-control" id="editMenuImageUpload" accept="image/*">
                         </div>
                     </form>
                 </div>
@@ -631,7 +672,7 @@
                     <div class="mb-3">
                         <label class="form-label">Select Tables to Remove</label>
                         <div id="tablesToRemove" class="table-grid">
-                            <!-- Tables will be loaded here -->
+                            <p class="text-center text-muted py-4">Loading tables...</p>
                         </div>
                     </div>
                 </div>
@@ -655,30 +696,30 @@
                     <form id="addStaffForm">
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">First Name</label>
+                                <label class="form-label">First Name *</label>
                                 <input type="text" class="form-control" name="firstName" required>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Last Name</label>
+                                <label class="form-label">Last Name *</label>
                                 <input type="text" class="form-control" name="lastName" required>
                             </div>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Email Address</label>
+                            <label class="form-label">Email Address *</label>
                             <input type="email" class="form-control" name="email" required>
                         </div>
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Password</label>
-                                <input type="password" class="form-control" name="password" required>
+                                <label class="form-label">Password *</label>
+                                <input type="password" class="form-control" name="password" required minlength="6">
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Confirm Password</label>
+                                <label class="form-label">Confirm Password *</label>
                                 <input type="password" class="form-control" name="confirmPassword" required>
                             </div>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Phone Number</label>
+                            <label class="form-label">Phone Number *</label>
                             <input type="tel" class="form-control" name="phone" required>
                         </div>
                     </form>
@@ -714,7 +755,7 @@
                                 </tr>
                             </thead>
                             <tbody id="salesDetailsTable">
-                                <!-- Sales details will be loaded here -->
+                                <tr><td colspan="7" class="text-center">Loading details...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -724,29 +765,97 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Load config -->
+    <script src="../config.js"></script>
+    <!-- Load utils -->
+    <script src="../js/utils.js"></script>
+    <!-- Load Socket.io -->
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    
     <script>
         // Initialize
-        const admin = JSON.parse(localStorage.getItem('user')) || {};
         let revenueChart, statusChart;
         let selectedTables = [];
-
-        // Check authentication and role
-        if (!localStorage.getItem('token') || admin.role !== 'admin') {
-            window.location.href = '../auth/index.html';
+        let socket = null;
+        
+        // Application state
+        const AppState = {
+            currentSection: 'dashboard',
+            menuItems: [],
+            tables: [],
+            staff: [],
+            salesData: null
+        };
+        
+        // Initialize application
+        async function initApp() {
+            // Check authentication
+            if (!Auth.check('admin')) {
+                return;
+            }
+            
+            // Set admin name
+            const user = Auth.getUser();
+            document.getElementById('adminName').textContent = `${user.firstName} ${user.lastName}`;
+            
+            // Initialize socket
+            initSocket();
+            
+            // Load dashboard data
+            await loadDashboard();
+            
+            // Auto-refresh dashboard every 60 seconds
+            setInterval(async () => {
+                if (AppState.currentSection === 'dashboard') {
+                    await loadDashboard();
+                }
+            }, 60000);
+            
+            // Setup date inputs
+            setupDateInputs();
         }
-
-        // Set admin name
-        document.getElementById('adminName').textContent = `${admin.firstName} ${admin.lastName}`;
-
-        // Helper function to get date string
-        function getDateString(daysOffset = 0) {
-            const date = new Date();
-            date.setDate(date.getDate() + daysOffset);
-            return date.toISOString().split('T')[0];
+        
+        // Initialize socket
+        function initSocket() {
+            socket = SocketManager.connect();
+            
+            socket.on('new-order', (order) => {
+                console.log('New order received:', order);
+                if (AppState.currentSection === 'dashboard') {
+                    loadDashboard();
+                }
+                Toast.show(`New order #${order.orderNumber} for table ${order.tableNumber}`, 'info');
+            });
+            
+            socket.on('order-status-change', (data) => {
+                console.log('Order status changed:', data);
+                if (AppState.currentSection === 'dashboard') {
+                    loadDashboard();
+                }
+            });
+            
+            socket.on('menu-update', () => {
+                if (AppState.currentSection === 'menu-management') {
+                    loadMenuItems();
+                }
+            });
         }
-
+        
+        // Setup date inputs
+        function setupDateInputs() {
+            const today = new Date();
+            const weekAgo = new Date();
+            weekAgo.setDate(today.getDate() - 7);
+            
+            document.getElementById('fromDate').value = weekAgo.toISOString().split('T')[0];
+            document.getElementById('toDate').value = today.toISOString().split('T')[0];
+        }
+        
         // Show section
-        function showSection(sectionId) {
+        async function showSection(sectionId) {
+            // Update state
+            AppState.currentSection = sectionId;
+            
             // Hide all sections
             document.querySelectorAll('.section-content').forEach(section => {
                 section.style.display = 'none';
@@ -762,79 +871,93 @@
             event.target.closest('a').classList.add('active');
             
             // Load data for section
-            if (sectionId === 'dashboard') {
-                loadDashboard();
-            } else if (sectionId === 'menu-management') {
-                loadMenuItems();
-            } else if (sectionId === 'table-management') {
-                loadTables();
-            } else if (sectionId === 'staff-management') {
-                loadStaff();
-            } else if (sectionId === 'sales-analytics') {
-                loadSalesAnalytics();
+            try {
+                Loading.show('Loading...');
+                
+                switch(sectionId) {
+                    case 'dashboard':
+                        await loadDashboard();
+                        break;
+                    case 'menu-management':
+                        await loadMenuItems();
+                        break;
+                    case 'table-management':
+                        await loadTables();
+                        break;
+                    case 'staff-management':
+                        await loadStaff();
+                        break;
+                    case 'sales-analytics':
+                        await loadSalesAnalytics();
+                        break;
+                }
+            } catch (error) {
+                Toast.show(`Failed to load ${sectionId} data`, 'error');
+            } finally {
+                Loading.hide();
             }
         }
-
+        
         // Load dashboard data
         async function loadDashboard() {
             try {
                 const token = localStorage.getItem('token');
                 
                 // Load statistics
-                const statsResponse = await fetch('http://localhost:5000/api/admin/stats', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const statsData = await statsResponse.json();
+                const statsData = await API.get(CONFIG.API_ENDPOINTS.ADMIN_STATS, token);
                 
                 // Update statistics
-                document.getElementById('todayRevenue').textContent = `$${statsData.todayRevenue.toFixed(2)}`;
-                document.getElementById('todayCustomers').textContent = statsData.todayCustomers;
-                document.getElementById('todayOrders').textContent = statsData.todayOrders;
+                document.getElementById('todayRevenue').textContent = `$${statsData.todayRevenue?.toFixed(2) || '0.00'}`;
+                document.getElementById('todayCustomers').textContent = statsData.todayCustomers || 0;
+                document.getElementById('todayOrders').textContent = statsData.todayOrders || 0;
                 document.getElementById('tablesOccupied').textContent = 
-                    `${statsData.tablesOccupied}/${statsData.totalTables}`;
+                    `${statsData.tablesOccupied || 0}/${statsData.totalTables || 0}`;
                 
                 // Load recent orders
-                const ordersResponse = await fetch('http://localhost:5000/api/admin/orders/recent', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const ordersData = await ordersResponse.json();
+                const ordersData = await API.get(CONFIG.API_ENDPOINTS.ADMIN_ORDERS_RECENT, token);
                 
                 // Display recent orders
                 const ordersTable = document.getElementById('recentOrdersTable');
                 ordersTable.innerHTML = '';
                 
-                ordersData.orders.forEach(order => {
-                    const row = `
-                        <tr>
-                            <td>#${order.orderNumber}</td>
-                            <td>${order.tableNumber}</td>
-                            <td>${order.customerName || 'Walk-in'}</td>
-                            <td>$${order.totalAmount.toFixed(2)}</td>
-                            <td>
-                                <span class="badge bg-${getStatusColor(order.status)}">
-                                    ${order.status.toUpperCase()}
-                                </span>
-                            </td>
-                            <td>${new Date(order.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
-                        </tr>
-                    `;
-                    ordersTable.innerHTML += row;
-                });
+                if (ordersData.orders && ordersData.orders.length > 0) {
+                    ordersData.orders.forEach(order => {
+                        const row = `
+                            <tr>
+                                <td>#${order.orderNumber}</td>
+                                <td>${order.tableNumber}</td>
+                                <td>${order.customerName || 'Walk-in'}</td>
+                                <td>$${order.totalAmount?.toFixed(2) || '0.00'}</td>
+                                <td>
+                                    <span class="badge bg-${getStatusColor(order.status)}">
+                                        ${(order.status || 'pending').toUpperCase()}
+                                    </span>
+                                </td>
+                                <td>${new Date(order.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
+                            </tr>
+                        `;
+                        ordersTable.innerHTML += row;
+                    });
+                } else {
+                    ordersTable.innerHTML = '<tr><td colspan="6" class="text-center">No recent orders</td></tr>';
+                }
                 
                 // Load revenue data for chart
-                const revenueResponse = await fetch('http://localhost:5000/api/admin/revenue/weekly', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const revenueData = await revenueResponse.json();
-                
-                // Create/update charts
-                createCharts(revenueData);
+                try {
+                    const revenueData = await API.get(CONFIG.API_ENDPOINTS.ADMIN_REVENUE_WEEKLY, token);
+                    createCharts(revenueData);
+                } catch (chartError) {
+                    console.warn('Could not load chart data, using demo data:', chartError);
+                    createDemoCharts();
+                }
                 
             } catch (error) {
                 console.error('Error loading dashboard:', error);
+                Toast.show('Failed to load dashboard data', 'error');
             }
         }
-
+        
+        // Get status color
         function getStatusColor(status) {
             switch(status) {
                 case 'pending': return 'warning';
@@ -845,7 +968,8 @@
                 default: return 'dark';
             }
         }
-
+        
+        // Create charts
         function createCharts(revenueData) {
             const revenueCtx = document.getElementById('revenueChart').getContext('2d');
             const statusCtx = document.getElementById('statusChart').getContext('2d');
@@ -858,10 +982,10 @@
             revenueChart = new Chart(revenueCtx, {
                 type: 'line',
                 data: {
-                    labels: revenueData.labels,
+                    labels: revenueData.labels || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
                     datasets: [{
                         label: 'Revenue ($)',
-                        data: revenueData.data,
+                        data: revenueData.data || [0, 0, 0, 0, 0, 0, 0],
                         borderColor: '#667eea',
                         backgroundColor: 'rgba(102, 126, 234, 0.1)',
                         borderWidth: 2,
@@ -881,6 +1005,11 @@
                             beginAtZero: true,
                             grid: {
                                 drawBorder: false
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value;
+                                }
                             }
                         },
                         x: {
@@ -892,7 +1021,7 @@
                 }
             });
             
-            // Status Chart (dummy data for now)
+            // Status Chart (demo data)
             const statusData = {
                 labels: ['Pending', 'Preparing', 'Ready', 'Completed'],
                 datasets: [{
@@ -919,23 +1048,68 @@
                 }
             });
         }
-
+        
+        // Create demo charts
+        function createDemoCharts() {
+            const revenueCtx = document.getElementById('revenueChart').getContext('2d');
+            const statusCtx = document.getElementById('statusChart').getContext('2d');
+            
+            // Revenue Chart with demo data
+            revenueChart = new Chart(revenueCtx, {
+                type: 'line',
+                data: {
+                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                    datasets: [{
+                        label: 'Revenue ($)',
+                        data: [1200, 1900, 1500, 2100, 1800, 2500, 2200],
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+            
+            // Status Chart with demo data
+            statusChart = new Chart(statusCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Pending', 'Preparing', 'Ready', 'Completed'],
+                    datasets: [{
+                        data: [5, 3, 2, 10],
+                        backgroundColor: [
+                            '#ffc107',
+                            '#17a2b8',
+                            '#28a745',
+                            '#6c757d'
+                        ]
+                    }]
+                }
+            });
+        }
+        
         // Menu Management
         async function loadMenuItems() {
             try {
                 const token = localStorage.getItem('token');
-                const response = await fetch('http://localhost:5000/api/admin/menu', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                
-                const data = await response.json();
-                displayMenuItems(data.menuItems, 'available');
-                
+                const data = await API.get(CONFIG.API_ENDPOINTS.ADMIN_MENU, token);
+                AppState.menuItems = data.menuItems || [];
+                displayMenuItems(AppState.menuItems, 'available');
             } catch (error) {
                 console.error('Error loading menu items:', error);
+                Toast.show('Failed to load menu items', 'error');
             }
         }
-
+        
         function displayMenuItems(items, filter = 'available') {
             const container = document.getElementById('menuItemsContainer');
             container.innerHTML = '';
@@ -957,7 +1131,7 @@
                     <div class="menu-item-card">
                         <div class="row g-0">
                             <div class="col-md-3">
-                                <div class="menu-item-image" style="background-image: url('${item.image || 'https://via.placeholder.com/300x200'}')"></div>
+                                <div class="menu-item-image" style="background-image: url('${item.image || 'https://images.unsplash.com/photo-1565958011703-44f9829ba187?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80'}')"></div>
                             </div>
                             <div class="col-md-9">
                                 <div class="p-3">
@@ -970,7 +1144,7 @@
                                                     ${item.available ? 'Available' : 'Not Available'}
                                                 </span>
                                                 <span class="badge bg-secondary me-2">${item.category}</span>
-                                                <h5 class="text-primary mb-0">$${item.price.toFixed(2)}</h5>
+                                                <h5 class="text-primary mb-0">$${item.price?.toFixed(2) || '0.00'}</h5>
                                             </div>
                                         </div>
                                         <div class="dropdown">
@@ -990,6 +1164,7 @@
                                                         ${item.available ? 'Make Unavailable' : 'Make Available'}
                                                     </a>
                                                 </li>
+                                                <li><hr class="dropdown-divider"></li>
                                                 <li>
                                                     <a class="dropdown-item text-danger" href="#" onclick="deleteMenuItemConfirm('${item._id}')">
                                                         <i class="fas fa-trash me-2"></i>Delete
@@ -1006,7 +1181,7 @@
                 container.innerHTML += itemCard;
             });
         }
-
+        
         function showMenuTab(tab) {
             // Update active tab
             document.querySelectorAll('.nav-tabs .nav-link').forEach(link => {
@@ -1014,67 +1189,50 @@
             });
             event.target.classList.add('active');
             
-            // Load and display menu items with filter
-            loadMenuItems().then(() => {
-                const token = localStorage.getItem('token');
-                fetch('http://localhost:5000/api/admin/menu', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    displayMenuItems(data.menuItems, tab);
-                });
-            });
+            displayMenuItems(AppState.menuItems, tab);
         }
-
+        
         function showAddMenuItemModal() {
             const modal = new bootstrap.Modal(document.getElementById('addMenuItemModal'));
             document.getElementById('addMenuItemForm').reset();
             modal.show();
         }
-
+        
         async function addMenuItem() {
             const form = document.getElementById('addMenuItemForm');
             const formData = new FormData(form);
+            const data = Object.fromEntries(formData);
             
-            // Handle image upload
-            const imageFile = document.getElementById('menuImageUpload').files[0];
-            if (imageFile) {
-                // In a real application, you would upload the file to a server
-                // For now, we'll just use the file name
-                formData.set('image', imageFile.name);
+            // Validate
+            if (!data.name || !data.price || !data.description) {
+                Toast.show('Please fill all required fields', 'error');
+                return;
             }
             
             try {
+                Loading.show('Adding menu item...');
                 const token = localStorage.getItem('token');
-                const response = await fetch('http://localhost:5000/api/admin/menu', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(Object.fromEntries(formData))
-                });
+                await API.post(CONFIG.API_ENDPOINTS.ADMIN_MENU, data, token);
                 
-                if (response.ok) {
-                    alert('Menu item added successfully!');
-                    bootstrap.Modal.getInstance(document.getElementById('addMenuItemModal')).hide();
-                    loadMenuItems();
-                }
+                Toast.show('Menu item added successfully!', 'success');
+                bootstrap.Modal.getInstance(document.getElementById('addMenuItemModal')).hide();
+                await loadMenuItems();
+                
+                // Emit socket event
+                if (socket) socket.emit('menu-update');
+                
             } catch (error) {
                 console.error('Error adding menu item:', error);
-                alert('Failed to add menu item');
+                Toast.show(error.message || 'Failed to add menu item', 'error');
+            } finally {
+                Loading.hide();
             }
         }
-
+        
         async function showEditMenuItemModal(itemId) {
             try {
                 const token = localStorage.getItem('token');
-                const response = await fetch(`http://localhost:5000/api/admin/menu/${itemId}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                
-                const item = await response.json();
+                const item = await API.get(CONFIG.API_ENDPOINTS.ADMIN_MENU_ITEM(itemId), token);
                 
                 // Populate form
                 document.getElementById('editItemId').value = item._id;
@@ -1090,224 +1248,223 @@
                 
             } catch (error) {
                 console.error('Error loading menu item:', error);
+                Toast.show('Failed to load menu item', 'error');
             }
         }
-
+        
         async function updateMenuItem() {
             const form = document.getElementById('editMenuItemForm');
             const formData = new FormData(form);
+            const data = Object.fromEntries(formData);
             const itemId = document.getElementById('editItemId').value;
             
             try {
+                Loading.show('Updating menu item...');
                 const token = localStorage.getItem('token');
-                const response = await fetch(`http://localhost:5000/api/admin/menu/${itemId}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(Object.fromEntries(formData))
-                });
+                await API.put(CONFIG.API_ENDPOINTS.ADMIN_MENU_ITEM(itemId), data, token);
                 
-                if (response.ok) {
-                    alert('Menu item updated successfully!');
-                    bootstrap.Modal.getInstance(document.getElementById('editMenuItemModal')).hide();
-                    loadMenuItems();
-                }
+                Toast.show('Menu item updated successfully!', 'success');
+                bootstrap.Modal.getInstance(document.getElementById('editMenuItemModal')).hide();
+                await loadMenuItems();
+                
+                // Emit socket event
+                if (socket) socket.emit('menu-update');
+                
             } catch (error) {
                 console.error('Error updating menu item:', error);
-                alert('Failed to update menu item');
+                Toast.show(error.message || 'Failed to update menu item', 'error');
+            } finally {
+                Loading.hide();
             }
         }
-
+        
         async function deleteMenuItem() {
             const itemId = document.getElementById('editItemId').value;
             
             if (!confirm('Are you sure you want to delete this menu item?')) return;
             
             try {
+                Loading.show('Deleting menu item...');
                 const token = localStorage.getItem('token');
-                const response = await fetch(`http://localhost:5000/api/admin/menu/${itemId}`, {
-                    method: 'DELETE',
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+                await API.delete(CONFIG.API_ENDPOINTS.ADMIN_MENU_ITEM(itemId), token);
                 
-                if (response.ok) {
-                    alert('Menu item deleted successfully!');
-                    bootstrap.Modal.getInstance(document.getElementById('editMenuItemModal')).hide();
-                    loadMenuItems();
-                }
+                Toast.show('Menu item deleted successfully!', 'success');
+                bootstrap.Modal.getInstance(document.getElementById('editMenuItemModal')).hide();
+                await loadMenuItems();
+                
+                // Emit socket event
+                if (socket) socket.emit('menu-update');
+                
             } catch (error) {
                 console.error('Error deleting menu item:', error);
-                alert('Failed to delete menu item');
+                Toast.show(error.message || 'Failed to delete menu item', 'error');
+            } finally {
+                Loading.hide();
             }
         }
-
+        
         function deleteMenuItemConfirm(itemId) {
             if (!confirm('Are you sure you want to delete this menu item?')) return;
-            
             deleteMenuItemDirect(itemId);
         }
-
+        
         async function deleteMenuItemDirect(itemId) {
             try {
+                Loading.show('Deleting menu item...');
                 const token = localStorage.getItem('token');
-                const response = await fetch(`http://localhost:5000/api/admin/menu/${itemId}`, {
-                    method: 'DELETE',
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+                await API.delete(CONFIG.API_ENDPOINTS.ADMIN_MENU_ITEM(itemId), token);
                 
-                if (response.ok) {
-                    alert('Menu item deleted successfully!');
-                    loadMenuItems();
-                }
+                Toast.show('Menu item deleted successfully!', 'success');
+                await loadMenuItems();
+                
+                // Emit socket event
+                if (socket) socket.emit('menu-update');
+                
             } catch (error) {
                 console.error('Error deleting menu item:', error);
-                alert('Failed to delete menu item');
+                Toast.show(error.message || 'Failed to delete menu item', 'error');
+            } finally {
+                Loading.hide();
             }
         }
-
+        
         async function toggleMenuItemAvailability(itemId, available) {
             try {
+                Loading.show('Updating availability...');
                 const token = localStorage.getItem('token');
-                const response = await fetch(`http://localhost:5000/api/admin/menu/${itemId}/availability`, {
-                    method: 'PUT',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ available })
-                });
+                await API.put(CONFIG.API_ENDPOINTS.ADMIN_MENU_AVAILABILITY(itemId), { available }, token);
                 
-                if (response.ok) {
-                    alert(`Menu item ${available ? 'made available' : 'made unavailable'}!`);
-                    loadMenuItems();
-                }
+                Toast.show(`Menu item ${available ? 'made available' : 'made unavailable'}!`, 'success');
+                await loadMenuItems();
+                
+                // Emit socket event
+                if (socket) socket.emit('menu-update');
+                
             } catch (error) {
                 console.error('Error updating menu item availability:', error);
-                alert('Failed to update menu item availability');
+                Toast.show(error.message || 'Failed to update availability', 'error');
+            } finally {
+                Loading.hide();
             }
         }
-
+        
         // Table Management
         async function loadTables() {
             try {
                 const token = localStorage.getItem('token');
-                const response = await fetch('http://localhost:5000/api/admin/tables', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                
-                const data = await response.json();
-                displayTables(data.tables);
-                
+                const data = await API.get(CONFIG.API_ENDPOINTS.ADMIN_TABLES, token);
+                AppState.tables = data.tables || [];
+                displayTables(AppState.tables);
             } catch (error) {
                 console.error('Error loading tables:', error);
+                Toast.show('Failed to load tables', 'error');
             }
         }
-
+        
         function displayTables(tables) {
             const container = document.getElementById('tablesGrid');
             container.innerHTML = '';
+            
+            if (tables.length === 0) {
+                container.innerHTML = '<p class="text-center text-muted py-4">No tables found</p>';
+                return;
+            }
             
             tables.forEach(table => {
                 const tableElement = `
                     <div class="table-item table-${table.status}" 
                          data-table-id="${table._id}"
                          data-table-number="${table.tableNumber}">
-                        ${table.tableNumber}
-                        <br>
+                        <div class="fw-bold">${table.tableNumber}</div>
                         <small>${table.capacity}p</small>
                     </div>
                 `;
                 container.innerHTML += tableElement;
             });
         }
-
+        
         function showAddTableModal() {
             const modal = new bootstrap.Modal(document.getElementById('addTableModal'));
             modal.show();
         }
-
+        
         async function addTables() {
             const count = parseInt(document.getElementById('tablesToAdd').value);
             const capacity = parseInt(document.getElementById('tableCapacity').value);
             
-            if (!count || count < 1) {
-                alert('Please enter a valid number of tables');
+            if (!count || count < 1 || count > 20) {
+                Toast.show('Please enter a valid number of tables (1-20)', 'error');
+                return;
+            }
+            
+            if (!capacity || capacity < 2 || capacity > 10) {
+                Toast.show('Please enter valid capacity (2-10)', 'error');
                 return;
             }
             
             try {
+                Loading.show('Adding tables...');
                 const token = localStorage.getItem('token');
-                const response = await fetch('http://localhost:5000/api/admin/tables', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ count, capacity })
-                });
+                await API.post(CONFIG.API_ENDPOINTS.ADMIN_TABLES, { count, capacity }, token);
                 
-                if (response.ok) {
-                    alert(`${count} table(s) added successfully!`);
-                    bootstrap.Modal.getInstance(document.getElementById('addTableModal')).hide();
-                    loadTables();
-                    loadDashboard(); // Refresh stats
-                }
+                Toast.show(`${count} table(s) added successfully!`, 'success');
+                bootstrap.Modal.getInstance(document.getElementById('addTableModal')).hide();
+                await loadTables();
+                await loadDashboard(); // Refresh stats
+                
             } catch (error) {
                 console.error('Error adding tables:', error);
-                alert('Failed to add tables');
+                Toast.show(error.message || 'Failed to add tables', 'error');
+            } finally {
+                Loading.hide();
             }
         }
-
+        
         function showRemoveTableModal() {
             loadTablesForRemoval();
             const modal = new bootstrap.Modal(document.getElementById('removeTableModal'));
             modal.show();
         }
-
+        
         async function loadTablesForRemoval() {
             try {
                 const token = localStorage.getItem('token');
-                const response = await fetch('http://localhost:5000/api/admin/tables', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                
-                const data = await response.json();
-                displayTablesForRemoval(data.tables);
-                
+                const data = await API.get(CONFIG.API_ENDPOINTS.ADMIN_TABLES, token);
+                displayTablesForRemoval(data.tables || []);
             } catch (error) {
                 console.error('Error loading tables:', error);
+                Toast.show('Failed to load tables', 'error');
             }
         }
-
+        
         function displayTablesForRemoval(tables) {
             const container = document.getElementById('tablesToRemove');
             container.innerHTML = '';
             selectedTables = [];
             
+            if (tables.length === 0) {
+                container.innerHTML = '<p class="text-center text-muted py-4">No tables available</p>';
+                return;
+            }
+            
             tables.forEach(table => {
+                const isOccupied = table.status === 'occupied';
                 const tableElement = `
-                    <div class="table-item table-${table.status} ${table.status === 'occupied' ? 'occupied' : ''}" 
+                    <div class="table-item table-${table.status} ${isOccupied ? 'occupied disabled' : 'selectable'}" 
                          data-table-id="${table._id}"
                          data-table-number="${table.tableNumber}"
-                         onclick="toggleTableSelection('${table._id}', ${table.tableNumber}, ${table.status === 'occupied'})"
-                         style="${table.status === 'occupied' ? 'opacity: 0.5; cursor: not-allowed;' : 'cursor: pointer;'}">
-                        ${table.tableNumber}
-                        <br>
+                         onclick="${isOccupied ? '' : `toggleTableSelection('${table._id}', ${table.tableNumber})`}"
+                         style="${isOccupied ? 'opacity: 0.5; cursor: not-allowed;' : 'cursor: pointer;'}">
+                        <div class="fw-bold">${table.tableNumber}</div>
                         <small>${table.capacity}p</small>
+                        ${isOccupied ? '<small class="d-block">Occupied</small>' : ''}
                     </div>
                 `;
                 container.innerHTML += tableElement;
             });
         }
-
-        function toggleTableSelection(tableId, tableNumber, isOccupied) {
-            if (isOccupied) {
-                alert('Cannot remove occupied table. Please wait until the table is available.');
-                return;
-            }
-            
+        
+        function toggleTableSelection(tableId, tableNumber) {
             const tableElement = document.querySelector(`[data-table-id="${tableId}"]`);
             const index = selectedTables.indexOf(tableId);
             
@@ -1321,54 +1478,46 @@
                 tableElement.style.transform = '';
             }
         }
-
+        
         async function removeSelectedTables() {
             if (selectedTables.length === 0) {
-                alert('Please select tables to remove');
+                Toast.show('Please select tables to remove', 'error');
                 return;
             }
             
             if (!confirm(`Are you sure you want to remove ${selectedTables.length} table(s)?`)) return;
             
             try {
+                Loading.show('Removing tables...');
                 const token = localStorage.getItem('token');
-                const response = await fetch('http://localhost:5000/api/admin/tables/remove', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ tableIds: selectedTables })
-                });
+                await API.post(CONFIG.API_ENDPOINTS.ADMIN_TABLES_REMOVE, { tableIds: selectedTables }, token);
                 
-                if (response.ok) {
-                    alert(`${selectedTables.length} table(s) removed successfully!`);
-                    bootstrap.Modal.getInstance(document.getElementById('removeTableModal')).hide();
-                    loadTables();
-                    loadDashboard(); // Refresh stats
-                }
+                Toast.show(`${selectedTables.length} table(s) removed successfully!`, 'success');
+                bootstrap.Modal.getInstance(document.getElementById('removeTableModal')).hide();
+                await loadTables();
+                await loadDashboard(); // Refresh stats
+                
             } catch (error) {
                 console.error('Error removing tables:', error);
-                alert('Failed to remove tables');
+                Toast.show(error.message || 'Failed to remove tables', 'error');
+            } finally {
+                Loading.hide();
             }
         }
-
+        
         // Staff Management
         async function loadStaff() {
             try {
                 const token = localStorage.getItem('token');
-                const response = await fetch('http://localhost:5000/api/admin/staff', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                
-                const data = await response.json();
-                displayStaff(data.staff);
-                
+                const data = await API.get(CONFIG.API_ENDPOINTS.ADMIN_STAFF, token);
+                AppState.staff = data.staff || [];
+                displayStaff(AppState.staff);
             } catch (error) {
                 console.error('Error loading staff:', error);
+                Toast.show('Failed to load staff', 'error');
             }
         }
-
+        
         function displayStaff(staffList) {
             const container = document.getElementById('staffList');
             container.innerHTML = '';
@@ -1386,13 +1535,14 @@
                                 <div>
                                     <h5 class="mb-1">${staff.firstName} ${staff.lastName}</h5>
                                     <p class="text-muted mb-1">${staff.email}</p>
-                                    <p class="mb-1"><small>Phone: ${staff.phone}</small></p>
+                                    <p class="mb-1"><small><i class="fas fa-phone me-1"></i>${staff.phone}</small></p>
                                 </div>
                                 <span class="badge bg-info">${staff.role}</span>
                             </div>
                             <div class="d-flex justify-content-between">
                                 <small class="text-muted">
-                                    Joined: ${new Date(staff.createdAt).toLocaleDateString()}
+                                    <i class="fas fa-calendar me-1"></i>
+                                    ${new Date(staff.createdAt).toLocaleDateString()}
                                 </small>
                                 <button class="btn btn-sm btn-danger" onclick="removeStaff('${staff._id}')">
                                     <i class="fas fa-trash"></i>
@@ -1404,110 +1554,118 @@
                 container.innerHTML += staffCard;
             });
         }
-
+        
         function showAddStaffModal() {
             const modal = new bootstrap.Modal(document.getElementById('addStaffModal'));
             document.getElementById('addStaffForm').reset();
             modal.show();
         }
-
+        
         async function addStaffMember() {
             const form = document.getElementById('addStaffForm');
             const formData = new FormData(form);
+            const data = Object.fromEntries(formData);
             
-            const password = formData.get('password');
-            const confirmPassword = formData.get('confirmPassword');
-            
-            if (password !== confirmPassword) {
-                alert('Passwords do not match');
+            // Validate passwords
+            if (data.password !== data.confirmPassword) {
+                Toast.show('Passwords do not match', 'error');
                 return;
             }
             
-            // Remove confirmPassword from formData
-            formData.delete('confirmPassword');
+            if (data.password.length < 6) {
+                Toast.show('Password must be at least 6 characters', 'error');
+                return;
+            }
+            
+            // Remove confirmPassword
+            delete data.confirmPassword;
             
             try {
+                Loading.show('Adding staff member...');
                 const token = localStorage.getItem('token');
-                const response = await fetch('http://localhost:5000/api/admin/staff', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(Object.fromEntries(formData))
-                });
+                await API.post(CONFIG.API_ENDPOINTS.ADMIN_STAFF, data, token);
                 
-                if (response.ok) {
-                    alert('Staff member added successfully!');
-                    bootstrap.Modal.getInstance(document.getElementById('addStaffModal')).hide();
-                    loadStaff();
-                } else {
-                    const error = await response.json();
-                    alert(error.message || 'Failed to add staff member');
-                }
+                Toast.show('Staff member added successfully!', 'success');
+                bootstrap.Modal.getInstance(document.getElementById('addStaffModal')).hide();
+                await loadStaff();
+                
             } catch (error) {
                 console.error('Error adding staff:', error);
-                alert('Failed to add staff member');
+                Toast.show(error.message || 'Failed to add staff member', 'error');
+            } finally {
+                Loading.hide();
             }
         }
-
+        
         async function removeStaff(staffId) {
             if (!confirm('Are you sure you want to remove this staff member?')) return;
             
             try {
+                Loading.show('Removing staff member...');
                 const token = localStorage.getItem('token');
-                const response = await fetch(`http://localhost:5000/api/admin/staff/${staffId}`, {
-                    method: 'DELETE',
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+                await API.delete(CONFIG.API_ENDPOINTS.ADMIN_STAFF_MEMBER(staffId), token);
                 
-                if (response.ok) {
-                    alert('Staff member removed successfully!');
-                    loadStaff();
-                }
+                Toast.show('Staff member removed successfully!', 'success');
+                await loadStaff();
+                
             } catch (error) {
                 console.error('Error removing staff:', error);
-                alert('Failed to remove staff member');
+                Toast.show(error.message || 'Failed to remove staff member', 'error');
+            } finally {
+                Loading.hide();
             }
         }
-
+        
         // Sales Analytics
         async function loadSalesAnalytics() {
             const fromDate = document.getElementById('fromDate').value;
             const toDate = document.getElementById('toDate').value;
             
+            if (!fromDate || !toDate) {
+                Toast.show('Please select both from and to dates', 'error');
+                return;
+            }
+            
             try {
+                Loading.show('Generating report...');
                 const token = localStorage.getItem('token');
-                const response = await fetch(`http://localhost:5000/api/admin/sales?from=${fromDate}&to=${toDate}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                
-                const data = await response.json();
+                const data = await API.get(`${CONFIG.API_ENDPOINTS.ADMIN_SALES}?from=${fromDate}&to=${toDate}`, token);
+                AppState.salesData = data;
                 displaySalesAnalytics(data);
                 
             } catch (error) {
                 console.error('Error loading sales analytics:', error);
+                Toast.show(error.message || 'Failed to load sales data', 'error');
+            } finally {
+                Loading.hide();
             }
         }
-
+        
         function displaySalesAnalytics(data) {
             // Update summary
-            document.getElementById('totalRevenue').textContent = `$${data.summary.totalRevenue.toFixed(2)}`;
-            document.getElementById('totalOrders').textContent = data.summary.totalOrders;
-            document.getElementById('avgOrderValue').textContent = `$${data.summary.avgOrderValue.toFixed(2)}`;
-            document.getElementById('popularItem').textContent = data.summary.popularItem || '-';
+            const summary = data.summary || {};
+            document.getElementById('totalRevenue').textContent = `$${summary.totalRevenue?.toFixed(2) || '0.00'}`;
+            document.getElementById('totalOrders').textContent = summary.totalOrders || 0;
+            document.getElementById('avgOrderValue').textContent = `$${summary.avgOrderValue?.toFixed(2) || '0.00'}`;
+            document.getElementById('popularItem').textContent = summary.popularItem || '-';
             
             // Display detailed report
             const table = document.getElementById('salesReportTable');
             table.innerHTML = '';
             
-            data.dailyReports.forEach(report => {
+            const dailyReports = data.dailyReports || [];
+            if (dailyReports.length === 0) {
+                table.innerHTML = '<tr><td colspan="5" class="text-center">No sales data for selected period</td></tr>';
+                return;
+            }
+            
+            dailyReports.forEach(report => {
                 const row = `
                     <tr>
                         <td>${new Date(report.date).toLocaleDateString()}</td>
-                        <td>${report.orders}</td>
-                        <td>$${report.revenue.toFixed(2)}</td>
-                        <td>$${report.avgOrder.toFixed(2)}</td>
+                        <td>${report.orders || 0}</td>
+                        <td>$${report.revenue?.toFixed(2) || '0.00'}</td>
+                        <td>$${report.avgOrder?.toFixed(2) || '0.00'}</td>
                         <td>
                             <button class="btn btn-sm btn-outline-primary" 
                                     onclick="showSalesDetails('${report.date}')">
@@ -1519,15 +1677,12 @@
                 table.innerHTML += row;
             });
         }
-
+        
         async function showSalesDetails(date) {
             try {
+                Loading.show('Loading details...');
                 const token = localStorage.getItem('token');
-                const response = await fetch(`http://localhost:5000/api/admin/sales/${date}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                
-                const data = await response.json();
+                const data = await API.get(CONFIG.API_ENDPOINTS.ADMIN_SALES_DATE(date), token);
                 
                 // Update modal title
                 document.getElementById('salesDate').textContent = new Date(date).toLocaleDateString();
@@ -1536,55 +1691,49 @@
                 const table = document.getElementById('salesDetailsTable');
                 table.innerHTML = '';
                 
-                data.orders.forEach(order => {
-                    const row = `
-                        <tr>
-                            <td>#${order.orderNumber}</td>
-                            <td>${order.tableNumber}</td>
-                            <td>${order.customerName || 'Walk-in'}</td>
-                            <td>${order.items.length} items</td>
-                            <td>$${order.totalAmount.toFixed(2)}</td>
-                            <td>
-                                <span class="badge bg-${getStatusColor(order.status)}">
-                                    ${order.status.toUpperCase()}
-                                </span>
-                            </td>
-                            <td>${new Date(order.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
-                        </tr>
-                    `;
-                    table.innerHTML += row;
-                });
+                const orders = data.orders || [];
+                if (orders.length === 0) {
+                    table.innerHTML = '<tr><td colspan="7" class="text-center">No orders for this date</td></tr>';
+                } else {
+                    orders.forEach(order => {
+                        const row = `
+                            <tr>
+                                <td>#${order.orderNumber}</td>
+                                <td>${order.tableNumber}</td>
+                                <td>${order.customerName || 'Walk-in'}</td>
+                                <td>${order.items?.length || 0} items</td>
+                                <td>$${order.totalAmount?.toFixed(2) || '0.00'}</td>
+                                <td>
+                                    <span class="badge bg-${getStatusColor(order.status)}">
+                                        ${(order.status || 'pending').toUpperCase()}
+                                    </span>
+                                </td>
+                                <td>${new Date(order.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
+                            </tr>
+                        `;
+                        table.innerHTML += row;
+                    });
+                }
                 
                 const modal = new bootstrap.Modal(document.getElementById('salesDetailsModal'));
                 modal.show();
                 
             } catch (error) {
                 console.error('Error loading sales details:', error);
+                Toast.show('Failed to load sales details', 'error');
+            } finally {
+                Loading.hide();
             }
         }
-
+        
         // Logout
         function logout() {
-            localStorage.clear();
-            window.location.href = '../auth/index.html';
+            if (socket) socket.disconnect();
+            Auth.logout();
         }
-
+        
         // Initialize on load
-        document.addEventListener('DOMContentLoaded', () => {
-            loadDashboard();
-            
-            // Auto-refresh dashboard every 60 seconds
-            setInterval(() => {
-                if (document.getElementById('dashboardSection').style.display !== 'none') {
-                    loadDashboard();
-                }
-            }, 60000);
-        });
+        document.addEventListener('DOMContentLoaded', initApp);
     </script>
-    <!-- Load configuration -->
-<script src="config.js"></script>
-
-<!-- Socket.io from backend -->
-<script src="https://smart-waiter-backend.onrender.com/socket.io/socket.io.js"></script>
 </body>
 </html>

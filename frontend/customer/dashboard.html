@@ -33,9 +33,10 @@
             background-size: cover;
             background-position: center;
             color: white;
-            padding: 100px 0;
+            padding: 80px 0;
             text-align: center;
             margin-bottom: 40px;
+            border-radius: 10px;
         }
         
         .section {
@@ -45,6 +46,8 @@
         .menu-card {
             transition: transform 0.3s;
             cursor: pointer;
+            border: none;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.08);
         }
         
         .menu-card:hover {
@@ -76,24 +79,57 @@
         }
         
         .order-status {
-            padding: 10px;
-            border-radius: 5px;
-            margin: 5px 0;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            border: 1px solid #e9ecef;
+            background: white;
         }
         
-        .status-pending { background: #fff3cd; color: #856404; }
-        .status-preparing { background: #d1ecf1; color: #0c5460; }
-        .status-ready { background: #d4edda; color: #155724; }
+        .status-pending { border-left: 4px solid #ffc107; }
+        .status-preparing { border-left: 4px solid #17a2b8; }
+        .status-ready { border-left: 4px solid #28a745; }
+        .status-completed { border-left: 4px solid #6c757d; }
         
         .service-btn {
             margin: 10px;
-            padding: 15px;
+            padding: 20px;
             border-radius: 10px;
             transition: all 0.3s;
+            border: none;
+            color: white;
+            text-align: center;
         }
         
         .service-btn:hover {
             transform: scale(1.05);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+        
+        .service-btn i {
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+        }
+        
+        .card {
+            border: none;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        }
+        
+        @media (max-width: 768px) {
+            .hero-section {
+                padding: 60px 20px;
+                margin: 20px 0;
+            }
+            
+            .cart-sidebar {
+                width: 100%;
+            }
+            
+            .service-btn {
+                margin: 5px;
+                padding: 15px;
+            }
         }
     </style>
 </head>
@@ -137,32 +173,26 @@
         <div class="container">
             <h1 class="display-4 mb-3">Welcome to Gourmet Delight</h1>
             <p class="lead mb-4">Experience fine dining with our innovative Smart Waiter System</p>
-            <div class="row justify-content-center mt-5">
-                <div class="col-md-4">
-                    <div class="card service-btn bg-primary text-white">
-                        <div class="card-body text-center">
-                            <i class="fas fa-concierge-bell fa-3x mb-3"></i>
-                            <h5>Quick Order</h5>
-                            <p>Order food directly from your table</p>
-                        </div>
+            <div class="row justify-content-center mt-4">
+                <div class="col-md-4 mb-3">
+                    <div class="service-btn bg-primary">
+                        <i class="fas fa-concierge-bell"></i>
+                        <h5>Quick Order</h5>
+                        <p class="mb-0">Order food directly from your table</p>
                     </div>
                 </div>
-                <div class="col-md-4">
-                    <div class="card service-btn bg-success text-white">
-                        <div class="card-body text-center">
-                            <i class="fas fa-clock fa-3x mb-3"></i>
-                            <h5>Live Tracking</h5>
-                            <p>Track your order in real-time</p>
-                        </div>
+                <div class="col-md-4 mb-3">
+                    <div class="service-btn bg-success">
+                        <i class="fas fa-clock"></i>
+                        <h5>Live Tracking</h5>
+                        <p class="mb-0">Track your order in real-time</p>
                     </div>
                 </div>
-                <div class="col-md-4">
-                    <div class="card service-btn bg-warning text-white">
-                        <div class="card-body text-center">
-                            <i class="fas fa-wine-glass-alt fa-3x mb-3"></i>
-                            <h5>Special Service</h5>
-                            <p>Request services instantly</p>
-                        </div>
+                <div class="col-md-4 mb-3">
+                    <div class="service-btn bg-warning">
+                        <i class="fas fa-wine-glass-alt"></i>
+                        <h5>Special Service</h5>
+                        <p class="mb-0">Request services instantly</p>
                     </div>
                 </div>
             </div>
@@ -175,14 +205,14 @@
             <h2 class="text-center mb-5">About Gourmet Delight</h2>
             <div class="row align-items-center">
                 <div class="col-md-6">
-                    <h4>Experience fine dining with our innovative Smart Waiter System</h4>
+                    <h4 class="mb-3">Experience fine dining with our innovative Smart Waiter System</h4>
                     <p>Founded in 2010, Gourmet Delight brings you the finest culinary experiences with a touch of technology. Our QR-based ordering system ensures a seamless dining experience from ordering to payment.</p>
                     <p>Our chefs craft each dish with passion, using only the freshest ingredients sourced from local providers. We take pride in our sustainable practices and commitment to excellence.</p>
                     
                     <div class="row mt-4">
                         <div class="col-md-6 mb-3">
-                            <div class="card h-100">
-                                <div class="card-body text-center">
+                            <div class="card h-100 text-center">
+                                <div class="card-body">
                                     <i class="fas fa-award fa-2x text-warning mb-3"></i>
                                     <h5>Award Winning Cuisine</h5>
                                     <p class="text-muted">Best Restaurant 2022 & 2023</p>
@@ -190,8 +220,8 @@
                             </div>
                         </div>
                         <div class="col-md-6 mb-3">
-                            <div class="card h-100">
-                                <div class="card-body text-center">
+                            <div class="card h-100 text-center">
+                                <div class="card-body">
                                     <i class="fas fa-leaf fa-2x text-success mb-3"></i>
                                     <h5>Eco-Friendly</h5>
                                     <p class="text-muted">Sustainable sourcing and practices</p>
@@ -201,7 +231,7 @@
                     </div>
                 </div>
                 <div class="col-md-6">
-                    <img src="https://images.unsplash.com/photo-1554679665-f5537f187268?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80" 
+                    <img src="https://images.unsplash.com/photo-1554679665-f5537f187268?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" 
                          class="img-fluid rounded shadow" alt="Restaurant Interior">
                 </div>
             </div>
@@ -216,39 +246,39 @@
             
             <div class="row">
                 <div class="col-md-4 mb-4">
-                    <div class="card h-100 text-center border-0 shadow-sm service-btn">
+                    <div class="card h-100 text-center border-0 shadow-sm">
                         <div class="card-body">
                             <i class="fas fa-tint fa-3x text-primary mb-3"></i>
                             <h4>Request Water</h4>
                             <p>Thirsty? Request water refill without waiting to catch a waiter's attention.</p>
                             <button class="btn btn-primary mt-3" onclick="requestService('water')">
-                                Request Water
+                                <i class="fas fa-tint me-2"></i>Request Water
                             </button>
                         </div>
                     </div>
                 </div>
                 
                 <div class="col-md-4 mb-4">
-                    <div class="card h-100 text-center border-0 shadow-sm service-btn">
+                    <div class="card h-100 text-center border-0 shadow-sm">
                         <div class="card-body">
                             <i class="fas fa-broom fa-3x text-success mb-3"></i>
                             <h4>Table Cleaning</h4>
                             <p>Request table cleaning service when needed for a pleasant dining experience.</p>
                             <button class="btn btn-success mt-3" onclick="requestService('cleaning')">
-                                Request Cleaning
+                                <i class="fas fa-broom me-2"></i>Request Cleaning
                             </button>
                         </div>
                     </div>
                 </div>
                 
                 <div class="col-md-4 mb-4">
-                    <div class="card h-100 text-center border-0 shadow-sm service-btn">
+                    <div class="card h-100 text-center border-0 shadow-sm">
                         <div class="card-body">
                             <i class="fas fa-file-invoice-dollar fa-3x text-warning mb-3"></i>
                             <h4>Pay Bill</h4>
                             <p>Pay your bill digitally without waiting. Split bills with friends easily.</p>
                             <button class="btn btn-warning mt-3" onclick="requestService('bill')">
-                                Pay Bill
+                                <i class="fas fa-file-invoice-dollar me-2"></i>Pay Bill
                             </button>
                         </div>
                     </div>
@@ -259,7 +289,9 @@
             <div class="mt-5">
                 <h4 class="mb-3">Your Current Orders</h4>
                 <div id="orderStatus" class="row">
-                    <!-- Orders will be loaded here dynamically -->
+                    <div class="col-12 text-center text-muted py-4">
+                        <p>Loading your orders...</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -286,14 +318,24 @@
                     <div class="input-group">
                         <span class="input-group-text">Table Number</span>
                         <input type="number" id="tableNumber" class="form-control" min="1" max="50" value="1">
-                        <button class="btn btn-secondary" onclick="loadMenu()">Load Menu</button>
+                        <button class="btn btn-secondary" onclick="loadMenu()">
+                            <i class="fas fa-sync-alt me-2"></i>Load Menu
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Scan the QR code on your table or enter your table number
                     </div>
                 </div>
             </div>
             
             <!-- Menu Items -->
             <div id="menuItems" class="row">
-                <!-- Menu items will be loaded here -->
+                <div class="col-12 text-center text-muted py-4">
+                    <p>Enter your table number and click "Load Menu" to see available items</p>
+                </div>
             </div>
         </div>
     </section>
@@ -351,7 +393,9 @@
                         <div class="mb-3">
                             <textarea class="form-control" rows="5" placeholder="Message" required></textarea>
                         </div>
-                        <button type="submit" class="btn btn-primary w-100">Send Message</button>
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-paper-plane me-2"></i>Send Message
+                        </button>
                     </form>
                 </div>
             </div>
@@ -383,112 +427,178 @@
         </div>
         
         <div id="cartItems">
-            <!-- Cart items will be loaded here -->
+            <p class="text-muted">Your cart is empty</p>
         </div>
         
         <div class="mt-3">
             <h5>Total: $<span id="cartTotal">0.00</span></h5>
             <div class="mb-3">
                 <label class="form-label">Special Instructions</label>
-                <textarea id="specialInstructions" class="form-control" rows="3"></textarea>
+                <textarea id="specialInstructions" class="form-control" rows="3" placeholder="Any special requests?"></textarea>
             </div>
             <button class="btn btn-primary w-100 mb-2" onclick="placeOrder()">
-                Place Order
+                <i class="fas fa-paper-plane me-2"></i>Place Order
             </button>
             <button class="btn btn-outline-secondary w-100" onclick="hideCart()">
-                Continue Shopping
+                <i class="fas fa-arrow-left me-2"></i>Continue Shopping
             </button>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Load config -->
+    <script src="../config.js"></script>
+    <!-- Load utils -->
+    <script src="../js/utils.js"></script>
+    <!-- Load Socket.io -->
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    
     <script>
-        // Initialize socket connection
-        const socket = io('http://localhost:5000');
+        // Initialize
+        let socket = null;
         let cart = [];
-        let user = JSON.parse(localStorage.getItem('user')) || {};
+        let user = null;
         let currentOrders = [];
-
-        // Check authentication
-        if (!localStorage.getItem('token')) {
-            window.location.href = '../auth/index.html';
+        let menuItems = [];
+        
+        // Initialize application
+        async function initApp() {
+            // Check authentication
+            if (!Auth.check('customer')) {
+                return;
+            }
+            
+            // Get user
+            user = Auth.getUser();
+            
+            // Initialize socket
+            initSocket();
+            
+            // Load initial data
+            await loadOrderStatus();
+            
+            // Setup navigation
+            setupNavigation();
+            
+            // Request notification permission
+            requestNotificationPermission();
         }
-
-        // Navigation handling
-        document.querySelectorAll('.nav-link').forEach(link => {
-            link.addEventListener('click', function(e) {
-                e.preventDefault();
-                
-                // Hide all sections
-                document.querySelectorAll('section').forEach(section => {
-                    section.style.display = 'none';
-                });
-                
-                // Show selected section
-                const targetId = this.getAttribute('href').substring(1);
-                document.getElementById(targetId).style.display = 'block';
-                
-                // Update active nav link
-                document.querySelectorAll('.nav-link').forEach(navLink => {
-                    navLink.classList.remove('active');
-                });
-                this.classList.add('active');
-                
-                // Load specific content
-                if (targetId === 'menu') {
-                    loadMenu();
-                } else if (targetId === 'services') {
+        
+        // Initialize socket
+        function initSocket() {
+            socket = SocketManager.connect();
+            
+            socket.on('status-update', (data) => {
+                console.log('Order status update:', data);
+                if (currentOrders.some(order => order._id === data.orderId)) {
+                    loadOrderStatus();
+                    showNotification(`Order #${data.orderId.substring(0, 8)} status changed to ${data.status}`);
+                }
+            });
+            
+            socket.on('new-order-notification', (data) => {
+                if (data.tableNumber == document.getElementById('tableNumber').value) {
+                    showNotification(`Your order #${data.orderNumber} has been placed!`, 'success');
                     loadOrderStatus();
                 }
             });
-        });
-
-        // Show home section by default
-        document.querySelector('[href="#home"]').click();
-
+        }
+        
+        // Setup navigation
+        function setupNavigation() {
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    
+                    // Hide all sections
+                    document.querySelectorAll('section').forEach(section => {
+                        section.style.display = 'none';
+                    });
+                    
+                    // Show selected section
+                    const targetId = this.getAttribute('href').substring(1);
+                    document.getElementById(targetId).style.display = 'block';
+                    
+                    // Update active nav link
+                    document.querySelectorAll('.nav-link').forEach(navLink => {
+                        navLink.classList.remove('active');
+                    });
+                    this.classList.add('active');
+                    
+                    // Load specific content
+                    if (targetId === 'menu') {
+                        loadMenu();
+                    } else if (targetId === 'services') {
+                        loadOrderStatus();
+                    }
+                });
+            });
+            
+            // Show home section by default
+            document.querySelector('[href="#home"]').click();
+            
+            // Logout button
+            document.getElementById('logoutBtn').addEventListener('click', function(e) {
+                e.preventDefault();
+                logout();
+            });
+        }
+        
         // Load menu items
         async function loadMenu() {
             const tableNumber = document.getElementById('tableNumber').value;
             if (!tableNumber) {
-                alert('Please enter table number');
+                Toast.show('Please enter table number', 'error');
                 return;
             }
 
             try {
-                const response = await fetch(`http://localhost:5000/api/customer/menu?available=true`);
-                const data = await response.json();
+                Loading.show('Loading menu...');
+                const data = await API.get(`${CONFIG.API_ENDPOINTS.CUSTOMER_MENU}?available=true`);
+                menuItems = data.menuItems || [];
+                displayMenu(menuItems);
                 
-                const menuContainer = document.getElementById('menuItems');
-                menuContainer.innerHTML = '';
-                
-                data.menuItems.forEach(item => {
-                    const menuCard = `
-                        <div class="col-md-4 mb-4">
-                            <div class="card menu-card h-100">
-                                <img src="${item.image || 'https://via.placeholder.com/300x200'}" 
-                                     class="card-img-top" alt="${item.name}" style="height: 200px; object-fit: cover;">
-                                <div class="card-body">
-                                    <h5 class="card-title">${item.name}</h5>
-                                    <p class="card-text text-muted">${item.description}</p>
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <h5 class="text-primary">$${item.price.toFixed(2)}</h5>
-                                        <button class="btn btn-sm btn-outline-primary" 
-                                                onclick="addToCart('${item._id}', '${item.name}', ${item.price})">
-                                            <i class="fas fa-plus"></i> Add to Cart
-                                        </button>
-                                    </div>
+            } catch (error) {
+                console.error('Error loading menu:', error);
+                Toast.show('Failed to load menu', 'error');
+            } finally {
+                Loading.hide();
+            }
+        }
+        
+        function displayMenu(items) {
+            const menuContainer = document.getElementById('menuItems');
+            menuContainer.innerHTML = '';
+            
+            if (items.length === 0) {
+                menuContainer.innerHTML = '<div class="col-12 text-center text-muted py-4">No menu items available</div>';
+                return;
+            }
+            
+            items.forEach(item => {
+                const menuCard = `
+                    <div class="col-md-4 mb-4">
+                        <div class="card menu-card h-100">
+                            <img src="${item.image || 'https://images.unsplash.com/photo-1565958011703-44f9829ba187?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80'}" 
+                                 class="card-img-top" alt="${item.name}" style="height: 200px; object-fit: cover;">
+                            <div class="card-body">
+                                <h5 class="card-title">${item.name}</h5>
+                                <p class="card-text text-muted">${item.description}</p>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h5 class="text-primary">$${item.price?.toFixed(2) || '0.00'}</h5>
+                                    <button class="btn btn-sm btn-outline-primary" 
+                                            onclick="addToCart('${item._id}', '${item.name}', ${item.price})">
+                                        <i class="fas fa-plus"></i> Add to Cart
+                                    </button>
                                 </div>
                             </div>
                         </div>
-                    `;
-                    menuContainer.innerHTML += menuCard;
-                });
-            } catch (error) {
-                console.error('Error loading menu:', error);
-            }
+                    </div>
+                `;
+                menuContainer.innerHTML += menuCard;
+            });
         }
-
+        
         // Cart functions
         function addToCart(itemId, name, price) {
             const existingItem = cart.find(item => item.id === itemId);
@@ -506,8 +616,9 @@
             
             updateCartDisplay();
             showCart();
+            Toast.show(`${name} added to cart`, 'success');
         }
-
+        
         function updateCartDisplay() {
             document.getElementById('cartCount').textContent = cart.reduce((total, item) => total + item.quantity, 0);
             
@@ -517,13 +628,19 @@
             document.getElementById('cartTotal').textContent = total.toFixed(2);
             
             cartItemsContainer.innerHTML = '';
+            
+            if (cart.length === 0) {
+                cartItemsContainer.innerHTML = '<p class="text-muted">Your cart is empty</p>';
+                return;
+            }
+            
             cart.forEach((item, index) => {
                 const cartItem = `
                     <div class="cart-item">
                         <div class="d-flex justify-content-between">
                             <div>
-                                <h6>${item.name}</h6>
-                                <small>$${item.price.toFixed(2)} × ${item.quantity}</small>
+                                <h6 class="mb-1">${item.name}</h6>
+                                <small class="text-muted">$${item.price.toFixed(2)} × ${item.quantity}</small>
                             </div>
                             <div class="d-flex align-items-center">
                                 <button class="btn btn-sm btn-outline-secondary me-2" 
@@ -546,7 +663,7 @@
                 cartItemsContainer.innerHTML += cartItem;
             });
         }
-
+        
         function updateQuantity(index, change) {
             cart[index].quantity += change;
             
@@ -556,174 +673,222 @@
             
             updateCartDisplay();
         }
-
+        
         function removeFromCart(index) {
+            const itemName = cart[index].name;
             cart.splice(index, 1);
             updateCartDisplay();
+            Toast.show(`${itemName} removed from cart`, 'warning');
         }
-
+        
         function showCart() {
             document.getElementById('cartSidebar').classList.add('active');
         }
-
+        
         function hideCart() {
             document.getElementById('cartSidebar').classList.remove('active');
         }
-
+        
         // Place order
         async function placeOrder() {
             const tableNumber = document.getElementById('tableNumber').value;
             const instructions = document.getElementById('specialInstructions').value;
             
             if (!tableNumber) {
-                alert('Please enter table number');
+                Toast.show('Please enter table number', 'error');
                 return;
             }
             
             if (cart.length === 0) {
-                alert('Your cart is empty');
+                Toast.show('Your cart is empty', 'error');
                 return;
             }
             
-            const order = {
-                tableNumber: parseInt(tableNumber),
-                items: cart.map(item => ({
-                    itemId: item.id,
-                    name: item.name,
-                    price: item.price,
-                    quantity: item.quantity
-                })),
-                totalAmount: cart.reduce((sum, item) => sum + (item.price * item.quantity), 0),
-                instructions: instructions,
-                customer: user._id
-            };
-            
             try {
-                const response = await fetch('http://localhost:5000/api/customer/order', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    },
-                    body: JSON.stringify(order)
-                });
+                Loading.show('Placing your order...');
+                const token = localStorage.getItem('token');
                 
-                const data = await response.json();
+                const order = {
+                    tableNumber: parseInt(tableNumber),
+                    items: cart.map(item => ({
+                        itemId: item.id,
+                        name: item.name,
+                        price: item.price,
+                        quantity: item.quantity
+                    })),
+                    totalAmount: cart.reduce((sum, item) => sum + (item.price * item.quantity), 0),
+                    instructions: instructions,
+                    customer: user._id
+                };
                 
-                if (response.ok) {
-                    alert('Order placed successfully!');
-                    cart = [];
-                    updateCartDisplay();
-                    hideCart();
-                    loadOrderStatus();
-                    
-                    // Emit socket event for real-time update
+                const data = await API.post(CONFIG.API_ENDPOINTS.CUSTOMER_ORDER, order, token);
+                
+                Toast.show('Order placed successfully!', 'success');
+                
+                // Reset cart
+                cart = [];
+                updateCartDisplay();
+                hideCart();
+                
+                // Load updated order status
+                await loadOrderStatus();
+                
+                // Emit socket event for real-time update
+                if (socket) {
                     socket.emit('new-order', {
                         orderId: data.order._id,
                         tableNumber: tableNumber,
+                        orderNumber: data.order.orderNumber,
                         status: 'pending'
                     });
-                } else {
-                    alert(data.message || 'Failed to place order');
                 }
+                
             } catch (error) {
                 console.error('Error:', error);
-                alert('Failed to place order');
+                Toast.show(error.message || 'Failed to place order', 'error');
+            } finally {
+                Loading.hide();
             }
         }
-
+        
         // Request service
-        function requestService(type) {
-            const tableNumber = prompt(`Enter table number for ${type} request:`);
-            if (!tableNumber) return;
+        async function requestService(type) {
+            const tableNumber = document.getElementById('tableNumber').value || prompt(`Enter table number for ${type} request:`);
             
-            const request = {
-                type: type,
-                tableNumber: parseInt(tableNumber),
-                timestamp: new Date().toISOString()
-            };
+            if (!tableNumber) {
+                Toast.show('Table number is required', 'error');
+                return;
+            }
             
-            // Emit socket event
-            socket.emit('service-request', request);
-            
-            alert(`${type.charAt(0).toUpperCase() + type.slice(1)} request sent for table ${tableNumber}`);
+            try {
+                Loading.show('Sending request...');
+                
+                const request = {
+                    type: type,
+                    tableNumber: parseInt(tableNumber),
+                    timestamp: new Date().toISOString()
+                };
+                
+                // Emit socket event
+                if (socket) {
+                    socket.emit('service-request', request);
+                }
+                
+                Toast.show(`${getServiceName(type)} request sent for table ${tableNumber}`, 'success');
+                
+            } catch (error) {
+                Toast.show('Failed to send request', 'error');
+            } finally {
+                Loading.hide();
+            }
         }
-
+        
+        function getServiceName(type) {
+            switch(type) {
+                case 'water': return 'Water Refill';
+                case 'cleaning': return 'Table Cleaning';
+                case 'bill': return 'Bill Payment';
+                default: return 'Service';
+            }
+        }
+        
         // Load order status
         async function loadOrderStatus() {
             try {
-                const response = await fetch('http://localhost:5000/api/customer/orders', {
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    }
-                });
-                
-                const data = await response.json();
+                const token = localStorage.getItem('token');
+                const data = await API.get(CONFIG.API_ENDPOINTS.CUSTOMER_ORDERS, token);
                 currentOrders = data.orders || [];
+                displayOrderStatus(currentOrders);
                 
-                const statusContainer = document.getElementById('orderStatus');
-                statusContainer.innerHTML = '';
-                
-                currentOrders.forEach(order => {
-                    const statusClass = `status-${order.status}`;
-                    const orderCard = `
-                        <div class="col-md-4 mb-3">
-                            <div class="order-status ${statusClass}">
-                                <h6>Order #${order.orderNumber}</h6>
-                                <p>Table: ${order.tableNumber}</p>
-                                <p>Status: <strong>${order.status.toUpperCase()}</strong></p>
-                                <p>Total: $${order.totalAmount.toFixed(2)}</p>
-                                <p>Items: ${order.items.length}</p>
-                            </div>
-                        </div>
-                    `;
-                    statusContainer.innerHTML += orderCard;
-                });
             } catch (error) {
                 console.error('Error loading orders:', error);
+                Toast.show('Failed to load orders', 'error');
             }
         }
-
-        // Socket listeners for real-time updates
-        socket.on('status-update', (data) => {
-            if (currentOrders.some(order => order._id === data.orderId)) {
-                loadOrderStatus();
-                showNotification(`Order #${data.orderId.substring(0, 8)} status changed to ${data.status}`);
+        
+        function displayOrderStatus(orders) {
+            const statusContainer = document.getElementById('orderStatus');
+            statusContainer.innerHTML = '';
+            
+            if (orders.length === 0) {
+                statusContainer.innerHTML = `
+                    <div class="col-12 text-center text-muted py-4">
+                        <p>No active orders</p>
+                        <p class="small">Visit the Menu section to place an order</p>
+                    </div>
+                `;
+                return;
             }
-        });
-
+            
+            orders.forEach(order => {
+                const statusClass = `status-${order.status}`;
+                const orderCard = `
+                    <div class="col-md-4 mb-3">
+                        <div class="order-status ${statusClass}">
+                            <h6>Order #${order.orderNumber}</h6>
+                            <p><i class="fas fa-chair me-2"></i>Table: ${order.tableNumber}</p>
+                            <p><i class="fas fa-box me-2"></i>Items: ${order.items?.length || 0}</p>
+                            <p><i class="fas fa-dollar-sign me-2"></i>Total: $${order.totalAmount?.toFixed(2) || '0.00'}</p>
+                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                <span class="badge bg-${getOrderStatusColor(order.status)}">
+                                    ${order.status.toUpperCase()}
+                                </span>
+                                <small class="text-muted">
+                                    ${new Date(order.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                statusContainer.innerHTML += orderCard;
+            });
+        }
+        
+        function getOrderStatusColor(status) {
+            switch(status) {
+                case 'pending': return 'warning';
+                case 'preparing': return 'info';
+                case 'ready': return 'success';
+                case 'completed': return 'secondary';
+                default: return 'dark';
+            }
+        }
+        
         // Show notification
-        function showNotification(message) {
+        function showNotification(message, type = 'info') {
+            Toast.show(message, type);
+            
+            // Browser notification
             if ('Notification' in window && Notification.permission === 'granted') {
                 new Notification('Smart Waiter Update', {
                     body: message,
-                    icon: '/favicon.ico'
+                    icon: 'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/icons/utensils.svg'
                 });
-            } else {
-                alert(message);
             }
         }
-
+        
         // Request notification permission
-        if ('Notification' in window) {
-            Notification.requestPermission();
+        function requestNotificationPermission() {
+            if ('Notification' in window && Notification.permission === 'default') {
+                Notification.requestPermission();
+            }
         }
-
-        // Logout
-        document.getElementById('logoutBtn').addEventListener('click', function(e) {
+        
+        // Contact form submission
+        document.getElementById('contactForm').addEventListener('submit', function(e) {
             e.preventDefault();
-            localStorage.clear();
-            window.location.href = '../auth/index.html';
+            Toast.show('Message sent successfully! We\'ll get back to you soon.', 'success');
+            this.reset();
         });
-
-        // Load initial data
-        loadMenu();
-        loadOrderStatus();
+        
+        // Logout
+        function logout() {
+            if (socket) socket.disconnect();
+            Auth.logout();
+        }
+        
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', initApp);
     </script>
-    <!-- Load configuration -->
-<script src="config.js"></script>
-
-<!-- Socket.io from backend -->
-<script src="https://smart-waiter-backend.onrender.com/socket.io/socket.io.js"></script>
 </body>
 </html>

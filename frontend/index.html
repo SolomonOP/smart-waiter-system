@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Smart Waiter System - Live</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -28,6 +29,9 @@
             border-radius: 20px;
             font-size: 14px;
             font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
         }
         
         .status-online {
@@ -38,6 +42,11 @@
         .status-offline {
             background: rgba(244, 67, 54, 0.2);
             border: 1px solid #F44336;
+        }
+        
+        .status-loading {
+            background: rgba(255, 193, 7, 0.2);
+            border: 1px solid #FFC107;
         }
         
         .qr-code {
@@ -53,11 +62,45 @@
             padding: 20px;
             margin: 10px 0;
             transition: transform 0.3s;
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
         
         .feature-card:hover {
             transform: translateY(-5px);
             background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .portal-btn {
+            padding: 15px;
+            border-radius: 10px;
+            font-weight: 600;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            text-decoration: none;
+        }
+        
+        .portal-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+        
+        .info-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 15px;
+            margin: 10px 0;
+            font-size: 0.9rem;
+        }
+        
+        .connection-info {
+            font-family: monospace;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 0.85rem;
         }
     </style>
 </head>
@@ -68,37 +111,53 @@
                 <h1 class="display-4 mb-3">🍽️ Smart Waiter System</h1>
                 <p class="lead">Real-time Restaurant Management System - Live on Render</p>
                 
-                <div class="d-flex justify-content-center align-items-center gap-3 mb-4">
-                    <div id="api-status" class="status-badge status-offline">
-                        🔌 Checking API...
+                <div class="d-flex justify-content-center align-items-center gap-3 mb-4 flex-wrap">
+                    <div id="api-status" class="status-badge status-loading">
+                        <span class="spinner-border spinner-border-sm" role="status"></span>
+                        <span>Checking API...</span>
                     </div>
-                    <div id="socket-status" class="status-badge status-offline">
-                        📡 Checking Socket...
+                    <div id="socket-status" class="status-badge status-loading">
+                        <span class="spinner-border spinner-border-sm" role="status"></span>
+                        <span>Checking Socket...</span>
                     </div>
                 </div>
             </div>
             
-            <div class="row">
+            <div class="row mb-5">
                 <div class="col-md-6">
                     <h3 class="mb-4">🚀 Quick Access</h3>
                     <div class="d-grid gap-3">
-                        <a href="auth/index.html" class="btn btn-light btn-lg">
-                            👤 Customer Portal
+                        <a href="auth/index.html" class="portal-btn btn-light">
+                            <i class="fas fa-user"></i>
+                            <span>Customer Portal</span>
                         </a>
-                        <a href="chef/dashboard.html" class="btn btn-primary btn-lg">
-                            👨‍🍳 Chef Dashboard
+                        <a href="chef/dashboard.html" class="portal-btn btn-primary">
+                            <i class="fas fa-utensils"></i>
+                            <span>Chef Dashboard</span>
                         </a>
-                        <a href="admin/dashboard.html" class="btn btn-warning btn-lg">
-                            👑 Admin Dashboard
+                        <a href="admin/dashboard.html" class="portal-btn btn-warning">
+                            <i class="fas fa-cog"></i>
+                            <span>Admin Dashboard</span>
                         </a>
                     </div>
                     
                     <div class="mt-5">
-                        <h4>📋 Demo Accounts</h4>
-                        <div class="feature-card">
-                            <strong>Customer:</strong> customer@demo.com / 123456<br>
-                            <strong>Chef:</strong> chef@demo.com / 123456<br>
-                            <strong>Admin:</strong> admin@demo.com / 123456
+                        <h5>📋 Demo Accounts</h5>
+                        <div class="info-card">
+                            <div class="row">
+                                <div class="col-12 mb-2">
+                                    <strong><i class="fas fa-user me-2"></i>Customer:</strong><br>
+                                    <small>customer@demo.com / 123456</small>
+                                </div>
+                                <div class="col-12 mb-2">
+                                    <strong><i class="fas fa-utensils me-2"></i>Chef:</strong><br>
+                                    <small>chef@demo.com / 123456</small>
+                                </div>
+                                <div class="col-12">
+                                    <strong><i class="fas fa-cog me-2"></i>Admin:</strong><br>
+                                    <small>admin@demo.com / 123456</small>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -106,47 +165,62 @@
                 <div class="col-md-6">
                     <h3 class="mb-4">✨ Features</h3>
                     <div class="feature-card">
-                        <h5>📱 QR Code Ordering</h5>
-                        <p>Customers scan QR code to access menu</p>
+                        <h5><i class="fas fa-qrcode me-2"></i>QR Code Ordering</h5>
+                        <p class="mb-0 small">Customers scan QR code to access menu</p>
                     </div>
                     <div class="feature-card">
-                        <h5>⚡ Real-time Updates</h5>
-                        <p>Instant order tracking and status updates</p>
+                        <h5><i class="fas fa-bolt me-2"></i>Real-time Updates</h5>
+                        <p class="mb-0 small">Instant order tracking and status updates</p>
                     </div>
                     <div class="feature-card">
-                        <h5>👥 Multi-role Access</h5>
-                        <p>Customer, Chef, and Admin dashboards</p>
+                        <h5><i class="fas fa-users me-2"></i>Multi-role Access</h5>
+                        <p class="mb-0 small">Customer, Chef, and Admin dashboards</p>
                     </div>
                     <div class="feature-card">
-                        <h5>📊 Live Analytics</h5>
-                        <p>Real-time sales and order analytics</p>
+                        <h5><i class="fas fa-chart-line me-2"></i>Live Analytics</h5>
+                        <p class="mb-0 small">Real-time sales and order analytics</p>
                     </div>
                     
-                    <div class="mt-4 text-center">
-                        <h5>🔗 System URLs</h5>
-                        <div class="feature-card">
-                            <p><strong>Frontend:</strong> <span id="frontend-url">Loading...</span></p>
-                            <p><strong>Backend API:</strong> <span id="backend-url">Loading...</span></p>
+                    <div class="mt-4">
+                        <h5><i class="fas fa-link me-2"></i>System URLs</h5>
+                        <div class="connection-info">
+                            <div><strong>Frontend:</strong> <span id="frontend-url">Loading...</span></div>
+                            <div><strong>Backend API:</strong> <span id="backend-url">Loading...</span></div>
                         </div>
                     </div>
                 </div>
             </div>
             
-            <div class="text-center mt-5">
-                <h4>📱 Scan QR Code to Access</h4>
-                <div class="qr-code">
+            <div class="text-center mb-5">
+                <h4><i class="fas fa-qrcode me-2"></i>Scan QR Code to Access</h4>
+                <div class="qr-code mb-3">
                     <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://smart-waiter-frontend.onrender.com" 
-                         alt="QR Code" id="qr-code">
+                         alt="QR Code" id="qr-code" class="img-fluid">
                 </div>
-                <p class="mt-2 text-muted">Scan with phone camera to open</p>
+                <p class="text-light small">Scan with phone camera to open restaurant portal</p>
             </div>
             
-            <div class="mt-4 text-center">
-                <div id="connection-info" class="feature-card">
-                    <h5>📊 Connection Information</h5>
-                    <p id="server-time">Server time: Loading...</p>
-                    <p id="uptime">Uptime: Loading...</p>
+            <div class="mt-4">
+                <h5><i class="fas fa-info-circle me-2"></i>Connection Information</h5>
+                <div class="info-card">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p id="server-time" class="mb-2"><strong>Server time:</strong> Loading...</p>
+                            <p id="uptime" class="mb-2"><strong>Uptime:</strong> Loading...</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p id="socket-id" class="mb-2"><strong>Socket ID:</strong> Not connected</p>
+                            <p id="api-version" class="mb-0"><strong>API Version:</strong> Checking...</p>
+                        </div>
+                    </div>
                 </div>
+            </div>
+            
+            <div class="text-center mt-5 pt-4 border-top border-light">
+                <p class="small text-light">
+                    <i class="fas fa-code me-1"></i>
+                    Powered by Node.js, Socket.io, MongoDB & Render
+                </p>
             </div>
         </div>
     </div>
@@ -154,13 +228,15 @@
     <!-- Load config -->
     <script src="config.js"></script>
     <!-- Socket.io from Render backend -->
-    <script src="https://smart-waiter-backend.onrender.com/socket.io/socket.io.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     
     <script>
-        // Initialize socket connection
-        const socket = io(CONFIG.BACKEND_URL, CONFIG.SOCKET_CONFIG);
+        // Initialize
+        let socket = null;
         let apiConnected = false;
         let socketConnected = false;
+        let connectionChecks = 0;
+        const maxConnectionChecks = 10;
         
         // Update status display
         function updateStatus() {
@@ -168,82 +244,191 @@
             const socketStatus = document.getElementById('socket-status');
             
             if (apiConnected) {
-                apiStatus.innerHTML = '✅ API Connected';
+                apiStatus.innerHTML = '<i class="fas fa-check-circle"></i><span>API Connected</span>';
                 apiStatus.className = 'status-badge status-online';
+            } else if (connectionChecks >= maxConnectionChecks) {
+                apiStatus.innerHTML = '<i class="fas fa-times-circle"></i><span>API Offline</span>';
+                apiStatus.className = 'status-badge status-offline';
             }
             
             if (socketConnected) {
-                socketStatus.innerHTML = '✅ Socket Connected';
+                socketStatus.innerHTML = '<i class="fas fa-check-circle"></i><span>Socket Connected</span>';
                 socketStatus.className = 'status-badge status-online';
+            } else if (connectionChecks >= maxConnectionChecks) {
+                socketStatus.innerHTML = '<i class="fas fa-times-circle"></i><span>Socket Offline</span>';
+                socketStatus.className = 'status-badge status-offline';
             }
         }
         
         // Test API connection
         async function testAPI() {
+            connectionChecks++;
+            
             try {
-                const response = await fetch(`${CONFIG.BACKEND_URL}/health`);
-                const data = await response.json();
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000);
+                
+                const response = await fetch(`${CONFIG.BACKEND_URL}/health`, {
+                    signal: controller.signal
+                });
+                
+                clearTimeout(timeoutId);
                 
                 if (response.ok) {
+                    const data = await response.json();
                     apiConnected = true;
-                    document.getElementById('server-time').textContent = 
-                        `Server time: ${new Date(data.timestamp).toLocaleTimeString()}`;
-                    document.getElementById('uptime').textContent = 
-                        `Uptime: ${Math.floor(data.uptime)} seconds`;
+                    
+                    // Update display
+                    document.getElementById('server-time').innerHTML = 
+                        `<strong>Server time:</strong> ${new Date(data.timestamp).toLocaleTimeString()}`;
+                    document.getElementById('uptime').innerHTML = 
+                        `<strong>Uptime:</strong> ${formatUptime(data.uptime)}`;
+                    document.getElementById('api-version').innerHTML = 
+                        `<strong>API Version:</strong> ${data.version || '1.0.0'}`;
+                    
                     updateStatus();
+                    return true;
                 }
             } catch (error) {
-                console.error('API test failed:', error);
+                console.warn('API test failed (attempt', connectionChecks, '):', error.message);
+                
+                if (connectionChecks >= maxConnectionChecks) {
+                    document.getElementById('server-time').innerHTML = 
+                        '<strong>Server time:</strong> API not responding';
+                    document.getElementById('uptime').innerHTML = 
+                        '<strong>Uptime:</strong> Unknown';
+                    document.getElementById('api-version').innerHTML = 
+                        '<strong>API Version:</strong> Unavailable';
+                }
             }
+            
+            updateStatus();
+            return false;
         }
         
-        // Socket event handlers
-        socket.on('connect', () => {
-            socketConnected = true;
-            console.log('✅ Socket.io connected to:', CONFIG.BACKEND_URL);
-            updateStatus();
+        // Format uptime
+        function formatUptime(seconds) {
+            if (!seconds) return 'Unknown';
             
-            // Register with server
-            socket.emit('register', {
-                role: 'visitor',
-                email: 'portal@system.com'
+            const days = Math.floor(seconds / (3600 * 24));
+            const hours = Math.floor((seconds % (3600 * 24)) / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = Math.floor(seconds % 60);
+            
+            if (days > 0) return `${days}d ${hours}h`;
+            if (hours > 0) return `${hours}h ${minutes}m`;
+            if (minutes > 0) return `${minutes}m ${secs}s`;
+            return `${secs}s`;
+        }
+        
+        // Initialize socket connection
+        function initSocket() {
+            if (socket) {
+                socket.disconnect();
+            }
+            
+            socket = io(CONFIG.BACKEND_URL, {
+                reconnection: true,
+                reconnectionAttempts: 5,
+                reconnectionDelay: 1000,
+                transports: ['websocket', 'polling']
             });
-        });
-        
-        socket.on('welcome', (data) => {
-            console.log('Server welcome:', data);
-        });
-        
-        socket.on('connect_error', (error) => {
-            socketConnected = false;
-            console.error('Socket connection error:', error);
-            updateStatus();
-        });
+            
+            socket.on('connect', () => {
+                socketConnected = true;
+                console.log('✅ Socket.io connected to:', CONFIG.BACKEND_URL);
+                document.getElementById('socket-id').innerHTML = 
+                    `<strong>Socket ID:</strong> ${socket.id.substring(0, 8)}...`;
+                updateStatus();
+                
+                // Register with server
+                socket.emit('register', {
+                    role: 'portal',
+                    client: 'main_portal'
+                });
+            });
+            
+            socket.on('welcome', (data) => {
+                console.log('Server welcome:', data.message);
+            });
+            
+            socket.on('disconnect', (reason) => {
+                socketConnected = false;
+                console.log('Socket disconnected:', reason);
+                document.getElementById('socket-id').innerHTML = 
+                    '<strong>Socket ID:</strong> Disconnected';
+                updateStatus();
+            });
+            
+            socket.on('connect_error', (error) => {
+                socketConnected = false;
+                console.error('Socket connection error:', error.message);
+                updateStatus();
+            });
+            
+            socket.on('system-status', (data) => {
+                console.log('System status update:', data);
+            });
+        }
         
         // Update URLs
-        document.getElementById('frontend-url').textContent = CONFIG.FRONTEND_URL;
-        document.getElementById('backend-url').textContent = CONFIG.BACKEND_URL;
-        
-        // Update QR code with actual URL
-        document.getElementById('qr-code').src = 
-            `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(CONFIG.FRONTEND_URL)}`;
+        function updateURLs() {
+            document.getElementById('frontend-url').textContent = CONFIG.FRONTEND_URL;
+            document.getElementById('backend-url').textContent = CONFIG.BACKEND_URL;
+            
+            // Update QR code with actual URL
+            const qrImg = document.getElementById('qr-code');
+            qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(CONFIG.FRONTEND_URL + '/auth/index.html')}`;
+            qrImg.alt = `QR Code for ${CONFIG.FRONTEND_URL}`;
+        }
         
         // Initialize
-        window.onload = () => {
-            testAPI();
+        window.onload = async () => {
+            console.log('Smart Waiter Portal initialized');
+            console.log('Config:', CONFIG);
             
-            // Auto-refresh health every 30 seconds
-            setInterval(testAPI, 30000);
+            updateURLs();
             
-            // Send ping every 10 seconds to keep connection alive
+            // Initial connection tests
+            await testAPI();
+            initSocket();
+            
+            // Keep testing API every 30 seconds
+            setInterval(async () => {
+                await testAPI();
+            }, 30000);
+            
+            // Send ping every 15 seconds to keep connection alive
             setInterval(() => {
-                if (socketConnected) {
-                    socket.emit('ping', (data) => {
-                        console.log('Pong received:', data);
+                if (socket && socket.connected) {
+                    socket.emit('ping', Date.now(), (response) => {
+                        console.log('Ping response:', response);
                     });
+                }
+            }, 15000);
+            
+            // Auto-reconnect socket if disconnected for too long
+            setInterval(() => {
+                if (!socketConnected) {
+                    console.log('Attempting socket reconnection...');
+                    initSocket();
                 }
             }, 10000);
         };
+        
+        // Add offline/online detection
+        window.addEventListener('online', () => {
+            console.log('Browser is online');
+            testAPI();
+            initSocket();
+        });
+        
+        window.addEventListener('offline', () => {
+            console.log('Browser is offline');
+            apiConnected = false;
+            socketConnected = false;
+            updateStatus();
+        });
     </script>
 </body>
 </html>
