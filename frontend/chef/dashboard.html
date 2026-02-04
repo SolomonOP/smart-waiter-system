@@ -194,6 +194,44 @@
             font-weight: 600;
         }
         
+        .auto-refresh-indicator {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: #28a745;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            z-index: 1001;
+            display: none;
+        }
+        
+        .live-update {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(40, 167, 69, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
+        }
+        
+        .init-loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            flex-direction: column;
+            color: white;
+        }
+        
         @media (max-width: 768px) {
             .sidebar {
                 width: 70px;
@@ -216,8 +254,25 @@
     </style>
 </head>
 <body>
+    <!-- Initial Loading Screen -->
+    <div class="init-loading" id="initLoading">
+        <div class="spinner-border" style="width: 3rem; height: 3rem;" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-3" id="initStatus">Initializing Chef Dashboard...</p>
+        <div id="initError" class="alert alert-danger mt-3" style="display: none; max-width: 500px;">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <span id="errorMessage">Unable to connect to server. Please try again later.</span>
+        </div>
+    </div>
+
+    <!-- Auto Refresh Indicator -->
+    <div class="auto-refresh-indicator" id="autoRefreshIndicator">
+        <i class="fas fa-sync-alt fa-spin me-1"></i> Live Updates Active
+    </div>
+
     <!-- Sidebar -->
-    <div class="sidebar" id="sidebar">
+    <div class="sidebar" id="sidebar" style="display: none;">
         <div class="sidebar-header">
             <h3 class="text-center">Chef Dashboard</h3>
         </div>
@@ -250,7 +305,7 @@
     </div>
 
     <!-- Main Content -->
-    <div class="main-content" id="mainContent">
+    <div class="main-content" id="mainContent" style="display: none;">
         <!-- Top Navigation -->
         <nav class="navbar navbar-light bg-white shadow-sm mb-4 rounded">
             <div class="container-fluid">
@@ -271,7 +326,7 @@
                             <span id="chefName">Loading...</span>
                         </button>
                         <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="#"><i class="fas fa-user me-2"></i>Profile</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="viewProfile()"><i class="fas fa-user me-2"></i>Profile</a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="#" onclick="logout()"><i class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
                         </ul>
@@ -471,22 +526,247 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Load config -->
-    <script src="../config.js"></script>
-    <!-- Load utils -->
-    <script src="../js/utils.js"></script>
-    <!-- Load Socket.io -->
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     
     <script>
+        // Configuration
+        const CONFIG = {
+            BACKEND_URL: 'https://smart-waiter-backend.onrender.com',
+            API_ENDPOINTS: {
+                CHEF_ORDERS: '/api/chef/orders',
+                CHEF_ORDER_ACCEPT: (id) => `/api/chef/orders/${id}/accept`,
+                CHEF_ORDER_REJECT: (id) => `/api/chef/orders/${id}/reject`,
+                CHEF_ORDER_READY: (id) => `/api/chef/orders/${id}/ready`,
+                CHEF_ORDER_COMPLETE: (id) => `/api/chef/orders/${id}/complete`,
+                CHEF_MENU: '/api/chef/menu',
+                CHEF_MENU_UPDATE: (id) => `/api/chef/menu/${id}`,
+                CHEF_SERVICE_REQUESTS: '/api/chef/service-requests',
+                CHEF_NEW_ORDER: '/api/chef/orders/new'
+            }
+        };
+
+        // Utility Classes
+        const Auth = {
+            check: (role) => {
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    if (!window.location.href.includes('login.html')) {
+                        window.location.href = '../auth/login.html';
+                    }
+                    return false;
+                }
+                return true;
+            },
+            getUser: () => {
+                const userStr = localStorage.getItem('user');
+                return userStr ? JSON.parse(userStr) : null;
+            },
+            logout: () => {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                window.location.href = '../auth/login.html';
+            }
+        };
+
+        const SocketManager = {
+            connect: () => {
+                try {
+                    const socket = io(CONFIG.BACKEND_URL, {
+                        transports: ['websocket', 'polling'],
+                        reconnection: true,
+                        reconnectionAttempts: 5,
+                        reconnectionDelay: 1000
+                    });
+                    
+                    socket.on('connect', () => {
+                        console.log('Socket connected successfully');
+                        showNotification('Live updates connected', 'success');
+                        showAutoRefreshIndicator(true);
+                    });
+                    
+                    socket.on('disconnect', () => {
+                        console.log('Socket disconnected');
+                        showNotification('Live updates disconnected', 'warning');
+                        showAutoRefreshIndicator(false);
+                    });
+                    
+                    socket.on('connect_error', (error) => {
+                        console.error('Socket connection error:', error);
+                    });
+                    
+                    return socket;
+                } catch (error) {
+                    console.error('Socket connection error:', error);
+                    return null;
+                }
+            }
+        };
+
+        const API = {
+            get: async (url) => {
+                try {
+                    const token = localStorage.getItem('token');
+                    const headers = {
+                        'Content-Type': 'application/json'
+                    };
+                    
+                    if (token) {
+                        headers['Authorization'] = `Bearer ${token}`;
+                    }
+                    
+                    const response = await fetch(CONFIG.BACKEND_URL + url, {
+                        headers: headers
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    
+                    return response.json();
+                } catch (error) {
+                    console.error('API GET Error:', error);
+                    throw error;
+                }
+            },
+            post: async (url, data) => {
+                try {
+                    const token = localStorage.getItem('token');
+                    const headers = {
+                        'Content-Type': 'application/json'
+                    };
+                    
+                    if (token) {
+                        headers['Authorization'] = `Bearer ${token}`;
+                    }
+                    
+                    const response = await fetch(CONFIG.BACKEND_URL + url, {
+                        method: 'POST',
+                        headers: headers,
+                        body: JSON.stringify(data)
+                    });
+                    
+                    if (!response.ok) {
+                        let errorText = await response.text();
+                        throw new Error(`HTTP ${response.status}: ${errorText}`);
+                    }
+                    
+                    return response.json();
+                } catch (error) {
+                    console.error('API POST Error:', error);
+                    throw error;
+                }
+            },
+            put: async (url, data) => {
+                try {
+                    const token = localStorage.getItem('token');
+                    const headers = {
+                        'Content-Type': 'application/json'
+                    };
+                    
+                    if (token) {
+                        headers['Authorization'] = `Bearer ${token}`;
+                    }
+                    
+                    const response = await fetch(CONFIG.BACKEND_URL + url, {
+                        method: 'PUT',
+                        headers: headers,
+                        body: JSON.stringify(data)
+                    });
+                    
+                    if (!response.ok) {
+                        let errorText = await response.text();
+                        throw new Error(`HTTP ${response.status}: ${errorText}`);
+                    }
+                    
+                    return response.json();
+                } catch (error) {
+                    console.error('API PUT Error:', error);
+                    throw error;
+                }
+            }
+        };
+
+        const Toast = {
+            show: (message, type = 'info') => {
+                const toastContainer = document.querySelector('.toast-container');
+                if (!toastContainer) {
+                    // Create toast container if it doesn't exist
+                    const container = document.createElement('div');
+                    container.className = 'toast-container position-fixed top-0 end-0 p-3';
+                    container.style.zIndex = '9999';
+                    document.body.appendChild(container);
+                }
+                
+                const toastId = 'toast-' + Date.now();
+                
+                const typeClasses = {
+                    success: 'bg-success text-white',
+                    error: 'bg-danger text-white',
+                    warning: 'bg-warning text-dark',
+                    info: 'bg-info text-white'
+                };
+                
+                const toastHtml = `
+                    <div id="${toastId}" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+                        <div class="toast-header ${typeClasses[type] || 'bg-primary text-white'}">
+                            <strong class="me-auto">Chef Dashboard</strong>
+                            <small>Just now</small>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+                        </div>
+                        <div class="toast-body">
+                            ${message}
+                        </div>
+                    </div>
+                `;
+                
+                toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+                const toastElement = document.getElementById(toastId);
+                const toast = new bootstrap.Toast(toastElement, { 
+                    delay: 3000,
+                    autohide: true
+                });
+                
+                toast.show();
+                
+                toastElement.addEventListener('hidden.bs.toast', () => {
+                    toastElement.remove();
+                });
+            }
+        };
+
+        const Loading = {
+            show: (message = 'Loading...') => {
+                Loading.hide();
+                
+                const loadingId = 'loading-' + Date.now();
+                const loadingHtml = `
+                    <div id="${loadingId}" class="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" 
+                         style="background: rgba(0,0,0,0.7); z-index: 9999;">
+                        <div class="text-center">
+                            <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <div class="text-white fs-5">${message}</div>
+                        </div>
+                    </div>
+                `;
+                document.body.insertAdjacentHTML('beforeend', loadingHtml);
+            },
+            hide: () => {
+                const loadingElements = document.querySelectorAll('[id^="loading-"]');
+                loadingElements.forEach(el => el.remove());
+            }
+        };
+
         // Initialize
         let socket = null;
         let currentOrders = [];
         let serviceRequests = [];
+        let menuItems = [];
         let notifications = [];
         let newOrderItems = [];
-        let menuItems = [];
         let currentFilter = 'all';
+        let autoRefreshInterval = null;
         
         // Application state
         const AppState = {
@@ -496,56 +776,139 @@
         
         // Initialize application
         async function initApp() {
-            // Check authentication
-            if (!Auth.check('chef')) {
-                return;
+            try {
+                updateInitStatus('Checking authentication...');
+                
+                // Check authentication
+                if (!Auth.check('chef')) {
+                    return;
+                }
+                
+                updateInitStatus('Connecting to server...');
+                
+                // Check backend connection
+                const healthCheck = await fetch(CONFIG.BACKEND_URL + '/health');
+                if (!healthCheck.ok) {
+                    throw new Error('Backend server not available');
+                }
+                
+                updateInitStatus('Loading chef profile...');
+                
+                // Set chef name
+                const user = Auth.getUser();
+                document.getElementById('chefName').textContent = `${user.firstName} ${user.lastName}`;
+                
+                updateInitStatus('Setting up real-time updates...');
+                
+                // Initialize socket
+                initSocket();
+                
+                updateInitStatus('Loading dashboard...');
+                
+                // Setup auto-refresh
+                setupAutoRefresh();
+                
+                // Show main interface
+                setTimeout(() => {
+                    document.getElementById('initLoading').style.display = 'none';
+                    document.getElementById('sidebar').style.display = 'block';
+                    document.getElementById('mainContent').style.display = 'block';
+                    
+                    // Load dashboard data
+                    loadDashboard();
+                    
+                    // Show welcome message
+                    Toast.show(`Welcome, Chef ${user.firstName}!`, 'success');
+                }, 500);
+                
+            } catch (error) {
+                console.error('System initialization error:', error);
+                
+                document.getElementById('initStatus').style.display = 'none';
+                document.getElementById('initError').style.display = 'block';
+                document.getElementById('errorMessage').textContent = 
+                    `Unable to connect to server: ${error.message}. Please try again later.`;
+            }
+        }
+        
+        function updateInitStatus(message) {
+            const statusElement = document.getElementById('initStatus');
+            if (statusElement) {
+                statusElement.textContent = message;
+            }
+        }
+        
+        function showAutoRefreshIndicator(show) {
+            const indicator = document.getElementById('autoRefreshIndicator');
+            if (indicator) {
+                indicator.style.display = show ? 'block' : 'none';
+            }
+        }
+        
+        // Setup auto-refresh
+        function setupAutoRefresh() {
+            // Clear existing interval
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
             }
             
-            // Set chef name
-            const user = Auth.getUser();
-            document.getElementById('chefName').textContent = `${user.firstName} ${user.lastName}`;
-            
-            // Initialize socket
-            initSocket();
-            
-            // Load dashboard data
-            await loadDashboard();
-            
-            // Auto-refresh dashboard every 30 seconds
-            setInterval(async () => {
+            // Setup auto-refresh every 30 seconds for orders
+            autoRefreshInterval = setInterval(async () => {
                 if (AppState.currentSection === 'dashboard') {
                     await loadDashboard();
                 }
             }, 30000);
+            
+            // Also refresh menu every 2 minutes
+            setInterval(async () => {
+                if (AppState.currentSection === 'menu-management') {
+                    await loadMenuItems();
+                }
+            }, 120000);
         }
         
         // Initialize socket
         function initSocket() {
             socket = SocketManager.connect();
             
-            socket.on('new-order', (order) => {
-                console.log('New order received:', order);
-                addNotification(`New order #${order.orderNumber} for table ${order.tableNumber}`, 'info');
-                if (AppState.currentSection === 'dashboard') {
-                    loadDashboard();
-                }
-            });
-            
-            socket.on('order-status-change', (data) => {
-                console.log('Order status changed:', data);
-                addNotification(`Order #${data.orderId.substring(0, 8)} status changed to ${data.status}`, 'warning');
-                if (AppState.currentSection === 'dashboard') {
-                    loadDashboard();
-                }
-            });
-            
-            socket.on('new-service-request', (request) => {
-                console.log('New service request:', request);
-                addNotification(`New ${getServiceName(request.type)} request for table ${request.tableNumber}`, 'warning');
-                if (AppState.currentSection === 'dashboard') {
-                    loadDashboard();
-                }
-            });
+            if (socket) {
+                // New order received
+                socket.on('new-order', (order) => {
+                    console.log('New order received:', order);
+                    addNotification(`New order #${order.orderNumber} for table ${order.tableNumber}`, 'info');
+                    if (AppState.currentSection === 'dashboard') {
+                        loadDashboard();
+                    }
+                });
+                
+                // Order status change
+                socket.on('status-update', (data) => {
+                    console.log('Order status changed:', data);
+                    addNotification(`Order status updated to ${data.status}`, 'warning');
+                    if (AppState.currentSection === 'dashboard') {
+                        loadDashboard();
+                    }
+                });
+                
+                // New service request
+                socket.on('new-service-request', (request) => {
+                    console.log('New service request:', request);
+                    addNotification(`New ${getServiceName(request.type)} request for table ${request.tableNumber}`, 'warning');
+                    if (AppState.currentSection === 'dashboard') {
+                        loadDashboard();
+                    }
+                });
+                
+                // Reconnect handler
+                socket.on('reconnect', () => {
+                    Toast.show('Live updates reconnected', 'success');
+                    if (AppState.currentSection === 'dashboard') {
+                        loadDashboard();
+                    } else if (AppState.currentSection === 'menu-management') {
+                        loadMenuItems();
+                    }
+                });
+            }
         }
         
         // Sidebar toggle
@@ -612,14 +975,12 @@
         // Load dashboard data
         async function loadDashboard() {
             try {
-                const token = localStorage.getItem('token');
-                
                 // Load orders
-                const ordersData = await API.get(CONFIG.API_ENDPOINTS.CHEF_ORDERS, token);
+                const ordersData = await API.get(CONFIG.API_ENDPOINTS.CHEF_ORDERS);
                 currentOrders = ordersData.orders || [];
                 
                 // Load service requests
-                const requestsData = await API.get(CONFIG.API_ENDPOINTS.CHEF_SERVICE_REQUESTS, token);
+                const requestsData = await API.get(CONFIG.API_ENDPOINTS.CHEF_SERVICE_REQUESTS);
                 serviceRequests = requestsData.requests || [];
                 
                 // Update statistics
@@ -634,6 +995,33 @@
             } catch (error) {
                 console.error('Error loading dashboard:', error);
                 Toast.show('Failed to load dashboard data', 'error');
+                
+                // Show error in orders container
+                const ordersContainer = document.getElementById('currentOrders');
+                if (ordersContainer) {
+                    ordersContainer.innerHTML = `
+                        <div class="col-12 text-center py-4">
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                Unable to load orders. Please try again later.
+                            </div>
+                            <button class="btn btn-primary mt-2" onclick="loadDashboard()">
+                                <i class="fas fa-sync-alt me-2"></i> Retry
+                            </button>
+                        </div>
+                    `;
+                }
+                
+                // Show error in service requests
+                const requestsContainer = document.getElementById('serviceRequests');
+                if (requestsContainer) {
+                    requestsContainer.innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Unable to load service requests.
+                        </div>
+                    `;
+                }
             }
         }
         
@@ -666,50 +1054,105 @@
             }
             
             filteredOrders.forEach(order => {
-                const orderCard = `
-                    <div class="col-md-6 col-lg-4 mb-3">
-                        <div class="card order-card order-${order.status}" onclick="viewOrderDetails('${order._id}')">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-start mb-2">
-                                    <h6 class="mb-0">Order #${order.orderNumber}</h6>
-                                    <span class="status-badge badge-${order.status}">
-                                        ${order.status.toUpperCase()}
-                                    </span>
-                                </div>
-                                <p class="text-muted mb-1"><i class="fas fa-chair me-1"></i>Table: ${order.tableNumber}</p>
-                                <p class="mb-1"><i class="fas fa-box me-1"></i>Items: ${order.items?.length || 0}</p>
-                                <p class="mb-2"><i class="fas fa-dollar-sign me-1"></i>Total: $${order.totalAmount?.toFixed(2) || '0.00'}</p>
-                                <div class="d-flex justify-content-between">
-                                    <small class="text-muted">
-                                        <i class="fas fa-clock me-1"></i>
-                                        ${new Date(order.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                                    </small>
-                                    <div>
-                                        ${order.status === 'pending' ? `
-                                            <button class="btn btn-sm btn-success me-1" onclick="acceptOrder('${order._id}', event)">
-                                                <i class="fas fa-check"></i>
-                                            </button>
-                                            <button class="btn btn-sm btn-danger" onclick="rejectOrder('${order._id}', event)">
-                                                <i class="fas fa-times"></i>
-                                            </button>
-                                        ` : ''}
-                                        ${order.status === 'preparing' ? `
-                                            <button class="btn btn-sm btn-success" onclick="completeOrder('${order._id}', event)">
-                                                Mark Ready
-                                            </button>
-                                        ` : ''}
-                                        ${order.status === 'ready' ? `
-                                            <button class="btn btn-sm btn-success" onclick="completeOrder('${order._id}', event)">
-                                                Complete
-                                            </button>
-                                        ` : ''}
-                                    </div>
+                const orderCard = createOrderCard(order);
+                container.innerHTML += orderCard;
+            });
+            
+            // Add event listeners after creating cards
+            setTimeout(() => {
+                setupOrderActionListeners();
+            }, 100);
+        }
+        
+        function createOrderCard(order) {
+            let actionButtons = '';
+            
+            if (order.status === 'pending') {
+                actionButtons = `
+                    <button class="btn btn-sm btn-success me-1 accept-order" data-order-id="${order._id}">
+                        <i class="fas fa-check"></i>
+                    </button>
+                    <button class="btn btn-sm btn-danger reject-order" data-order-id="${order._id}">
+                        <i class="fas fa-times"></i>
+                    </button>
+                `;
+            } else if (order.status === 'preparing') {
+                actionButtons = `
+                    <button class="btn btn-sm btn-success mark-ready" data-order-id="${order._id}">
+                        Mark Ready
+                    </button>
+                `;
+            } else if (order.status === 'ready') {
+                actionButtons = `
+                    <button class="btn btn-sm btn-success complete-order" data-order-id="${order._id}">
+                        Complete
+                    </button>
+                `;
+            }
+            
+            return `
+                <div class="col-md-6 col-lg-4 mb-3">
+                    <div class="card order-card order-${order.status}" onclick="viewOrderDetails('${order._id}')">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h6 class="mb-0">Order #${order.orderNumber}</h6>
+                                <span class="status-badge badge-${order.status}">
+                                    ${order.status.toUpperCase()}
+                                </span>
+                            </div>
+                            <p class="text-muted mb-1"><i class="fas fa-chair me-1"></i>Table: ${order.tableNumber}</p>
+                            <p class="mb-1"><i class="fas fa-box me-1"></i>Items: ${order.items?.length || 0}</p>
+                            <p class="mb-2"><i class="fas fa-dollar-sign me-1"></i>Total: $${order.totalAmount?.toFixed(2) || '0.00'}</p>
+                            <div class="d-flex justify-content-between">
+                                <small class="text-muted">
+                                    <i class="fas fa-clock me-1"></i>
+                                    ${new Date(order.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                </small>
+                                <div>
+                                    ${actionButtons}
                                 </div>
                             </div>
                         </div>
                     </div>
-                `;
-                container.innerHTML += orderCard;
+                </div>
+            `;
+        }
+        
+        function setupOrderActionListeners() {
+            // Accept order buttons
+            document.querySelectorAll('.accept-order').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const orderId = this.getAttribute('data-order-id');
+                    acceptOrder(orderId, e);
+                });
+            });
+            
+            // Reject order buttons
+            document.querySelectorAll('.reject-order').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const orderId = this.getAttribute('data-order-id');
+                    rejectOrder(orderId, e);
+                });
+            });
+            
+            // Mark ready buttons
+            document.querySelectorAll('.mark-ready').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const orderId = this.getAttribute('data-order-id');
+                    markReady(orderId, e);
+                });
+            });
+            
+            // Complete order buttons
+            document.querySelectorAll('.complete-order').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const orderId = this.getAttribute('data-order-id');
+                    completeOrder(orderId, e);
+                });
             });
         }
         
@@ -737,30 +1180,45 @@
             }
             
             serviceRequests.forEach(request => {
-                const requestElement = `
-                    <div class="service-request">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="mb-1">
-                                    <i class="fas ${getServiceIcon(request.type)} me-2"></i>
-                                    ${getServiceName(request.type)} Request
-                                </h6>
-                                <p class="mb-1"><i class="fas fa-chair me-1"></i>Table: ${request.tableNumber}</p>
-                                <small class="text-muted">
-                                    <i class="fas fa-clock me-1"></i>
-                                    ${new Date(request.createdAt).toLocaleTimeString()}
-                                </small>
-                            </div>
-                            <div>
-                                <button class="btn btn-sm btn-primary" onclick="assignServiceRequest('${request._id}', event)">
-                                    <i class="fas fa-check me-1"></i> Assign to Me
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                `;
+                const requestElement = createServiceRequestElement(request);
                 container.innerHTML += requestElement;
             });
+            
+            // Add event listeners
+            setTimeout(() => {
+                document.querySelectorAll('.assign-request').forEach(btn => {
+                    btn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        const requestId = this.getAttribute('data-request-id');
+                        assignServiceRequest(requestId, e);
+                    });
+                });
+            }, 100);
+        }
+        
+        function createServiceRequestElement(request) {
+            return `
+                <div class="service-request">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-1">
+                                <i class="fas ${getServiceIcon(request.type)} me-2"></i>
+                                ${getServiceName(request.type)} Request
+                            </h6>
+                            <p class="mb-1"><i class="fas fa-chair me-1"></i>Table: ${request.tableNumber}</p>
+                            <small class="text-muted">
+                                <i class="fas fa-clock me-1"></i>
+                                ${new Date(request.createdAt).toLocaleTimeString()}
+                            </small>
+                        </div>
+                        <div>
+                            <button class="btn btn-sm btn-primary assign-request" data-request-id="${request._id}">
+                                <i class="fas fa-check me-1"></i> Assign to Me
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
         }
         
         function getServiceIcon(type) {
@@ -783,14 +1241,13 @@
         
         // Order actions
         async function acceptOrder(orderId, event) {
-            event.stopPropagation();
+            if (event) event.stopPropagation();
             
             try {
                 Loading.show('Accepting order...');
-                const token = localStorage.getItem('token');
                 const user = Auth.getUser();
                 
-                await API.post(CONFIG.API_ENDPOINTS.CHEF_ORDER_ACCEPT(orderId), { chefId: user._id }, token);
+                await API.post(CONFIG.API_ENDPOINTS.CHEF_ORDER_ACCEPT(orderId), { chefId: user._id });
                 
                 // Update local data
                 const order = currentOrders.find(o => o._id === orderId);
@@ -823,15 +1280,14 @@
         }
         
         async function rejectOrder(orderId, event) {
-            event.stopPropagation();
+            if (event) event.stopPropagation();
             
             if (!confirm('Are you sure you want to reject this order?')) return;
             
             try {
                 Loading.show('Rejecting order...');
-                const token = localStorage.getItem('token');
                 
-                await API.post(CONFIG.API_ENDPOINTS.CHEF_ORDER_REJECT(orderId), {}, token);
+                await API.post(CONFIG.API_ENDPOINTS.CHEF_ORDER_REJECT(orderId), {});
                 
                 // Update local data
                 currentOrders = currentOrders.filter(o => o._id !== orderId);
@@ -858,45 +1314,64 @@
             }
         }
         
-        async function completeOrder(orderId, event) {
-            event.stopPropagation();
+        async function markReady(orderId, event) {
+            if (event) event.stopPropagation();
             
             try {
-                Loading.show('Processing order...');
-                const token = localStorage.getItem('token');
-                const order = currentOrders.find(o => o._id === orderId);
+                Loading.show('Marking order as ready...');
                 
-                let endpoint;
-                let newStatus;
-                
-                if (order.status === 'preparing') {
-                    endpoint = CONFIG.API_ENDPOINTS.CHEF_ORDER_READY(orderId);
-                    newStatus = 'ready';
-                } else {
-                    endpoint = CONFIG.API_ENDPOINTS.CHEF_ORDER_COMPLETE(orderId);
-                    newStatus = 'completed';
-                }
-                
-                await API.post(endpoint, {}, token);
+                await API.post(CONFIG.API_ENDPOINTS.CHEF_ORDER_READY(orderId), {});
                 
                 // Update local data
-                if (newStatus === 'ready') {
+                const order = currentOrders.find(o => o._id === orderId);
+                if (order) {
                     order.status = 'ready';
-                } else {
-                    currentOrders = currentOrders.filter(o => o._id !== orderId);
                 }
                 
                 // Refresh display
                 updateStatistics();
                 displayOrders(currentFilter);
                 
-                Toast.show(`Order marked as ${newStatus} successfully!`, 'success');
+                Toast.show('Order marked as ready!', 'success');
                 
                 // Emit socket event
                 if (socket) {
                     socket.emit('order-status-change', {
                         orderId: orderId,
-                        status: newStatus
+                        status: 'ready'
+                    });
+                }
+                
+            } catch (error) {
+                console.error('Error marking order as ready:', error);
+                Toast.show(error.message || 'Failed to update order status', 'error');
+            } finally {
+                Loading.hide();
+            }
+        }
+        
+        async function completeOrder(orderId, event) {
+            if (event) event.stopPropagation();
+            
+            try {
+                Loading.show('Completing order...');
+                
+                await API.post(CONFIG.API_ENDPOINTS.CHEF_ORDER_COMPLETE(orderId), {});
+                
+                // Update local data
+                currentOrders = currentOrders.filter(o => o._id !== orderId);
+                
+                // Refresh display
+                updateStatistics();
+                displayOrders(currentFilter);
+                
+                Toast.show('Order completed successfully!', 'success');
+                
+                // Emit socket event
+                if (socket) {
+                    socket.emit('order-status-change', {
+                        orderId: orderId,
+                        status: 'completed'
                     });
                 }
                 
@@ -909,14 +1384,13 @@
         }
         
         async function assignServiceRequest(requestId, event) {
-            event.stopPropagation();
+            if (event) event.stopPropagation();
             
             try {
                 Loading.show('Assigning request...');
-                const token = localStorage.getItem('token');
                 const user = Auth.getUser();
                 
-                await API.post(`/api/chef/service-requests/${requestId}/assign`, { chefId: user._id }, token);
+                await API.post(`/api/chef/service-requests/${requestId}/assign`, { chefId: user._id });
                 
                 // Remove from local data
                 serviceRequests = serviceRequests.filter(r => r._id !== requestId);
@@ -937,13 +1411,30 @@
         // Menu management
         async function loadMenuItems() {
             try {
-                const token = localStorage.getItem('token');
-                const data = await API.get(CONFIG.API_ENDPOINTS.CHEF_MENU, token);
+                const data = await API.get(CONFIG.API_ENDPOINTS.CHEF_MENU);
                 menuItems = data.menuItems || [];
                 displayMenuItems(menuItems);
             } catch (error) {
                 console.error('Error loading menu:', error);
                 Toast.show('Failed to load menu items', 'error');
+                
+                // Show error in menu containers
+                const availableContainer = document.getElementById('availableMenu');
+                const unavailableContainer = document.getElementById('unavailableMenu');
+                
+                if (availableContainer) {
+                    availableContainer.innerHTML = `
+                        <div class="col-12 text-center py-4">
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                Unable to load menu items. Please try again later.
+                            </div>
+                            <button class="btn btn-primary mt-2" onclick="loadMenuItems()">
+                                <i class="fas fa-sync-alt me-2"></i> Retry
+                            </button>
+                        </div>
+                    `;
+                }
             }
         }
         
@@ -976,6 +1467,9 @@
                     unavailableContainer.innerHTML += menuCard;
                 });
             }
+            
+            // Setup event listeners
+            setTimeout(setupMenuEventListeners, 100);
         }
         
         function createMenuItemCard(item) {
@@ -990,18 +1484,18 @@
                             <div class="d-flex justify-content-between align-items-center">
                                 <span class="text-primary">$${item.price?.toFixed(2) || '0.00'}</span>
                                 <div class="dropdown">
-                                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" 
+                                    <button class="btn btn-sm ${item.available ? 'btn-success' : 'btn-danger'} dropdown-toggle" 
                                             type="button" data-bs-toggle="dropdown">
                                         ${item.available ? 'Available' : 'Unavailable'}
                                     </button>
                                     <ul class="dropdown-menu">
                                         <li>
-                                            <a class="dropdown-item" href="#" onclick="updateMenuItemStatus('${item._id}', true, event)">
+                                            <a class="dropdown-item menu-status-toggle" href="#" data-item-id="${item._id}" data-status="true">
                                                 Set as Available
                                             </a>
                                         </li>
                                         <li>
-                                            <a class="dropdown-item" href="#" onclick="updateMenuItemStatus('${item._id}', false, event)">
+                                            <a class="dropdown-item menu-status-toggle" href="#" data-item-id="${item._id}" data-status="false">
                                                 Set as Unavailable
                                             </a>
                                         </li>
@@ -1014,31 +1508,24 @@
             `;
         }
         
-        function showMenuCategory(category) {
-            const availableTab = document.querySelector('.nav-link[onclick="showMenuCategory(\'available\')"]');
-            const unavailableTab = document.querySelector('.nav-link[onclick="showMenuCategory(\'unavailable\')"]');
-            
-            if (category === 'available') {
-                document.getElementById('availableMenu').style.display = 'flex';
-                document.getElementById('unavailableMenu').style.display = 'none';
-                availableTab.classList.add('active');
-                unavailableTab.classList.remove('active');
-            } else {
-                document.getElementById('availableMenu').style.display = 'none';
-                document.getElementById('unavailableMenu').style.display = 'flex';
-                availableTab.classList.remove('active');
-                unavailableTab.classList.add('active');
-            }
+        // Setup event listeners for menu item status updates
+        function setupMenuEventListeners() {
+            document.querySelectorAll('.menu-status-toggle').forEach(item => {
+                item.addEventListener('click', async function(e) {
+                    e.preventDefault();
+                    const itemId = this.getAttribute('data-item-id');
+                    const available = this.getAttribute('data-status') === 'true';
+                    
+                    await updateMenuItemStatus(itemId, available);
+                });
+            });
         }
         
-        async function updateMenuItemStatus(itemId, available, event) {
-            event.stopPropagation();
-            
+        async function updateMenuItemStatus(itemId, available) {
             try {
                 Loading.show('Updating menu item...');
-                const token = localStorage.getItem('token');
                 
-                await API.put(`/api/chef/menu/${itemId}/status`, { available }, token);
+                await API.put(CONFIG.API_ENDPOINTS.CHEF_MENU_UPDATE(itemId), { available });
                 
                 // Update local data
                 const item = menuItems.find(i => i._id === itemId);
@@ -1059,16 +1546,47 @@
             }
         }
         
+        function showMenuCategory(category) {
+            const availableTab = document.querySelector('.nav-link[onclick="showMenuCategory(\'available\')"]');
+            const unavailableTab = document.querySelector('.nav-link[onclick="showMenuCategory(\'unavailable\')"]');
+            
+            if (category === 'available') {
+                document.getElementById('availableMenu').style.display = 'flex';
+                document.getElementById('unavailableMenu').style.display = 'none';
+                availableTab.classList.add('active');
+                unavailableTab.classList.remove('active');
+            } else {
+                document.getElementById('availableMenu').style.display = 'none';
+                document.getElementById('unavailableMenu').style.display = 'flex';
+                availableTab.classList.remove('active');
+                unavailableTab.classList.add('active');
+            }
+        }
+        
         // New order functions
         async function loadMenuForNewOrder() {
             try {
-                const token = localStorage.getItem('token');
-                const data = await API.get(`${CONFIG.API_ENDPOINTS.CHEF_MENU}?available=true`, token);
+                const data = await API.get(`${CONFIG.API_ENDPOINTS.CHEF_MENU}?available=true`);
                 menuItems = data.menuItems || [];
                 displayMenuForNewOrder(menuItems);
             } catch (error) {
                 console.error('Error loading menu for new order:', error);
                 Toast.show('Failed to load menu', 'error');
+                
+                const container = document.getElementById('newOrderMenu');
+                if (container) {
+                    container.innerHTML = `
+                        <div class="col-12 text-center py-4">
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                Unable to load menu items. Please try again later.
+                            </div>
+                            <button class="btn btn-primary mt-2" onclick="loadMenuForNewOrder()">
+                                <i class="fas fa-sync-alt me-2"></i> Retry
+                            </button>
+                        </div>
+                    `;
+                }
             }
         }
         
@@ -1092,8 +1610,10 @@
                                 <p class="card-text small text-muted">${item.description}</p>
                                 <div class="d-flex justify-content-between align-items-center">
                                     <span class="text-primary">$${item.price?.toFixed(2) || '0.00'}</span>
-                                    <button class="btn btn-sm btn-outline-primary" 
-                                            onclick="addToNewOrder('${item._id}', '${item.name}', ${item.price})">
+                                    <button class="btn btn-sm btn-outline-primary add-to-new-order" 
+                                            data-id="${item._id}" 
+                                            data-name="${item.name.replace(/'/g, "\\'")}" 
+                                            data-price="${item.price}">
                                         <i class="fas fa-plus"></i> Add
                                     </button>
                                 </div>
@@ -1103,6 +1623,18 @@
                 `;
                 container.innerHTML += menuCard;
             });
+            
+            // Add event listeners
+            setTimeout(() => {
+                document.querySelectorAll('.add-to-new-order').forEach(button => {
+                    button.addEventListener('click', function() {
+                        const id = this.getAttribute('data-id');
+                        const name = this.getAttribute('data-name');
+                        const price = parseFloat(this.getAttribute('data-price'));
+                        addToNewOrder(id, name, price);
+                    });
+                });
+            }, 100);
         }
         
         function addToNewOrder(itemId, name, price) {
@@ -1145,17 +1677,17 @@
                             <small class="text-muted">$${item.price.toFixed(2)} × ${item.quantity}</small>
                         </div>
                         <div>
-                            <button class="btn btn-sm btn-outline-secondary" 
-                                    onclick="updateNewOrderQuantity(${index}, -1)">
+                            <button class="btn btn-sm btn-outline-secondary decrease-quantity" 
+                                    data-index="${index}">
                                 <i class="fas fa-minus"></i>
                             </button>
                             <span class="mx-2">${item.quantity}</span>
-                            <button class="btn btn-sm btn-outline-secondary" 
-                                    onclick="updateNewOrderQuantity(${index}, 1)">
+                            <button class="btn btn-sm btn-outline-secondary increase-quantity" 
+                                    data-index="${index}">
                                 <i class="fas fa-plus"></i>
                             </button>
-                            <button class="btn btn-sm btn-danger ms-2" 
-                                    onclick="removeFromNewOrder(${index})">
+                            <button class="btn btn-sm btn-danger ms-2 remove-item" 
+                                    data-index="${index}">
                                 <i class="fas fa-trash"></i>
                             </button>
                         </div>
@@ -1163,6 +1695,30 @@
                 `;
                 container.innerHTML += itemElement;
             });
+            
+            // Add event listeners
+            setTimeout(() => {
+                document.querySelectorAll('.decrease-quantity').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const index = parseInt(this.getAttribute('data-index'));
+                        updateNewOrderQuantity(index, -1);
+                    });
+                });
+                
+                document.querySelectorAll('.increase-quantity').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const index = parseInt(this.getAttribute('data-index'));
+                        updateNewOrderQuantity(index, 1);
+                    });
+                });
+                
+                document.querySelectorAll('.remove-item').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const index = parseInt(this.getAttribute('data-index'));
+                        removeFromNewOrder(index);
+                    });
+                });
+            }, 100);
         }
         
         function updateNewOrderQuantity(index, change) {
@@ -1190,7 +1746,6 @@
             
             try {
                 Loading.show('Placing order...');
-                const token = localStorage.getItem('token');
                 const user = Auth.getUser();
                 
                 const order = {
@@ -1202,10 +1757,11 @@
                         quantity: item.quantity
                     })),
                     totalAmount: newOrderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0),
-                    chefId: user._id
+                    chefId: user._id,
+                    chefName: `${user.firstName} ${user.lastName}`
                 };
                 
-                const data = await API.post('/api/chef/orders/new', order, token);
+                const data = await API.post(CONFIG.API_ENDPOINTS.CHEF_NEW_ORDER, order);
                 
                 Toast.show('Order placed successfully!', 'success');
                 
@@ -1221,6 +1777,7 @@
                     socket.emit('new-order', {
                         tableNumber: tableNumber,
                         orderId: data.order._id,
+                        orderNumber: data.order.orderNumber,
                         status: 'pending'
                     });
                 }
@@ -1351,14 +1908,50 @@
             }
         }
         
+        // View profile
+        function viewProfile() {
+            const user = Auth.getUser();
+            alert(`Chef Profile:\n\nName: ${user.firstName} ${user.lastName}\nEmail: ${user.email}\nRole: ${user.role}`);
+        }
+        
+        // Show notification
+        function showNotification(message, type = 'info') {
+            Toast.show(message, type);
+        }
+        
         // Logout
         function logout() {
             if (socket) socket.disconnect();
+            if (autoRefreshInterval) clearInterval(autoRefreshInterval);
             Auth.logout();
         }
         
         // Initialize on load
         document.addEventListener('DOMContentLoaded', initApp);
+        
+        // Make functions available globally
+        window.toggleSidebar = toggleSidebar;
+        window.showSection = showSection;
+        window.toggleNotifications = toggleNotifications;
+        window.loadDashboard = loadDashboard;
+        window.filterOrders = filterOrders;
+        window.acceptOrder = acceptOrder;
+        window.rejectOrder = rejectOrder;
+        window.markReady = markReady;
+        window.completeOrder = completeOrder;
+        window.assignServiceRequest = assignServiceRequest;
+        window.loadMenuItems = loadMenuItems;
+        window.showMenuCategory = showMenuCategory;
+        window.updateMenuItemStatus = updateMenuItemStatus;
+        window.loadMenuForNewOrder = loadMenuForNewOrder;
+        window.addToNewOrder = addToNewOrder;
+        window.updateNewOrderQuantity = updateNewOrderQuantity;
+        window.removeFromNewOrder = removeFromNewOrder;
+        window.submitNewOrder = submitNewOrder;
+        window.removeNotification = removeNotification;
+        window.viewOrderDetails = viewOrderDetails;
+        window.viewProfile = viewProfile;
+        window.logout = logout;
     </script>
 </body>
 </html>
