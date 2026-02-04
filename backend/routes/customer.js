@@ -562,4 +562,88 @@ router.post('/feedback/:id', auth, [
     }
 });
 
+// Add to routes/customer.js or create new file routes/seed.js
+router.post('/menu/seed', async (req, res) => {
+    try {
+        const demoMenu = [
+            {
+                name: 'Classic Burger',
+                description: 'Juicy beef patty with lettuce, tomato, pickles, and special sauce in a sesame seed bun',
+                price: 12.99,
+                category: 'main',
+                available: true,
+                popular: true,
+                vegetarian: false,
+                image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80'
+            },
+            {
+                name: 'Caesar Salad',
+                description: 'Fresh romaine lettuce with Caesar dressing, croutons, and parmesan cheese',
+                price: 9.99,
+                category: 'salad',
+                available: true,
+                popular: true,
+                vegetarian: true,
+                image: 'https://images.unsplash.com/photo-1546793665-c74683f339c1?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80'
+            },
+            {
+                name: 'Chocolate Lava Cake',
+                description: 'Warm chocolate cake with a molten chocolate center, served with vanilla ice cream',
+                price: 7.99,
+                category: 'dessert',
+                available: true,
+                popular: true,
+                vegetarian: true,
+                image: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80'
+            },
+            {
+                name: 'Margarita Pizza',
+                description: 'Classic pizza with tomato sauce, mozzarella, and fresh basil',
+                price: 14.99,
+                category: 'main',
+                available: true,
+                vegetarian: true,
+                image: 'https://images.unsplash.com/photo-1604068549290-dea0e4a305ca?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80'
+            },
+            {
+                name: 'French Fries',
+                description: 'Crispy golden fries with sea salt',
+                price: 4.99,
+                category: 'appetizer',
+                available: true,
+                vegetarian: true,
+                image: 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80'
+            },
+            {
+                name: 'Iced Coffee',
+                description: 'Cold brew coffee with milk and vanilla syrup',
+                price: 3.99,
+                category: 'drink',
+                available: true,
+                image: 'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80'
+            }
+        ];
+
+        // Clear existing menu
+        await MenuItem.deleteMany({});
+        
+        // Add demo menu
+        await MenuItem.insertMany(demoMenu);
+        
+        res.json({
+            success: true,
+            message: 'Demo menu items added successfully',
+            count: demoMenu.length
+        });
+        
+    } catch (error) {
+        console.error('Seed error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to seed menu',
+            error: error.message
+        });
+    }
+});
+
 module.exports = router;

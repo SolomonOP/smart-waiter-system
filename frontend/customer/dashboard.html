@@ -812,66 +812,156 @@ function getDemoMenuItems() {
         }
         
         // Place order
-        async function placeOrder() {
-            const tableNumber = document.getElementById('tableNumber').value;
-            const instructions = document.getElementById('specialInstructions').value;
-            
-            if (!tableNumber) {
-                Toast.show('Please enter table number', 'error');
-                return;
-            }
-            
-            if (cart.length === 0) {
-                Toast.show('Your cart is empty', 'error');
-                return;
-            }
-            
-            try {
-                Loading.show('Placing your order...');
-                const token = localStorage.getItem('token');
-                
-                const order = {
-                    tableNumber: parseInt(tableNumber),
-                    items: cart.map(item => ({
-                        itemId: item.id,
-                        name: item.name,
-                        price: item.price,
-                        quantity: item.quantity
-                    })),
-                    totalAmount: cart.reduce((sum, item) => sum + (item.price * item.quantity), 0),
-                    instructions: instructions,
-                    customer: user._id
-                };
-                
-                const data = await API.post(CONFIG.API_ENDPOINTS.CUSTOMER_ORDER, order, token);
-                
-                Toast.show('Order placed successfully!', 'success');
-                
-                // Reset cart
-                cart = [];
-                updateCartDisplay();
-                hideCart();
-                
-                // Load updated order status
-                await loadOrderStatus();
-                
-                // Emit socket event for real-time update
-                if (socket) {
-                    socket.emit('new-order', {
-                        orderId: data.order._id,
-                        tableNumber: tableNumber,
-                        orderNumber: data.order.orderNumber,
-                        status: 'pending'
-                    });
-                }
-                
-            } catch (error) {
-                console.error('Error:', error);
-                Toast.show(error.message || 'Failed to place order', 'error');
-            } finally {
-                Loading.hide();
-            }
+        // REPLACE the placeOrder() function with this DEBUG version:
+async function placeOrder() {
+    const tableNumber = document.getElementById('tableNumber').value;
+    const instructions = document.getElementById('specialInstructions').value;
+    
+    if (!tableNumber || tableNumber < 1) {
+        Toast.show('Please enter a valid table number', 'error');
+        return;
+    }
+    
+    if (cart.length === 0) {
+        Toast.show('Your cart is empty', 'error');
+        return;
+    }
+    
+    try {
+        Loading.show('Placing your order...');
+        const token = localStorage.getItem('token');
+        const user = Auth.getUser();
+        
+        console.log('=== ORDER DEBUG INFO ===');
+        console.log('Table Number:', tableNumber);
+        console.log('Cart items:', cart);
+        console.log('User:', user);
+        console.log('Token exists:', !!token);
+        
+        // Build order object EXACTLY as backend expects
+        const order = {
+            tableNumber: parseInt(tableNumber),
+            items: cart.map(item => ({
+                menuItem: item.id,  // This MUST match backend expectation
+                name: item.name,
+                price: parseFloat(item.price),
+                quantity: parseInt(item.quantity)
+            })),
+            totalAmount: cart.reduce((sum, item) => sum + (item.price * item.quantity), 0),
+            instructions: instructions || '',
+            specialInstructions: instructions || '',  // Some backends expect this
+            customer: user?._id || null,
+            customerName: user?.firstName + ' ' + user?.lastName,
+            customerEmail: user?.email
+        };
+        
+        console.log('Order data being sent:', JSON.stringify(order, null, 2));
+        
+        // Test without token first (some endpoints don't require it)
+        let response;
+        try {
+            response = await fetch(`${CONFIG.BACKEND_URL}/api/customer/order`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': token ? `Bearer ${token}` : ''
+                },
+                body: JSON.stringify(order)
+            });
+        } catch (networkError) {
+            console.error('Network error:', networkError);
+            throw new Error('Network error. Check if backend is running.');
         }
+        
+        console.log('Response status:', response.status);
+        console.log('Response headers:', [...response.headers.entries()]);
+        
+        const responseText = await response.text();
+        console.log('Response text:', responseText);
+        
+        if (!response.ok) {
+            let errorMsg = `HTTP ${response.status}: ${response.statusText}`;
+            try {
+                const errorData = JSON.parse(responseText);
+                errorMsg = errorData.message || errorMsg;
+                console.log('Error details:', errorData);
+                
+                // Handle specific error cases
+                if (errorData.errors) {
+                    errorMsg += '\n' + errorData.errors.map(e => e.msg).join(', ');
+                }
+            } catch (e) {
+                // Not JSON response
+            }
+            throw new Error(errorMsg);
+        }
+        
+        const data = JSON.parse(responseText);
+        console.log('Order success data:', data);
+        
+        Toast.show('Order placed successfully!', 'success');
+        
+        // Reset cart
+        cart = [];
+        updateCartDisplay();
+        hideCart();
+        
+        // Load updated order status
+        await loadOrderStatus();
+        
+        // Emit socket event
+        if (socket) {
+            socket.emit('new-order', {
+                orderId: data.order?.id || data.order?._id,
+                tableNumber: tableNumber,
+                orderNumber: data.order?.orderNumber,
+                status: 'pending'
+            });
+        }
+        
+    } catch (error) {
+        console.error('Order placement error:', error);
+        
+        // Show detailed error
+        let errorMessage = error.message || 'Failed to place order';
+        
+        // Common error solutions
+        if (errorMessage.includes('tableNumber')) {
+            errorMessage += ' - Please check table number is valid';
+        } else if (errorMessage.includes('items')) {
+            errorMessage += ' - Cart items may be invalid';
+        } else if (errorMessage.includes('401') || errorMessage.includes('token')) {
+            errorMessage += ' - Please login again';
+            setTimeout(() => Auth.logout(), 2000);
+        }
+        
+        Toast.show(errorMessage, 'error');
+        
+        // Show retry button
+        const cartSidebar = document.getElementById('cartSidebar');
+        if (cartSidebar) {
+            cartSidebar.innerHTML += `
+                <div class="alert alert-danger mt-3">
+                    <strong>Order Failed:</strong> ${errorMessage}
+                    <button class="btn btn-warning btn-sm mt-2" onclick="retryOrder()">
+                        <i class="fas fa-redo me-1"></i>Retry Order
+                    </button>
+                </div>
+            `;
+        }
+    } finally {
+        Loading.hide();
+    }
+}
+
+// Add retry function
+function retryOrder() {
+    hideCart();
+    setTimeout(() => {
+        showCart();
+        placeOrder();
+    }, 500);
+}
         
         // Request service
         async function requestService(type) {
