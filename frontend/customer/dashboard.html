@@ -140,6 +140,19 @@
             border: 2px solid var(--secondary);
         }
         
+        .welcome-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 2000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
         @media (max-width: 768px) {
             .hero-section {
                 padding: 60px 20px;
@@ -164,6 +177,33 @@
     </style>
 </head>
 <body>
+    <!-- Welcome Modal -->
+    <div id="welcomeModal" class="welcome-modal" style="display: none;">
+        <div class="card" style="width: 90%; max-width: 500px;">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0"><i class="fas fa-utensils me-2"></i>Welcome to Gourmet Delight</h4>
+            </div>
+            <div class="card-body">
+                <h5>Database Setup Required</h5>
+                <p class="text-muted">It looks like this is your first time using the system. We need to set up some initial data.</p>
+                
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Note:</strong> This will create demo tables, menu items, and sample data.
+                </div>
+                
+                <div class="mt-4">
+                    <button class="btn btn-success btn-lg w-100 mb-3" onclick="autoSetupDatabase()">
+                        <i class="fas fa-magic me-2"></i>Auto-Setup Database
+                    </button>
+                    <button class="btn btn-outline-secondary w-100" onclick="skipSetup()">
+                        <i class="fas fa-play me-2"></i>Skip & Use Demo Mode
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-dark">
         <div class="container">
@@ -262,10 +302,7 @@
                                         <i class="fas fa-check me-2"></i>Set Table
                                     </button>
                                 </div>
-                                <div class="alert alert-info mt-3">
-                                    <i class="fas fa-info-circle me-2"></i>
-                                    Scan the QR code on your table or select your table number
-                                </div>
+                                <div id="tableStatus" class="mt-2"></div>
                             </div>
                         </div>
                     </div>
@@ -279,32 +316,36 @@
                 </div>
             </div>
 
-            <!-- Debug Section -->
+            <!-- System Status Section -->
             <div class="row mt-4">
                 <div class="col-12">
-                    <div class="card border-warning">
-                        <div class="card-header bg-warning text-dark">
-                            <i class="fas fa-bug me-2"></i>Debug Tools
+                    <div class="card border-primary">
+                        <div class="card-header bg-primary text-white">
+                            <i class="fas fa-cogs me-2"></i>System Status & Tools
                         </div>
                         <div class="card-body">
+                            <div id="systemStatus" class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                <strong>Database Not Initialized:</strong> Tables and menu items need to be created.
+                            </div>
                             <div class="row">
                                 <div class="col-md-4 mb-3">
-                                    <button class="btn btn-success w-100" onclick="placeTestOrder()">
-                                        <i class="fas fa-flask me-2"></i>Test Order (Table 1)
+                                    <button class="btn btn-success w-100" onclick="autoSetupDatabase()">
+                                        <i class="fas fa-magic me-2"></i>Auto-Setup Database
+                                    </button>
+                                    <small class="text-muted">Create tables & menu items</small>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <button class="btn btn-info w-100" onclick="checkSystemStatus()">
+                                        <i class="fas fa-sync-alt me-2"></i>Check Status
+                                    </button>
+                                    <small class="text-muted">Verify system readiness</small>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <button class="btn btn-warning w-100" onclick="createTestOrder()">
+                                        <i class="fas fa-flask me-2"></i>Test Order
                                     </button>
                                     <small class="text-muted">Test with Table 1</small>
-                                </div>
-                                <div class="col-md-4 mb-3">
-                                    <button class="btn btn-info w-100" onclick="checkTables()">
-                                        <i class="fas fa-list me-2"></i>Check Active Tables
-                                    </button>
-                                    <small class="text-muted">View available tables</small>
-                                </div>
-                                <div class="col-md-4 mb-3">
-                                    <button class="btn btn-warning w-100" onclick="seedDatabase()">
-                                        <i class="fas fa-database me-2"></i>Seed Database
-                                    </button>
-                                    <small class="text-muted">Add demo data</small>
                                 </div>
                             </div>
                             <div id="debugInfo" class="mt-3"></div>
@@ -315,6 +356,7 @@
         </div>
     </section>
 
+    <!-- Other Sections (About, Services, Contact) remain the same -->
     <!-- Services Section -->
     <section id="services" class="section" style="display: none;">
         <div class="container">
@@ -367,109 +409,8 @@
                 <h4 class="mb-3">Your Current Orders</h4>
                 <div id="orderStatus" class="row">
                     <div class="col-12 text-center text-muted py-4">
-                        <p>Loading your orders...</p>
+                        <p>No orders yet. Place an order from the Menu section.</p>
                     </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- About Section -->
-    <section id="about" class="section bg-light" style="display: none;">
-        <div class="container">
-            <h2 class="text-center mb-5">About Gourmet Delight</h2>
-            <div class="row align-items-center">
-                <div class="col-md-6">
-                    <h4 class="mb-3">Experience fine dining with our innovative Smart Waiter System</h4>
-                    <p>Founded in 2010, Gourmet Delight brings you the finest culinary experiences with a touch of technology. Our QR-based ordering system ensures a seamless dining experience from ordering to payment.</p>
-                    <p>Our chefs craft each dish with passion, using only the freshest ingredients sourced from local providers. We take pride in our sustainable practices and commitment to excellence.</p>
-                    
-                    <div class="row mt-4">
-                        <div class="col-md-6 mb-3">
-                            <div class="card h-100 text-center">
-                                <div class="card-body">
-                                    <i class="fas fa-award fa-2x text-warning mb-3"></i>
-                                    <h5>Award Winning Cuisine</h5>
-                                    <p class="text-muted">Best Restaurant 2022 & 2023</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <div class="card h-100 text-center">
-                                <div class="card-body">
-                                    <i class="fas fa-leaf fa-2x text-success mb-3"></i>
-                                    <h5>Eco-Friendly</h5>
-                                    <p class="text-muted">Sustainable sourcing and practices</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <img src="https://images.unsplash.com/photo-1554679665-f5537f187268?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" 
-                         class="img-fluid rounded shadow" alt="Restaurant Interior">
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Contact Section -->
-    <section id="contact" class="section" style="display: none;">
-        <div class="container">
-            <h2 class="text-center mb-5">Contact Us</h2>
-            <p class="text-center mb-5">We'd love to hear from you</p>
-            
-            <div class="row">
-                <div class="col-md-4 mb-4">
-                    <div class="card h-100 border-0 shadow-sm">
-                        <div class="card-body text-center">
-                            <i class="fas fa-map-marker-alt fa-2x text-primary mb-3"></i>
-                            <h5>Address</h5>
-                            <p>123 Gourmet Street, Foodville, FK 12345</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="col-md-4 mb-4">
-                    <div class="card h-100 border-0 shadow-sm">
-                        <div class="card-body text-center">
-                            <i class="fas fa-phone fa-2x text-success mb-3"></i>
-                            <h5>Phone</h5>
-                            <p>(555) 123-4567</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="col-md-4 mb-4">
-                    <div class="card h-100 border-0 shadow-sm">
-                        <div class="card-body text-center">
-                            <i class="fas fa-envelope fa-2x text-warning mb-3"></i>
-                            <h5>Email</h5>
-                            <p>info@gourmetdelight.com</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Contact Form -->
-            <div class="row mt-5">
-                <div class="col-md-8 mx-auto">
-                    <form id="contactForm">
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <input type="text" class="form-control" placeholder="Name" required>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <input type="email" class="form-control" placeholder="Email" required>
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <textarea class="form-control" rows="5" placeholder="Message" required></textarea>
-                        </div>
-                        <button type="submit" class="btn btn-primary w-100">
-                            <i class="fas fa-paper-plane me-2"></i>Send Message
-                        </button>
-                    </form>
                 </div>
             </div>
         </div>
@@ -507,7 +448,6 @@
     <div class="toast-container"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Load Socket.io -->
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     
     <script>
@@ -518,8 +458,11 @@
                 CUSTOMER_ORDERS: '/api/customer/orders',
                 MENU: '/api/customer/menu',
                 ORDER: '/api/customer/order',
-                TABLES: '/api/tables/active',
-                SEED: '/api/seed'
+                TABLES: '/api/tables',
+                SEED: '/api/seed',
+                SETUP: '/api/setup',
+                CREATE_TABLE: '/api/tables/create',
+                CREATE_MENU: '/api/menu/create'
             }
         };
 
@@ -550,16 +493,11 @@
             connect: () => {
                 try {
                     return io(CONFIG.BACKEND_URL, {
-                        transports: ['websocket', 'polling'],
-                        withCredentials: true
+                        transports: ['websocket', 'polling']
                     });
                 } catch (error) {
                     console.error('Socket connection error:', error);
-                    return {
-                        on: () => {},
-                        emit: () => {},
-                        disconnect: () => {}
-                    };
+                    return null;
                 }
             }
         };
@@ -689,7 +627,9 @@
         let currentOrders = [];
         let menuItems = [];
         let currentTable = 1;
-        let activeTables = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]; // Default active tables
+        let activeTables = [1, 2, 3, 4, 5];
+        let isDemoMode = false;
+        let systemInitialized = false;
         
         // Initialize application
         async function initApp() {
@@ -706,21 +646,21 @@
             user = Auth.getUser();
             console.log('User loaded:', user ? 'Yes' : 'No');
             
-            // Initialize socket
-            setTimeout(() => {
-                try {
-                    initSocket();
-                } catch (error) {
-                    console.warn('Socket initialization failed:', error);
-                    Toast.show('Real-time updates unavailable', 'warning');
-                }
-            }, 1000);
-            
             // Setup navigation
             setupNavigation();
             
-            // Load active tables
-            await loadActiveTables();
+            // Check system status
+            await checkSystemStatus();
+            
+            // Show welcome modal if system not initialized
+            if (!systemInitialized && !isDemoMode) {
+                setTimeout(() => {
+                    document.getElementById('welcomeModal').style.display = 'flex';
+                }, 1000);
+            }
+            
+            // Initialize socket
+            initSocket();
             
             // Show welcome message
             if (user) {
@@ -733,22 +673,23 @@
             try {
                 socket = SocketManager.connect();
                 
-                socket.on('connect', () => {
-                    console.log('Socket connected successfully');
-                });
-                
-                socket.on('connect_error', (error) => {
-                    console.error('Socket connection error:', error);
-                });
-                
-                socket.on('status-update', (data) => {
-                    console.log('Order status update:', data);
-                    if (currentOrders.some(order => order._id === data.orderId)) {
-                        loadOrderStatus();
-                        showNotification(`Order #${data.orderId?.substring(0, 8) || 'N/A'} status changed to ${data.status}`);
-                    }
-                });
-                
+                if (socket) {
+                    socket.on('connect', () => {
+                        console.log('Socket connected successfully');
+                    });
+                    
+                    socket.on('connect_error', (error) => {
+                        console.error('Socket connection error:', error);
+                    });
+                    
+                    socket.on('status-update', (data) => {
+                        console.log('Order status update:', data);
+                        if (currentOrders.some(order => order._id === data.orderId)) {
+                            loadOrderStatus();
+                            showNotification(`Order #${data.orderId?.substring(0, 8) || 'N/A'} status changed to ${data.status}`);
+                        }
+                    });
+                }
             } catch (error) {
                 console.error('Socket initialization error:', error);
             }
@@ -805,27 +746,103 @@
             }
         }
         
-        // Load active tables
-        async function loadActiveTables() {
+        // Check system status
+        async function checkSystemStatus() {
             try {
-                console.log('Loading active tables...');
-                const data = await API.get(CONFIG.API_ENDPOINTS.TABLES);
+                Loading.show('Checking system status...');
                 
-                if (data.tables && Array.isArray(data.tables)) {
-                    activeTables = data.tables.map(table => table.number).filter(num => num !== undefined);
-                    console.log('Active tables loaded:', activeTables);
-                } else if (data.activeTables && Array.isArray(data.activeTables)) {
-                    activeTables = data.activeTables;
-                    console.log('Active tables loaded:', activeTables);
+                // Check if tables endpoint exists
+                let tablesExist = false;
+                try {
+                    const tablesResponse = await fetch(CONFIG.BACKEND_URL + CONFIG.API_ENDPOINTS.TABLES);
+                    if (tablesResponse.ok) {
+                        const tablesData = await tablesResponse.json();
+                        if (tablesData.tables && Array.isArray(tablesData.tables) && tablesData.tables.length > 0) {
+                            activeTables = tablesData.tables.map(t => t.number).filter(n => n !== undefined);
+                            tablesExist = true;
+                        }
+                    }
+                } catch (e) {
+                    console.log('Tables endpoint not accessible:', e.message);
                 }
+                
+                // Check if menu endpoint exists
+                let menuExists = false;
+                try {
+                    const menuResponse = await fetch(CONFIG.BACKEND_URL + CONFIG.API_ENDPOINTS.MENU);
+                    if (menuResponse.ok) {
+                        const menuData = await menuResponse.json();
+                        if ((menuData.menuItems && menuData.menuItems.length > 0) || 
+                            (menuData.groupedMenu && Object.keys(menuData.groupedMenu).length > 0)) {
+                            menuExists = true;
+                        }
+                    }
+                } catch (e) {
+                    console.log('Menu endpoint not accessible:', e.message);
+                }
+                
+                // Update system status
+                systemInitialized = tablesExist && menuExists;
+                isDemoMode = !systemInitialized;
                 
                 // Generate table buttons
                 generateTableButtons();
                 
+                // Update status display
+                const statusElement = document.getElementById('systemStatus');
+                if (statusElement) {
+                    if (systemInitialized) {
+                        statusElement.className = 'alert alert-success';
+                        statusElement.innerHTML = `
+                            <i class="fas fa-check-circle me-2"></i>
+                            <strong>System Ready:</strong> Tables and menu items are available.
+                        `;
+                    } else {
+                        statusElement.className = 'alert alert-warning';
+                        statusElement.innerHTML = `
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Database Not Initialized:</strong> ${!tablesExist ? 'Tables missing. ' : ''}${!menuExists ? 'Menu items missing.' : ''}
+                        `;
+                    }
+                }
+                
+                // Update table status
+                const tableStatusElement = document.getElementById('tableStatus');
+                if (tableStatusElement) {
+                    if (tablesExist) {
+                        tableStatusElement.innerHTML = `
+                            <div class="alert alert-success">
+                                <i class="fas fa-check-circle me-2"></i>
+                                ${activeTables.length} tables available
+                            </div>
+                        `;
+                    } else {
+                        tableStatusElement.innerHTML = `
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                No tables found. Use Auto-Setup to create tables.
+                            </div>
+                        `;
+                    }
+                }
+                
+                console.log('System status:', { systemInitialized, isDemoMode, tablesExist, menuExists });
+                
             } catch (error) {
-                console.warn('Could not load active tables, using default:', error);
-                // Use default tables
-                generateTableButtons();
+                console.error('Error checking system status:', error);
+                isDemoMode = true;
+                
+                // Update status display
+                const statusElement = document.getElementById('systemStatus');
+                if (statusElement) {
+                    statusElement.className = 'alert alert-danger';
+                    statusElement.innerHTML = `
+                        <i class="fas fa-times-circle me-2"></i>
+                        <strong>System Error:</strong> Unable to connect to backend.
+                    `;
+                }
+            } finally {
+                Loading.hide();
             }
         }
         
@@ -852,6 +869,12 @@
             const tableInput = document.getElementById('tableNumber');
             if (tableInput) {
                 tableInput.value = currentTable;
+            }
+            
+            // Update cart table number
+            const cartTableNumber = document.getElementById('cartTableNumber');
+            if (cartTableNumber) {
+                cartTableNumber.textContent = currentTable;
             }
         }
         
@@ -900,13 +923,155 @@
                 return;
             }
             
-            // Check if table is active
-            if (!activeTables.includes(tableNumber)) {
-                Toast.show(`Table ${tableNumber} is not active. Please select an active table.`, 'warning');
+            // In demo mode, allow any table
+            if (!isDemoMode && !activeTables.includes(tableNumber)) {
+                Toast.show(`Table ${tableNumber} is not available. Please select from available tables.`, 'warning');
                 return;
             }
             
+            // Add to active tables if in demo mode
+            if (isDemoMode && !activeTables.includes(tableNumber)) {
+                activeTables.push(tableNumber);
+                generateTableButtons();
+            }
+            
             selectTable(tableNumber);
+        }
+        
+        // Auto-setup database
+        async function autoSetupDatabase() {
+            try {
+                Loading.show('Setting up database...');
+                
+                // Hide welcome modal
+                document.getElementById('welcomeModal').style.display = 'none';
+                
+                // Try the setup endpoint first
+                let setupSuccess = false;
+                try {
+                    const setupResponse = await fetch(CONFIG.BACKEND_URL + CONFIG.API_ENDPOINTS.SETUP, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ action: 'setup' })
+                    });
+                    
+                    if (setupResponse.ok) {
+                        const setupData = await setupResponse.json();
+                        console.log('Setup response:', setupData);
+                        if (setupData.success) {
+                            setupSuccess = true;
+                            Toast.show('Database setup completed successfully!', 'success');
+                        }
+                    }
+                } catch (e) {
+                    console.log('Setup endpoint failed, trying individual endpoints:', e.message);
+                }
+                
+                // If setup endpoint doesn't work, try individual endpoints
+                if (!setupSuccess) {
+                    // Create tables
+                    const tablesToCreate = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+                    let tablesCreated = 0;
+                    
+                    for (const tableNumber of tablesToCreate) {
+                        try {
+                            const tableResponse = await fetch(CONFIG.BACKEND_URL + CONFIG.API_ENDPOINTS.CREATE_TABLE, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    number: tableNumber,
+                                    capacity: 4,
+                                    status: 'active'
+                                })
+                            });
+                            
+                            if (tableResponse.ok) {
+                                tablesCreated++;
+                            }
+                        } catch (e) {
+                            console.log(`Failed to create table ${tableNumber}:`, e.message);
+                        }
+                    }
+                    
+                    // Create menu items
+                    const demoMenuItems = getDemoMenuItems();
+                    let menuItemsCreated = 0;
+                    
+                    for (const menuItem of demoMenuItems) {
+                        try {
+                            const menuResponse = await fetch(CONFIG.BACKEND_URL + CONFIG.API_ENDPOINTS.CREATE_MENU, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify(menuItem)
+                            });
+                            
+                            if (menuResponse.ok) {
+                                menuItemsCreated++;
+                            }
+                        } catch (e) {
+                            console.log(`Failed to create menu item ${menuItem.name}:`, e.message);
+                        }
+                    }
+                    
+                    if (tablesCreated > 0 || menuItemsCreated > 0) {
+                        setupSuccess = true;
+                        Toast.show(`Created ${tablesCreated} tables and ${menuItemsCreated} menu items!`, 'success');
+                    }
+                }
+                
+                // Update system status
+                if (setupSuccess) {
+                    systemInitialized = true;
+                    isDemoMode = false;
+                    activeTables = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+                    
+                    // Update UI
+                    generateTableButtons();
+                    await checkSystemStatus();
+                    await loadMenu();
+                } else {
+                    Toast.show('Could not setup database. Using demo mode.', 'warning');
+                    skipSetup();
+                }
+                
+            } catch (error) {
+                console.error('Error setting up database:', error);
+                Toast.show('Setup failed. Using demo mode.', 'error');
+                skipSetup();
+            } finally {
+                Loading.hide();
+            }
+        }
+        
+        // Skip setup
+        function skipSetup() {
+            document.getElementById('welcomeModal').style.display = 'none';
+            isDemoMode = true;
+            systemInitialized = false;
+            
+            // Use demo data
+            activeTables = [1, 2, 3, 4, 5];
+            menuItems = getDemoMenuItems();
+            
+            // Update UI
+            generateTableButtons();
+            
+            const statusElement = document.getElementById('systemStatus');
+            if (statusElement) {
+                statusElement.className = 'alert alert-info';
+                statusElement.innerHTML = `
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Demo Mode:</strong> Using local demo data. Some features may be limited.
+                `;
+            }
+            
+            Toast.show('Using demo mode. Some features may be limited.', 'info');
         }
         
         // Load menu items
@@ -919,6 +1084,15 @@
             try {
                 Loading.show('Loading menu...');
                 
+                // In demo mode, use local data
+                if (isDemoMode) {
+                    menuItems = getDemoMenuItems();
+                    displayMenu(menuItems);
+                    Toast.show(`Demo menu loaded for Table ${currentTable}`, 'info');
+                    return;
+                }
+                
+                // Try to load from backend
                 console.log('Fetching menu for table', currentTable);
                 
                 const response = await fetch(`${CONFIG.BACKEND_URL}${CONFIG.API_ENDPOINTS.MENU}?available=true`, {
@@ -954,10 +1128,7 @@
                 console.log('Extracted menu items:', menuItems.length, 'items');
                 
                 if (menuItems.length === 0) {
-                    console.warn('No menu items found in database');
-                    // Use demo fallback
-                    menuItems = getDemoMenuItems();
-                    Toast.show('Using demo menu', 'info');
+                    throw new Error('No menu items found');
                 }
                 
                 displayMenu(menuItems);
@@ -966,18 +1137,20 @@
             } catch (error) {
                 console.error('Error loading menu:', error);
                 
-                // Use demo fallback
-                menuItems = getDemoMenuItems();
-                displayMenu(menuItems);
-                
-                Toast.show('Using demo menu (backend unreachable)', 'warning');
+                // Fall back to demo mode
+                if (!isDemoMode) {
+                    isDemoMode = true;
+                    menuItems = getDemoMenuItems();
+                    displayMenu(menuItems);
+                    Toast.show('Using demo menu (backend unreachable)', 'warning');
+                }
                 
             } finally {
                 Loading.hide();
             }
         }
 
-        // Demo menu items fallback
+        // Demo menu items
         function getDemoMenuItems() {
             return [
                 {
@@ -1077,7 +1250,7 @@
                 menuContainer.innerHTML += menuCard;
             });
             
-            // Add event listeners to all add-to-cart buttons
+            // Add event listeners
             document.querySelectorAll('.add-to-cart-btn').forEach(button => {
                 button.addEventListener('click', function() {
                     const id = this.getAttribute('data-id');
@@ -1158,7 +1331,7 @@
                 cartItemsContainer.innerHTML += cartItem;
             });
             
-            // Add event listeners to cart buttons
+            // Add event listeners
             document.querySelectorAll('.decrease-btn').forEach(button => {
                 button.addEventListener('click', function() {
                     const index = parseInt(this.getAttribute('data-index'));
@@ -1239,6 +1412,21 @@
                     return;
                 }
                 
+                // In demo mode, simulate order
+                if (isDemoMode) {
+                    // Simulate order placement
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    
+                    Toast.show(`Demo order placed for Table ${currentTable}! (Demo Mode)`, 'success');
+                    
+                    // Reset cart
+                    cart = [];
+                    updateCartDisplay();
+                    hideCart();
+                    
+                    return;
+                }
+                
                 // Build order object
                 const orderData = {
                     tableNumber: parseInt(currentTable),
@@ -1287,20 +1475,16 @@
                 let errorMessage = 'Failed to place order. ';
                 
                 if (error.message.includes('400') && error.message.includes('Table not found')) {
-                    errorMessage = `Table ${currentTable} is not active. Please select an active table from the list above.`;
-                    // Highlight table selection
-                    Toast.show(errorMessage, 'error');
+                    errorMessage = `Table ${currentTable} is not active in the database. `;
+                    errorMessage += 'Please use the Auto-Setup button to create tables.';
                     
-                    // Show debug info
+                    // Show setup prompt
                     document.getElementById('debugInfo').innerHTML = `
                         <div class="alert alert-danger">
-                            <strong>Table ${currentTable} Error:</strong> This table is not active in the system.
+                            <strong>Database Setup Required:</strong> ${errorMessage}
                             <div class="mt-2">
-                                <button class="btn btn-sm btn-info me-2" onclick="checkTables()">
-                                    <i class="fas fa-list me-1"></i>Check Active Tables
-                                </button>
-                                <button class="btn btn-sm btn-warning" onclick="selectTable(1)">
-                                    <i class="fas fa-chair me-1"></i>Switch to Table 1
+                                <button class="btn btn-success btn-sm" onclick="autoSetupDatabase()">
+                                    <i class="fas fa-magic me-1"></i>Auto-Setup Database
                                 </button>
                             </div>
                         </div>
@@ -1322,6 +1506,43 @@
             }
         }
         
+        // Create test order
+        async function createTestOrder() {
+            try {
+                Loading.show('Creating test order...');
+                
+                // Switch to table 1 for testing
+                selectTable(1);
+                
+                // Add demo items to cart
+                cart = [
+                    {
+                        id: '1',
+                        name: 'Classic Burger',
+                        price: 12.99,
+                        quantity: 1
+                    },
+                    {
+                        id: '6',
+                        name: 'Iced Coffee',
+                        price: 3.99,
+                        quantity: 2
+                    }
+                ];
+                
+                updateCartDisplay();
+                
+                // Try to place order
+                await placeOrder();
+                
+            } catch (error) {
+                console.error('Test order error:', error);
+                Toast.show('Test order failed: ' + error.message, 'error');
+            } finally {
+                Loading.hide();
+            }
+        }
+        
         // Request service
         async function requestService(type) {
             if (!currentTable) {
@@ -1331,6 +1552,13 @@
             
             try {
                 Loading.show('Sending request...');
+                
+                // In demo mode, simulate
+                if (isDemoMode) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    Toast.show(`${getServiceName(type)} request sent for table ${currentTable} (Demo Mode)`, 'success');
+                    return;
+                }
                 
                 const request = {
                     type: type,
@@ -1376,8 +1604,20 @@
                 
             } catch (error) {
                 console.error('Error loading orders:', error);
-                if (!error.message.includes('NetworkError')) {
-                    Toast.show('Failed to load orders', 'warning');
+                // In demo mode, show demo orders
+                if (isDemoMode) {
+                    currentOrders = [
+                        {
+                            _id: 'demo_1',
+                            orderNumber: 'DEMO001',
+                            tableNumber: currentTable,
+                            items: [{name: 'Demo Item', price: 10, quantity: 1}],
+                            totalAmount: 10,
+                            status: 'pending',
+                            createdAt: new Date().toISOString()
+                        }
+                    ];
+                    displayOrderStatus(currentOrders);
                 }
             }
         }
@@ -1432,178 +1672,6 @@
             }
         }
         
-        // Debug functions
-        async function checkTables() {
-            try {
-                Loading.show('Checking active tables...');
-                
-                const data = await API.get(CONFIG.API_ENDPOINTS.TABLES);
-                
-                let tableInfo = '<div class="alert alert-info"><h5>Active Tables:</h5>';
-                
-                if (data.tables && Array.isArray(data.tables)) {
-                    const tableNumbers = data.tables.map(t => t.number).filter(n => n !== undefined);
-                    tableInfo += `<p>Tables ${tableNumbers.join(', ')} are active.</p>`;
-                    activeTables = tableNumbers;
-                } else if (data.activeTables && Array.isArray(data.activeTables)) {
-                    tableInfo += `<p>Tables ${data.activeTables.join(', ')} are active.</p>`;
-                    activeTables = data.activeTables;
-                } else {
-                    tableInfo += '<p>No table data returned from server.</p>';
-                }
-                
-                tableInfo += `<p>Current table: ${currentTable}</p>`;
-                tableInfo += '</div>';
-                
-                document.getElementById('debugInfo').innerHTML = tableInfo;
-                
-                // Regenerate table buttons
-                generateTableButtons();
-                
-            } catch (error) {
-                console.error('Error checking tables:', error);
-                document.getElementById('debugInfo').innerHTML = `
-                    <div class="alert alert-danger">
-                        Error checking tables: ${error.message}
-                    </div>
-                `;
-            } finally {
-                Loading.hide();
-            }
-        }
-        
-        async function seedDatabase() {
-            try {
-                Loading.show('Seeding database...');
-                
-                const response = await fetch(CONFIG.BACKEND_URL + '/api/seed', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                });
-                
-                const data = await response.json();
-                console.log('Seed response:', data);
-                
-                if (data.success) {
-                    Toast.show('Database seeded successfully!', 'success');
-                    
-                    // Reload tables and menu
-                    await loadActiveTables();
-                    await loadMenu();
-                    
-                    document.getElementById('debugInfo').innerHTML = `
-                        <div class="alert alert-success">
-                            Database seeded successfully!<br>
-                            ${data.message || ''}
-                        </div>
-                    `;
-                } else {
-                    Toast.show('Seed failed: ' + (data.message || 'Unknown error'), 'error');
-                }
-                
-            } catch (error) {
-                console.error('Error seeding database:', error);
-                Toast.show('Seed failed: ' + error.message, 'error');
-            } finally {
-                Loading.hide();
-            }
-        }
-        
-        async function placeTestOrder() {
-            try {
-                Loading.show('Placing test order...');
-                
-                // Switch to table 1 for testing
-                selectTable(1);
-                
-                const testOrder = {
-                    tableNumber: 1,
-                    items: [{
-                        menuItem: 'demo_item_123',
-                        name: 'Test Burger',
-                        price: 12.99,
-                        quantity: 1
-                    }],
-                    customerName: 'Test Customer',
-                    customerEmail: 'test@example.com',
-                    instructions: 'Test order from debug button'
-                };
-                
-                console.log('Placing test order to:', CONFIG.BACKEND_URL + '/api/demo/order');
-                
-                const response = await fetch(CONFIG.BACKEND_URL + '/api/demo/order', {
-                    method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(testOrder)
-                });
-                
-                const data = await response.json();
-                console.log('Test order response:', data);
-                
-                if (data.success) {
-                    Toast.show('Test order placed successfully!', 'success');
-                    await loadOrderStatus();
-                } else {
-                    Toast.show('Test order failed: ' + (data.message || 'Unknown error'), 'error');
-                }
-                
-            } catch (error) {
-                console.error('Test order error:', error);
-                Toast.show('Test order failed: ' + error.message, 'error');
-            } finally {
-                Loading.hide();
-            }
-        }
-        
-        // Show notification
-        function showNotification(message, type = 'info') {
-            Toast.show(message, type);
-            
-            if ('Notification' in window && Notification.permission === 'granted') {
-                try {
-                    new Notification('Smart Waiter Update', {
-                        body: message,
-                        icon: 'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/icons/utensils.svg'
-                    });
-                } catch (error) {
-                    console.log('Browser notification error:', error);
-                }
-            }
-        }
-        
-        // Request notification permission
-        function requestNotificationPermission() {
-            if ('Notification' in window && Notification.permission === 'default') {
-                Notification.requestPermission();
-            }
-        }
-        
-        // Contact form submission
-        const contactForm = document.getElementById('contactForm');
-        if (contactForm) {
-            contactForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-                Toast.show('Message sent successfully! We\'ll get back to you soon.', 'success');
-                this.reset();
-            });
-        }
-        
-        // Logout
-        function logout() {
-            if (socket) {
-                try {
-                    socket.disconnect();
-                } catch (e) {
-                    console.log('Socket disconnect error:', e);
-                }
-            }
-            Auth.logout();
-        }
-        
         // Initialize on load
         document.addEventListener('DOMContentLoaded', function() {
             console.log('DOM loaded, initializing app...');
@@ -1620,19 +1688,18 @@
 
         // Make functions available globally
         window.addToCart = addToCart;
-        window.updateQuantity = updateQuantity;
-        window.removeFromCart = removeFromCart;
         window.showCart = showCart;
         window.hideCart = hideCart;
         window.placeOrder = placeOrder;
         window.requestService = requestService;
-        window.placeTestOrder = placeTestOrder;
         window.loadMenu = loadMenu;
         window.logout = logout;
         window.selectTable = selectTable;
         window.setTableFromInput = setTableFromInput;
-        window.checkTables = checkTables;
-        window.seedDatabase = seedDatabase;
+        window.autoSetupDatabase = autoSetupDatabase;
+        window.skipSetup = skipSetup;
+        window.checkSystemStatus = checkSystemStatus;
+        window.createTestOrder = createTestOrder;
     </script>
 </body>
 </html>
