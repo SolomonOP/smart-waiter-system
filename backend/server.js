@@ -368,3 +368,23 @@ process.on('uncaughtException', (error) => {
 process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
+
+// Add this to your backend in a test route
+// In your backend app.js or server.js
+
+app.get('/api/test', (req, res) => {
+    res.json({ 
+        message: 'Backend is working',
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV || 'development'
+    });
+});
+
+app.post('/api/test/login', (req, res) => {
+    console.log('Test login attempt:', req.body);
+    res.json({
+        success: true,
+        message: 'Login endpoint is reachable',
+        data: req.body
+    });
+});
