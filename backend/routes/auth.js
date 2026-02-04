@@ -41,6 +41,7 @@ const verifyToken = (token) => {
     try {
         return jwt.verify(token, process.env.JWT_SECRET || 'smartwaiter_production_secret_2024');
     } catch (error) {
+        console.error('❌ Token verification failed:', error.message);
         return null;
     }
 };
@@ -51,6 +52,7 @@ const authMiddleware = async (req, res, next) => {
         const token = req.header('Authorization')?.replace('Bearer ', '');
         
         if (!token) {
+            console.log('❌ No token provided in auth middleware');
             return res.status(401).json({
                 success: false,
                 message: 'Access denied. No token provided.'
@@ -60,6 +62,7 @@ const authMiddleware = async (req, res, next) => {
         const decoded = verifyToken(token);
         
         if (!decoded) {
+            console.log('❌ Invalid or expired token');
             return res.status(401).json({
                 success: false,
                 message: 'Invalid or expired token'
@@ -70,9 +73,11 @@ const authMiddleware = async (req, res, next) => {
         req.userEmail = decoded.email;
         req.userRole = decoded.role;
         req.isDemo = decoded.isDemo || false;
+        
+        console.log('✅ Auth middleware passed for user:', decoded.email);
         next();
     } catch (error) {
-        console.error('Auth middleware error:', error);
+        console.error('💥 Auth middleware error:', error);
         res.status(401).json({
             success: false,
             message: 'Authentication failed'
@@ -123,7 +128,7 @@ const DEMO_ACCOUNTS = [
     }
 ];
 
-// Health check endpoint
+// ==================== HEALTH CHECK ====================
 router.get('/health', (req, res) => {
     res.json({
         success: true,
@@ -134,7 +139,7 @@ router.get('/health', (req, res) => {
     });
 });
 
-// Demo accounts endpoint
+// ==================== DEMO ACCOUNTS ====================
 router.get('/demo-accounts', (req, res) => {
     res.json({
         success: true,
@@ -151,14 +156,203 @@ router.get('/demo-accounts', (req, res) => {
     });
 });
 
-// Login endpoint
+// ==================== TEST ENDPOINTS ====================
+
+// 🔧 TEST: Verify bcrypt directly
+router.post('/test-bcrypt', async (req, res) => {
+    try {
+        const { password } = req.body;
+        const hash = '$2a$10$gNkuieq666RtcAmiU2M2EuuZ/Qyvk7/h1l5sd2TvkG7Pbf0gCOvqC'; // Your admin hash
+        
+        console.log('🧪 Testing bcrypt with provided password');
+        console.log('📊 Password provided:', password ? 'Yes (' + password.length + ' chars)' : 'No');
+        console.log('📊 Hash to compare:', hash.substring(0, 30) + '...');
+        console.log('📊 Hash algorithm:', hash.substring(0, 4));
+        
+        const match = await bcrypt.compare(password, hash);
+        
+        console.log('✅ Bcrypt test result:', match);
+        
+        res.json({ 
+            success: true,
+            match,
+            hashAlgorithm: hash.substring(0, 4),
+            hashLength: hash.length,
+            note: match ? 'Password matches hash!' : 'Password does NOT match hash'
+        });
+    } catch (error) {
+        console.error('💥 Bcrypt test error:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
+    }
+});
+
+// 🔧 TEST: Check user by email
+router.post('/check-user', async (req, res) => {
+    try {
+        const { email } = req.body;
+        
+        if (!email) {
+            return res.status(400).json({ success: false, message: 'Email is required' });
+        }
+        
+        const normalizedEmail = email.toLowerCase().trim();
+        
+        console.log('🔍 Checking user in database:', normalizedEmail);
+        
+        // Try different ways to query
+        const userWithoutPassword = await User.findOne({ email: normalizedEmail });
+        const userWithPassword = await User.findOne({ email: normalizedEmail })
+            .select('+password +firstName +lastName +role +phone +avatar +isActive');
+        
+        console.log('📊 User found (without password):', userWithoutPassword ? 'Yes' : 'No');
+        console.log('📊 User found (with password):', userWithPassword ? 'Yes' : 'No');
+        
+        if (userWithPassword) {
+            console.log('📊 User details:');
+            console.log('- ID:', userWithPassword._id);
+            console.log('- Email:', userWithPassword.email);
+            console.log('- Role:', userWithPassword.role);
+            console.log('- Has password field:', !!userWithPassword.password);
+            console.log('- Password length:', userWithPassword.password ? userWithPassword.password.length : 0);
+            if (userWithPassword.password) {
+                console.log('- Password first 30 chars:', userWithPassword.password.substring(0, 30) + '...');
+                console.log('- Password algorithm:', userWithPassword.password.substring(0, 4));
+            }
+        }
+        
+        res.json({
+            success: true,
+            userExists: !!userWithPassword,
+            userDetails: userWithPassword ? {
+                _id: userWithPassword._id,
+                email: userWithPassword.email,
+                role: userWithPassword.role,
+                firstName: userWithPassword.firstName,
+                lastName: userWithPassword.lastName,
+                hasPasswordField: !!userWithPassword.password,
+                passwordLength: userWithPassword.password ? userWithPassword.password.length : 0,
+                passwordAlgorithm: userWithPassword.password ? userWithPassword.password.substring(0, 4) : null
+            } : null
+        });
+    } catch (error) {
+        console.error('💥 Check user error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// 🔧 TEST: Create new admin (if needed)
+router.post('/create-admin', async (req, res) => {
+    try {
+        const { email, password, firstName, lastName, phone } = req.body;
+        
+        if (!email || !password) {
+            return res.status(400).json({
+                success: false,
+                message: 'Email and password are required'
+            });
+        }
+        
+        const normalizedEmail = email.toLowerCase().trim();
+        
+        console.log('👨‍💼 Creating new admin user:', normalizedEmail);
+        
+        // Check if user exists
+        const existing = await User.findOne({ email: normalizedEmail });
+        if (existing) {
+            console.log('❌ User already exists:', normalizedEmail);
+            return res.status(400).json({
+                success: false,
+                message: 'User already exists. Try a different email.'
+            });
+        }
+        
+        // Create new admin
+        const admin = new User({
+            firstName: firstName || 'Admin',
+            lastName: lastName || 'User',
+            email: normalizedEmail,
+            password: password,
+            phone: phone || '1234567890',
+            role: 'admin'
+        });
+        
+        await admin.save();
+        
+        console.log('✅ Admin user created successfully:', admin.email);
+        
+        // Generate token for immediate use
+        const token = admin.generateAuthToken();
+        
+        res.json({
+            success: true,
+            message: 'Admin user created successfully!',
+            token,
+            user: {
+                id: admin._id,
+                email: admin.email,
+                role: admin.role,
+                firstName: admin.firstName,
+                lastName: admin.lastName
+            }
+        });
+    } catch (error) {
+        console.error('💥 Create admin error:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: error.message,
+            code: error.code
+        });
+    }
+});
+
+// 🔧 TEST: Database connection
+router.get('/test-db', async (req, res) => {
+    try {
+        console.log('🧪 Testing database connection...');
+        
+        // Test user count
+        const userCount = await User.countDocuments();
+        
+        // Test finding admin user
+        const adminUser = await User.findOne({ email: 'solomonraja332@gmail.com' })
+            .select('+password');
+        
+        res.json({
+            success: true,
+            database: 'connected',
+            userCount,
+            adminUserExists: !!adminUser,
+            adminUser: adminUser ? {
+                email: adminUser.email,
+                role: adminUser.role,
+                hasPassword: !!adminUser.password,
+                passwordLength: adminUser.password ? adminUser.password.length : 0,
+                passwordAlgorithm: adminUser.password ? adminUser.password.substring(0, 4) : null
+            } : null
+        });
+    } catch (error) {
+        console.error('💥 Database test error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+// ==================== MAIN LOGIN ENDPOINT ====================
 router.post('/login', loginValidation, async (req, res) => {
     try {
-        console.log('🔐 Login attempt:', { 
-            email: req.body.email, 
-            timestamp: new Date().toISOString(),
-            ip: req.ip
-        });
+        console.log('\n' + '='.repeat(60));
+        console.log('🔐 LOGIN ATTEMPT STARTED');
+        console.log('='.repeat(60));
+        console.log('📅 Timestamp:', new Date().toISOString());
+        console.log('🌐 IP:', req.ip);
+        console.log('📧 Email received:', req.body.email);
+        console.log('🔑 Password received:', req.body.password ? 'Yes (' + req.body.password.length + ' chars)' : 'No');
         
         // Validate input
         const errors = validationResult(req);
@@ -171,8 +365,10 @@ router.post('/login', loginValidation, async (req, res) => {
             });
         }
         
-        const { email, password, rememberMe } = req.body;
+        const { email, password } = req.body;
         const normalizedEmail = email.toLowerCase().trim();
+        
+        console.log('\n🔍 Step 1: Checking demo accounts...');
         
         // Check demo accounts first
         const demoAccount = DEMO_ACCOUNTS.find(acc => 
@@ -180,10 +376,12 @@ router.post('/login', loginValidation, async (req, res) => {
         );
         
         if (demoAccount) {
-            console.log('🎭 Processing demo account:', normalizedEmail);
+            console.log('🎭 Demo account found:', normalizedEmail);
+            console.log('📊 Demo password expected:', demoAccount.password);
+            console.log('📊 Password provided:', password);
             
             if (password !== demoAccount.password) {
-                console.log('❌ Invalid password for demo account');
+                console.log('❌ Demo password mismatch');
                 return res.status(401).json({
                     success: false,
                     message: 'Invalid credentials. For demo accounts, use password: 123456'
@@ -193,11 +391,9 @@ router.post('/login', loginValidation, async (req, res) => {
             // Generate token for demo account
             const token = generateToken(demoAccount);
             
-            console.log('✅ Demo login successful:', {
-                email: demoAccount.email,
-                role: demoAccount.role,
-                tokenPreview: token.substring(0, 30) + '...'
-            });
+            console.log('✅ Demo login successful!');
+            console.log('📊 User role:', demoAccount.role);
+            console.log('🔑 Token generated (first 30 chars):', token.substring(0, 30) + '...');
             
             return res.json({
                 success: true,
@@ -218,14 +414,15 @@ router.post('/login', loginValidation, async (req, res) => {
             });
         }
         
-        // Database user authentication
-        console.log('🔍 Checking database for user:', normalizedEmail);
+        console.log('\n🔍 Step 2: Checking database...');
+        console.log('📧 Searching for email:', normalizedEmail);
         
-        // Find user by email
-        const user = await User.findOne({ email: normalizedEmail }).select('+password +isActive');
+        // Database user authentication - EXPLICIT field selection
+        const user = await User.findOne({ email: normalizedEmail })
+            .select('+password +firstName +lastName +role +phone +avatar +isActive +failedLoginAttempts +lastLogin');
         
         if (!user) {
-            console.log('❌ User not found in database:', normalizedEmail);
+            console.log('❌ User not found in database');
             return res.status(401).json({
                 success: false,
                 message: 'Invalid credentials',
@@ -233,47 +430,103 @@ router.post('/login', loginValidation, async (req, res) => {
             });
         }
         
+        console.log('✅ User found in database');
+        console.log('📊 User ID:', user._id);
+        console.log('📊 User email:', user.email);
+        console.log('📊 User role:', user.role);
+        console.log('📊 Has password field?', !!user.password);
+        console.log('📊 Is active?', user.isActive);
+        
+        if (user.password) {
+            console.log('📊 Password field length:', user.password.length);
+            console.log('📊 Password first 30 chars:', user.password.substring(0, 30) + '...');
+            console.log('📊 Password algorithm:', user.password.substring(0, 4));
+        } else {
+            console.log('⚠️  WARNING: Password field is null or undefined!');
+        }
+        
         // Check if user is active
         if (!user.isActive) {
-            console.log('❌ Account is inactive:', normalizedEmail);
+            console.log('❌ Account is inactive');
             return res.status(403).json({
                 success: false,
                 message: 'Account is deactivated. Please contact administrator.'
             });
         }
         
-        // Verify password
-        console.log('🔑 Verifying password for user:', user.email);
-        const isPasswordValid = await user.comparePassword(password);
+        console.log('\n🔍 Step 3: Verifying password...');
+        console.log('📊 Password provided length:', password.length);
+        
+        // Verify password - try multiple methods
+        let isPasswordValid = false;
+        let errorMessage = null;
+        
+        try {
+            console.log('🔄 Method 1: Using user.comparePassword()');
+            isPasswordValid = await user.comparePassword(password);
+            console.log('✅ Method 1 result:', isPasswordValid);
+        } catch (method1Error) {
+            console.log('❌ Method 1 failed:', method1Error.message);
+            errorMessage = method1Error.message;
+            
+            // Try direct bcrypt comparison
+            try {
+                console.log('🔄 Method 2: Direct bcrypt.compare()');
+                if (user.password) {
+                    isPasswordValid = await bcrypt.compare(password, user.password);
+                    console.log('✅ Method 2 result:', isPasswordValid);
+                } else {
+                    console.log('❌ Method 2 failed: No password hash to compare');
+                }
+            } catch (method2Error) {
+                console.log('❌ Method 2 failed:', method2Error.message);
+                errorMessage += ' | ' + method2Error.message;
+            }
+        }
         
         if (!isPasswordValid) {
-            console.log('❌ Invalid password for user:', user.email);
+            console.log('❌ Password validation failed');
             
-            // Log failed attempt (you could add rate limiting here)
+            // Log failed attempt
             user.failedLoginAttempts = (user.failedLoginAttempts || 0) + 1;
             user.lastFailedLogin = Date.now();
             await user.save();
             
             return res.status(401).json({
                 success: false,
-                message: 'Invalid credentials'
+                message: 'Invalid credentials',
+                debug: process.env.NODE_ENV === 'development' ? {
+                    error: errorMessage,
+                    hashExists: !!user.password,
+                    hashLength: user.password ? user.password.length : 0,
+                    hashAlgorithm: user.password ? user.password.substring(0, 4) : null
+                } : undefined
             });
         }
+        
+        console.log('✅ Password verified successfully!');
         
         // Reset failed login attempts on successful login
         user.failedLoginAttempts = 0;
         user.lastLogin = Date.now();
         await user.save();
         
-        // Generate JWT token
+        console.log('\n🔍 Step 4: Generating token...');
+        
+        // Generate JWT token using user method
         const token = user.generateAuthToken();
         
-        console.log('✅ Database login successful:', {
-            email: user.email,
-            role: user.role,
-            userId: user._id,
-            tokenPreview: token.substring(0, 30) + '...'
-        });
+        console.log('✅ Token generated successfully');
+        console.log('📊 Token preview:', token.substring(0, 30) + '...');
+        
+        console.log('\n' + '='.repeat(60));
+        console.log('🎉 LOGIN SUCCESSFUL!');
+        console.log('='.repeat(60));
+        console.log('👤 User:', user.email);
+        console.log('🎭 Role:', user.role);
+        console.log('🆔 ID:', user._id);
+        console.log('⏰ Last login updated');
+        console.log('='.repeat(60));
         
         res.json({
             success: true,
@@ -295,32 +548,38 @@ router.post('/login', loginValidation, async (req, res) => {
         });
         
     } catch (error) {
-        console.error('💥 Login endpoint error:', {
-            message: error.message,
-            stack: error.stack,
-            timestamp: new Date().toISOString()
-        });
+        console.error('\n' + '💥'.repeat(20));
+        console.error('💥 LOGIN ENDPOINT ERROR');
+        console.error('💥'.repeat(20));
+        console.error('📅 Timestamp:', new Date().toISOString());
+        console.error('❌ Error message:', error.message);
+        console.error('📝 Error stack:', error.stack);
+        console.error('🔧 Error code:', error.code);
+        console.error('📊 Error name:', error.name);
+        console.error('💥'.repeat(20) + '\n');
         
         res.status(500).json({
             success: false,
             message: 'Internal server error during authentication',
-            error: process.env.NODE_ENV === 'production' ? undefined : error.message
+            error: process.env.NODE_ENV === 'development' ? {
+                message: error.message,
+                code: error.code,
+                name: error.name
+            } : undefined
         });
     }
 });
 
-// Register endpoint
+// ==================== REGISTER ENDPOINT ====================
 router.post('/register', registerValidation, async (req, res) => {
     try {
-        console.log('📝 Registration request:', {
-            email: req.body.email,
-            timestamp: new Date().toISOString()
-        });
+        console.log('\n📝 REGISTRATION ATTEMPT');
+        console.log('📧 Email:', req.body.email);
         
         // Validate input
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
-            console.log('❌ Registration validation failed:', errors.array());
+            console.log('❌ Validation errors:', errors.array());
             return res.status(400).json({
                 success: false,
                 message: 'Validation failed',
@@ -340,7 +599,7 @@ router.post('/register', registerValidation, async (req, res) => {
         );
         
         if (isDemoAccount) {
-            console.log('❌ Attempt to register demo account email:', normalizedEmail);
+            console.log('❌ Attempt to register demo account email');
             return res.status(409).json({
                 success: false,
                 message: 'This email is reserved for system demo accounts. Please use a different email.'
@@ -351,12 +610,14 @@ router.post('/register', registerValidation, async (req, res) => {
         const existingUser = await User.findOne({ email: normalizedEmail });
         
         if (existingUser) {
-            console.log('❌ Email already registered:', normalizedEmail);
+            console.log('❌ Email already registered');
             return res.status(409).json({
                 success: false,
                 message: 'Email address is already registered. Please use a different email or login.'
             });
         }
+        
+        console.log('✅ Email available, creating new user...');
         
         // Create new user
         const user = new User({
@@ -371,17 +632,14 @@ router.post('/register', registerValidation, async (req, res) => {
         // Save user to database
         await user.save();
         
+        console.log('✅ User saved to database');
+        
         // Generate JWT token
         const token = user.generateAuthToken();
         
-        console.log('✅ User registered successfully:', {
-            email: user.email,
-            userId: user._id,
-            role: user.role
-        });
-        
-        // Send welcome email (optional - you can implement this later)
-        // await sendWelcomeEmail(user.email, user.firstName);
+        console.log('🎉 Registration successful!');
+        console.log('👤 User ID:', user._id);
+        console.log('🎭 Role:', user.role);
         
         res.status(201).json({
             success: true,
@@ -401,11 +659,7 @@ router.post('/register', registerValidation, async (req, res) => {
         });
         
     } catch (error) {
-        console.error('💥 Registration error:', {
-            message: error.message,
-            stack: error.stack,
-            code: error.code
-        });
+        console.error('💥 Registration error:', error.message);
         
         // Handle MongoDB duplicate key error
         if (error.code === 11000) {
@@ -432,18 +686,18 @@ router.post('/register', registerValidation, async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Internal server error during registration',
-            error: process.env.NODE_ENV === 'production' ? undefined : error.message
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
 });
 
-// Get current user profile (protected)
+// ==================== GET CURRENT USER ====================
 router.get('/me', authMiddleware, async (req, res) => {
     try {
-        console.log('👤 Profile request for user:', {
+        console.log('👤 Profile request for:', {
             userId: req.userId,
-            isDemo: req.isDemo,
-            timestamp: new Date().toISOString()
+            email: req.userEmail,
+            isDemo: req.isDemo
         });
         
         // Handle demo accounts
@@ -512,7 +766,47 @@ router.get('/me', authMiddleware, async (req, res) => {
     }
 });
 
-// Update user profile (protected)
+// ==================== VERIFY TOKEN ====================
+router.post('/verify-token', (req, res) => {
+    try {
+        const { token } = req.body;
+        
+        if (!token) {
+            return res.status(400).json({
+                success: false,
+                message: 'Token is required'
+            });
+        }
+        
+        console.log('🔍 Verifying token...');
+        const decoded = verifyToken(token);
+        
+        if (!decoded) {
+            console.log('❌ Token verification failed');
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid or expired token'
+            });
+        }
+        
+        console.log('✅ Token is valid for user:', decoded.email);
+        
+        res.json({
+            success: true,
+            message: 'Token is valid',
+            decoded
+        });
+        
+    } catch (error) {
+        console.error('💥 Token verification error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error'
+        });
+    }
+});
+
+// ==================== UPDATE PROFILE ====================
 router.put('/update', authMiddleware, [
     check('firstName', 'First name is required').optional().not().isEmpty().trim().escape(),
     check('lastName', 'Last name is required').optional().not().isEmpty().trim().escape(),
@@ -587,7 +881,7 @@ router.put('/update', authMiddleware, [
     }
 });
 
-// Change password (protected)
+// ==================== CHANGE PASSWORD ====================
 router.post('/change-password', authMiddleware, [
     check('currentPassword', 'Current password is required').not().isEmpty(),
     check('newPassword', 'New password must be at least 6 characters').isLength({ min: 6 })
@@ -656,7 +950,7 @@ router.post('/change-password', authMiddleware, [
     }
 });
 
-// Forgot password endpoint
+// ==================== FORGOT PASSWORD ====================
 router.post('/forgot-password', [
     check('email', 'Please include a valid email').isEmail().normalizeEmail()
 ], async (req, res) => {
@@ -728,7 +1022,7 @@ router.post('/forgot-password', [
     }
 });
 
-// Reset password with token
+// ==================== RESET PASSWORD ====================
 router.post('/reset-password/:token', [
     check('password', 'Password must be at least 6 characters').isLength({ min: 6 })
 ], async (req, res) => {
@@ -798,43 +1092,7 @@ router.post('/reset-password/:token', [
     }
 });
 
-// Verify token endpoint
-router.post('/verify-token', (req, res) => {
-    try {
-        const { token } = req.body;
-        
-        if (!token) {
-            return res.status(400).json({
-                success: false,
-                message: 'Token is required'
-            });
-        }
-        
-        const decoded = verifyToken(token);
-        
-        if (!decoded) {
-            return res.status(401).json({
-                success: false,
-                message: 'Invalid or expired token'
-            });
-        }
-        
-        res.json({
-            success: true,
-            message: 'Token is valid',
-            decoded
-        });
-        
-    } catch (error) {
-        console.error('💥 Token verification error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Internal server error'
-        });
-    }
-});
-
-// Logout endpoint (client-side token invalidation)
+// ==================== LOGOUT ====================
 router.post('/logout', authMiddleware, (req, res) => {
     try {
         // In a real implementation, you might want to:
@@ -862,7 +1120,7 @@ router.post('/logout', authMiddleware, (req, res) => {
     }
 });
 
-// Admin-only: Get all users (protected + admin check)
+// ==================== ADMIN: GET ALL USERS ====================
 router.get('/admin/users', authMiddleware, async (req, res) => {
     try {
         // Check if user is admin
@@ -898,7 +1156,7 @@ router.get('/admin/users', authMiddleware, async (req, res) => {
     }
 });
 
-// Admin-only: Update user status (activate/deactivate)
+// ==================== ADMIN: UPDATE USER STATUS ====================
 router.put('/admin/users/:userId/status', authMiddleware, async (req, res) => {
     try {
         // Check if user is admin
@@ -948,6 +1206,59 @@ router.put('/admin/users/:userId/status', authMiddleware, async (req, res) => {
         
     } catch (error) {
         console.error('💥 Admin user status update error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error'
+        });
+    }
+});
+
+// ==================== DIRECT PASSWORD RESET (Emergency) ====================
+router.post('/admin/reset-user-password', authMiddleware, async (req, res) => {
+    try {
+        // Check if user is admin
+        if (req.userRole !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                message: 'Access denied. Admin privileges required.'
+            });
+        }
+        
+        const { userId, newPassword } = req.body;
+        
+        if (!userId || !newPassword) {
+            return res.status(400).json({
+                success: false,
+                message: 'User ID and new password are required'
+            });
+        }
+        
+        const user = await User.findById(userId).select('+password');
+        
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        console.log('🔧 Admin resetting password for user:', user.email);
+        
+        // Update password
+        user.password = newPassword;
+        await user.save();
+        
+        res.json({
+            success: true,
+            message: 'Password reset successfully',
+            user: {
+                email: user.email,
+                role: user.role
+            }
+        });
+        
+    } catch (error) {
+        console.error('💥 Admin password reset error:', error);
         res.status(500).json({
             success: false,
             message: 'Internal server error'
