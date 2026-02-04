@@ -557,59 +557,48 @@ async function loadMenu() {
     try {
         Loading.show('Loading menu...');
         
-        // TRY MULTIPLE ENDPOINTS - one should work
-        let data;
-        let endpoints = [
-            `${CONFIG.BACKEND_URL}/api/customer/menu?available=true`,
-            `${CONFIG.BACKEND_URL}/api/customer/menu`,
-            `${CONFIG.BACKEND_URL}/api/demo/menu`  // Fallback to demo
-        ];
+        console.log('Fetching menu from:', CONFIG.BACKEND_URL + '/api/customer/menu');
         
-        for (let endpoint of endpoints) {
-            try {
-                console.log('Trying endpoint:', endpoint);
-                const response = await fetch(endpoint, {
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                });
-                
-                if (response.ok) {
-                    data = await response.json();
-                    console.log('Success with endpoint:', endpoint);
-                    console.log('Menu data:', data);
-                    break;
-                }
-            } catch (err) {
-                console.log('Failed with endpoint:', endpoint, err);
-                continue;
+        const response = await fetch(CONFIG.BACKEND_URL + '/api/customer/menu?available=true', {
+            headers: {
+                'Content-Type': 'application/json'
             }
+        });
+        
+        console.log('Response status:', response.status);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
         
-        if (!data) {
-            throw new Error('Could not load menu from any endpoint');
-        }
+        const data = await response.json();
+        console.log('Menu API response:', data);
         
-        // Handle different response formats
+        // Check if we got valid data
         let menuItems = [];
         
-        if (data.menuItems) {
-            menuItems = data.menuItems;  // /api/customer/menu format
+        if (data.menuItems && Array.isArray(data.menuItems)) {
+            menuItems = data.menuItems;
         } else if (data.groupedMenu) {
             // Flatten grouped menu
             for (const category in data.groupedMenu) {
-                menuItems = menuItems.concat(data.groupedMenu[category]);
+                if (Array.isArray(data.groupedMenu[category])) {
+                    menuItems = menuItems.concat(data.groupedMenu[category]);
+                }
             }
         } else if (Array.isArray(data)) {
-            menuItems = data;  // /api/demo/menu format
-        } else {
-            throw new Error('Unexpected menu data format');
+            menuItems = data;
         }
         
+        console.log('Extracted menu items:', menuItems.length, 'items');
+        
         if (menuItems.length === 0) {
-            console.warn('No menu items found');
-            // Use demo data as fallback
-            menuItems = getDemoMenuItems();
+            console.warn('No menu items found in database');
+            // Try to seed the database
+            await seedMenuDatabase();
+            // Try loading again
+            await loadMenu();
+            return;
         }
         
         displayMenu(menuItems);
@@ -618,14 +607,40 @@ async function loadMenu() {
     } catch (error) {
         console.error('Error loading menu:', error);
         
-        // Use demo data as fallback
+        // Use demo fallback
         const demoItems = getDemoMenuItems();
         displayMenu(demoItems);
         
-        Toast.show('Using demo menu data', 'info');
+        Toast.show('Using demo menu (database empty)', 'info');
+        
+        // Try to seed database in background
+        seedMenuDatabase().catch(e => console.log('Background seed failed:', e));
+        
     } finally {
         Loading.hide();
     }
+}
+
+// Add seed function
+async function seedMenuDatabase() {
+    try {
+        console.log('Attempting to seed database...');
+        const response = await fetch(CONFIG.BACKEND_URL + '/api/customer/menu/seed', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            console.log('Database seeded successfully:', data);
+            return true;
+        }
+    } catch (error) {
+        console.log('Seed request failed:', error);
+    }
+    return false;
 }
 
 // ADD THIS FUNCTION for demo fallback:
@@ -811,9 +826,7 @@ function getDemoMenuItems() {
             document.getElementById('cartSidebar').classList.remove('active');
         }
         
-        // Place order
-        // REPLACE the placeOrder() function with this DEBUG version:
-async function placeOrder() {
+        async function placeOrder() {
     const tableNumber = document.getElementById('tableNumber').value;
     const instructions = document.getElementById('specialInstructions').value;
     
@@ -829,75 +842,65 @@ async function placeOrder() {
     
     try {
         Loading.show('Placing your order...');
-        const token = localStorage.getItem('token');
+        
+        // Get user info
         const user = Auth.getUser();
+        console.log('Current user:', user);
         
-        console.log('=== ORDER DEBUG INFO ===');
-        console.log('Table Number:', tableNumber);
-        console.log('Cart items:', cart);
-        console.log('User:', user);
-        console.log('Token exists:', !!token);
+        if (!user) {
+            Toast.show('Please login first', 'error');
+            return;
+        }
         
-        // Build order object EXACTLY as backend expects
-        const order = {
+        // Build order object - CRITICAL: Match backend expectations
+        const orderData = {
             tableNumber: parseInt(tableNumber),
             items: cart.map(item => ({
-                menuItem: item.id,  // This MUST match backend expectation
+                menuItem: item.id,  // MUST be "menuItem" not "id"
                 name: item.name,
                 price: parseFloat(item.price),
                 quantity: parseInt(item.quantity)
             })),
-            totalAmount: cart.reduce((sum, item) => sum + (item.price * item.quantity), 0),
-            instructions: instructions || '',
-            specialInstructions: instructions || '',  // Some backends expect this
-            customer: user?._id || null,
-            customerName: user?.firstName + ' ' + user?.lastName,
-            customerEmail: user?.email
+            customerName: user.firstName + ' ' + user.lastName,
+            customerEmail: user.email,
+            instructions: instructions || ''
         };
         
-        console.log('Order data being sent:', JSON.stringify(order, null, 2));
+        console.log('Sending order data:', JSON.stringify(orderData, null, 2));
         
-        // Test without token first (some endpoints don't require it)
-        let response;
-        try {
-            response = await fetch(`${CONFIG.BACKEND_URL}/api/customer/order`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': token ? `Bearer ${token}` : ''
-                },
-                body: JSON.stringify(order)
-            });
-        } catch (networkError) {
-            console.error('Network error:', networkError);
-            throw new Error('Network error. Check if backend is running.');
-        }
+        // Use fetch directly to see detailed error
+        const response = await fetch(CONFIG.BACKEND_URL + '/api/customer/order', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: JSON.stringify(orderData)
+        });
         
-        console.log('Response status:', response.status);
-        console.log('Response headers:', [...response.headers.entries()]);
-        
-        const responseText = await response.text();
-        console.log('Response text:', responseText);
+        console.log('Order response status:', response.status);
         
         if (!response.ok) {
-            let errorMsg = `HTTP ${response.status}: ${response.statusText}`;
+            let errorText = await response.text();
+            console.error('Order error response:', errorText);
+            
+            // Try to parse error
+            let errorMessage = `HTTP ${response.status}: Order failed`;
             try {
-                const errorData = JSON.parse(responseText);
-                errorMsg = errorData.message || errorMsg;
-                console.log('Error details:', errorData);
-                
-                // Handle specific error cases
+                const errorData = JSON.parse(errorText);
+                errorMessage = errorData.message || errorMessage;
                 if (errorData.errors) {
-                    errorMsg += '\n' + errorData.errors.map(e => e.msg).join(', ');
+                    errorMessage += '\n' + errorData.errors.map(e => e.msg).join(', ');
                 }
             } catch (e) {
-                // Not JSON response
+                errorMessage += '\n' + errorText;
             }
-            throw new Error(errorMsg);
+            
+            throw new Error(errorMessage);
         }
         
-        const data = JSON.parse(responseText);
-        console.log('Order success data:', data);
+        const data = await response.json();
+        console.log('Order success:', data);
         
         Toast.show('Order placed successfully!', 'success');
         
@@ -922,36 +925,124 @@ async function placeOrder() {
     } catch (error) {
         console.error('Order placement error:', error);
         
-        // Show detailed error
+        // Show helpful error message
         let errorMessage = error.message || 'Failed to place order';
         
-        // Common error solutions
+        // Common fixes based on error
         if (errorMessage.includes('tableNumber')) {
-            errorMessage += ' - Please check table number is valid';
-        } else if (errorMessage.includes('items')) {
-            errorMessage += ' - Cart items may be invalid';
+            errorMessage = 'Invalid table number. Please enter a number.';
+        } else if (errorMessage.includes('items') || errorMessage.includes('menuItem')) {
+            errorMessage = 'Invalid cart items. Please reload the menu and try again.';
+        } else if (errorMessage.includes('customer') || errorMessage.includes('name') || errorMessage.includes('email')) {
+            errorMessage = 'User information missing. Please login again.';
+            setTimeout(() => Auth.logout(), 2000);
         } else if (errorMessage.includes('401') || errorMessage.includes('token')) {
-            errorMessage += ' - Please login again';
+            errorMessage = 'Session expired. Please login again.';
             setTimeout(() => Auth.logout(), 2000);
         }
         
         Toast.show(errorMessage, 'error');
         
-        // Show retry button
+        // Add retry button
         const cartSidebar = document.getElementById('cartSidebar');
         if (cartSidebar) {
-            cartSidebar.innerHTML += `
+            const retryHtml = `
                 <div class="alert alert-danger mt-3">
                     <strong>Order Failed:</strong> ${errorMessage}
-                    <button class="btn btn-warning btn-sm mt-2" onclick="retryOrder()">
-                        <i class="fas fa-redo me-1"></i>Retry Order
-                    </button>
+                    <div class="mt-2">
+                        <button class="btn btn-warning btn-sm me-2" onclick="debugOrder()">
+                            <i class="fas fa-bug me-1"></i>Debug
+                        </button>
+                        <button class="btn btn-primary btn-sm" onclick="retryOrder()">
+                            <i class="fas fa-redo me-1"></i>Retry
+                        </button>
+                    </div>
                 </div>
             `;
+            
+            // Check if alert already exists
+            if (!cartSidebar.querySelector('.alert')) {
+                cartSidebar.innerHTML += retryHtml;
+            }
         }
     } finally {
         Loading.hide();
     }
+}
+
+// Add debug function
+async function debugOrder() {
+    console.clear();
+    console.log('=== ORDER DEBUG ===');
+    
+    // Test data
+    const testData = {
+        tableNumber: 1,
+        items: [{
+            menuItem: 'demo_item_1',
+            name: 'Test Burger',
+            price: 12.99,
+            quantity: 2
+        }],
+        customerName: 'Test Customer',
+        customerEmail: 'test@example.com',
+        instructions: 'Test order'
+    };
+    
+    console.log('Test order data:', testData);
+    
+    // Test 1: Without auth
+    console.log('\n1. Testing without auth...');
+    try {
+        const res1 = await fetch(CONFIG.BACKEND_URL + '/api/customer/order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(testData)
+        });
+        console.log('Status:', res1.status);
+        const text1 = await res1.text();
+        console.log('Response:', text1);
+    } catch (e) {
+        console.error('Error:', e);
+    }
+    
+    // Test 2: With current token
+    const token = localStorage.getItem('token');
+    console.log('\n2. Testing with current token:', token ? 'Yes' : 'No');
+    if (token) {
+        try {
+            const res2 = await fetch(CONFIG.BACKEND_URL + '/api/customer/order', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(testData)
+            });
+            console.log('Status:', res2.status);
+            const text2 = await res2.text();
+            console.log('Response:', text2);
+        } catch (e) {
+            console.error('Error:', e);
+        }
+    }
+    
+    // Test 3: Test endpoint
+    console.log('\n3. Testing /api/demo/order...');
+    try {
+        const res3 = await fetch(CONFIG.BACKEND_URL + '/api/demo/order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tableNumber: 1, items: [{ name: 'Test', price: 10, quantity: 1 }] })
+        });
+        console.log('Status:', res3.status);
+        const data3 = await res3.json();
+        console.log('Response:', data3);
+    } catch (e) {
+        console.error('Error:', e);
+    }
+    
+    alert('Check console (F12) for debug results');
 }
 
 // Add retry function
@@ -1101,6 +1192,52 @@ function retryOrder() {
         
         // Initialize on load
         document.addEventListener('DOMContentLoaded', initApp);
+
+
+        // Add emergency order button to HTML
+<button class="btn btn-success mt-3" onclick="placeTestOrder()" id="testOrderBtn">
+    <i class="fas fa-flask me-2"></i>Test Order (Direct)
+</button>
+
+// Add function
+async function placeTestOrder() {
+    try {
+        const testOrder = {
+            tableNumber: 1,
+            items: [{
+                menuItem: 'demo_item_123',
+                name: 'Test Burger',
+                price: 12.99,
+                quantity: 1
+            }],
+            customerName: 'Test Customer',
+            customerEmail: 'test@example.com',
+            instructions: 'Test order from emergency button'
+        };
+        
+        console.log('Placing test order:', testOrder);
+        
+        const response = await fetch(CONFIG.BACKEND_URL + '/api/demo/order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(testOrder)
+        });
+        
+        const data = await response.json();
+        console.log('Test order response:', data);
+        
+        if (data.success) {
+            Toast.show('Test order placed successfully!', 'success');
+            await loadOrderStatus();
+        } else {
+            Toast.show('Test order failed: ' + data.message, 'error');
+        }
+        
+    } catch (error) {
+        console.error('Test order error:', error);
+        Toast.show('Test order failed', 'error');
+    }
+}
     </script>
 </body>
 </html>
