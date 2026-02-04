@@ -1,16 +1,14 @@
-// config.js - Production configuration for Render
+// config.js - Fixed version
 const CONFIG = {
   BACKEND_URL: 'https://smart-waiter-backend.onrender.com',
   FRONTEND_URL: 'https://smart-waiter-frontend.onrender.com',
   
-  // Demo accounts
   DEMO_ACCOUNTS: {
     customer: { email: 'customer@demo.com', password: '123456' },
     chef: { email: 'chef@demo.com', password: '123456' },
     admin: { email: 'admin@demo.com', password: '123456' }
   },
   
-  // Real-time settings
   SOCKET_CONFIG: {
     reconnection: true,
     reconnectionAttempts: 5,
@@ -18,7 +16,6 @@ const CONFIG = {
     transports: ['websocket', 'polling']
   },
   
-  // API endpoints
   API_ENDPOINTS: {
     // Auth
     LOGIN: '/api/auth/login',

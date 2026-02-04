@@ -331,3 +331,46 @@ window.API = API;
 window.Auth = Auth;
 window.Loading = Loading;
 window.SocketManager = SocketManager;
+
+
+// Add these to your existing utils.js
+
+// Format order status
+function formatOrderStatus(status) {
+  const statusMap = {
+    'pending': 'Pending',
+    'preparing': 'Preparing',
+    'ready': 'Ready to Serve',
+    'completed': 'Completed',
+    'rejected': 'Rejected'
+  };
+  return statusMap[status] || status;
+}
+
+// Format category name
+function formatCategory(category) {
+  const categoryMap = {
+    'appetizer': 'Appetizer',
+    'main': 'Main Course',
+    'dessert': 'Dessert',
+    'drink': 'Drink'
+  };
+  return categoryMap[category] || category;
+}
+
+// Get table status class
+function getTableStatusClass(status) {
+  const statusMap = {
+    'available': 'table-available',
+    'occupied': 'table-occupied',
+    'reserved': 'table-reserved'
+  };
+  return statusMap[status] || 'table-available';
+}
+
+// Add to window object
+window.FormatUtils = {
+  formatOrderStatus,
+  formatCategory,
+  getTableStatusClass
+};
