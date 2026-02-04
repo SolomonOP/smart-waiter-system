@@ -52,24 +52,60 @@ const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://Spidy:Spidy%401129
 
 console.log('🔗 Connecting to MongoDB...');
 
+// Global variable to track DB connection
+let isDatabaseConnected = false;
+
 const connectDB = async () => {
   try {
-    await mongoose.connect(MONGODB_URI, {
+    console.log('🔗 Attempting MongoDB connection...');
+    console.log('📊 Using URI:', MONGODB_URI.replace(/:[^:]*@/, ':****@'));
+    
+    const conn = await mongoose.connect(MONGODB_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
       serverSelectionTimeoutMS: 30000,
       socketTimeoutMS: 45000,
       maxPoolSize: 10,
+      retryWrites: true,
+      w: 'majority'
     });
+    
+    isDatabaseConnected = true;
     console.log('✅ MongoDB Connected Successfully');
+    console.log('📊 Host:', conn.connection.host);
+    console.log('📊 Database:', conn.connection.name);
+    console.log('📊 Ready State:', conn.connection.readyState);
+    
+    return conn;
   } catch (err) {
     console.error('❌ MongoDB Connection Failed:', err.message);
+    console.error('🔧 Error details:', {
+      name: err.name,
+      code: err.code,
+      codeName: err.codeName
+    });
     console.log('🔄 Retrying connection in 5 seconds...');
     setTimeout(connectDB, 5000);
+    throw err; // Re-throw to handle in the main flow
   }
 };
 
-connectDB();
+// Database connection middleware
+const checkDatabase = (req, res, next) => {
+  if (!isDatabaseConnected || mongoose.connection.readyState !== 1) {
+    return res.status(503).json({
+      success: false,
+      message: 'Database is not ready. Please try again in a moment.',
+      databaseStatus: mongoose.connection.readyState,
+      connected: isDatabaseConnected
+    });
+  }
+  next();
+};
+
+// Apply database check to all API routes except health check
+app.use('/api', checkDatabase);
+app.use('/health', (req, res, next) => next()); // Skip for health check
 
 // Initialize Socket.io with proper configuration
 const io = socketIo(server, {
@@ -203,11 +239,24 @@ app.get('/', (req, res) => {
 
 // Health check endpoint (for Render)
 app.get('/health', (req, res) => {
+  const dbStatus = mongoose.connection.readyState;
+  const dbStatusText = {
+    0: 'disconnected',
+    1: 'connected',
+    2: 'connecting',
+    3: 'disconnecting'
+  }[dbStatus] || 'unknown';
+  
   const health = {
-    status: 'healthy',
+    status: dbStatus === 1 ? 'healthy' : 'degraded',
     timestamp: new Date().toISOString(),
     services: {
-      database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+      database: {
+        status: dbStatusText,
+        readyState: dbStatus,
+        host: mongoose.connection.host,
+        name: mongoose.connection.name
+      },
       websocket: 'running',
       api: 'running'
     },
@@ -222,8 +271,10 @@ app.get('/health', (req, res) => {
       }
     },
     connections: {
-      websocket: io.engine.clientsCount
-    }
+      websocket: io.engine.clientsCount,
+      database: mongoose.connection.readyState === 1 ? 'ok' : 'error'
+    },
+    isDatabaseConnected
   };
   
   res.json(health);
@@ -332,21 +383,38 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 10000;
 
-server.listen(PORT, '0.0.0.0', () => {
-  console.log('='.repeat(60));
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📡 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🔗 MongoDB State: ${mongoose.connection.readyState === 1 ? 'Connected ✅' : 'Disconnected ❌'}`);
-  console.log(`🔌 WebSocket: Ready`);
-  console.log(`🌐 CORS Allowed Origins: ${allowedOrigins.join(', ')}`);
-  console.log('='.repeat(60));
-  console.log('✅ API Endpoints:');
-  console.log(`   Health: http://localhost:${PORT}/health`);
-  console.log(`   Main: http://localhost:${PORT}/`);
-  console.log(`   Auth: http://localhost:${PORT}/api/auth/login`);
-  console.log(`   Demo: http://localhost:${PORT}/api/demo`);
-  console.log('='.repeat(60));
-});
+// Start server only after database connection
+const startServer = async () => {
+  try {
+    console.log('🔄 Starting server initialization...');
+    
+    // Connect to database first
+    await connectDB();
+    
+    // Now start the server
+    server.listen(PORT, '0.0.0.0', () => {
+      console.log('='.repeat(60));
+      console.log(`🚀 Server running on port ${PORT}`);
+      console.log(`📡 Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`🔗 MongoDB State: ${mongoose.connection.readyState === 1 ? 'Connected ✅' : 'Disconnected ❌'}`);
+      console.log(`🔌 WebSocket: Ready`);
+      console.log(`🌐 CORS Allowed Origins: ${allowedOrigins.join(', ')}`);
+      console.log('='.repeat(60));
+      console.log('✅ API Endpoints:');
+      console.log(`   Health: http://localhost:${PORT}/health`);
+      console.log(`   Main: http://localhost:${PORT}/`);
+      console.log(`   Auth: http://localhost:${PORT}/api/auth/login`);
+      console.log(`   Demo: http://localhost:${PORT}/api/demo`);
+      console.log('='.repeat(60));
+    });
+    
+  } catch (error) {
+    console.error('💥 Failed to start server:', error);
+    process.exit(1);
+  }
+};
+
+startServer();
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
