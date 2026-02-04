@@ -116,6 +116,13 @@
             box-shadow: 0 2px 10px rgba(0,0,0,0.08);
         }
         
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+        }
+        
         @media (max-width: 768px) {
             .hero-section {
                 padding: 60px 20px;
@@ -129,6 +136,12 @@
             .service-btn {
                 margin: 5px;
                 padding: 15px;
+            }
+            
+            .toast-container {
+                left: 10px;
+                right: 10px;
+                top: 10px;
             }
         }
     </style>
@@ -344,6 +357,7 @@
                     <button class="btn btn-success" onclick="placeTestOrder()" id="testOrderBtn">
                         <i class="fas fa-flask me-2"></i>Test Order (Direct)
                     </button>
+                    <p class="text-muted small mt-2">Use this button for testing if regular order fails</p>
                 </div>
             </div>
         </div>
@@ -454,25 +468,39 @@
         </div>
     </div>
 
+    <!-- Toast Container -->
+    <div class="toast-container"></div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <!-- Load Socket.io -->
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     
     <script>
-        // Configuration
+        // Configuration for Render deployment
+        // IMPORTANT: Replace with your actual Render backend URL
         const CONFIG = {
-            BACKEND_URL: 'http://localhost:3000',
+            // For Render deployment, use your backend URL
+            BACKEND_URL: 'https://smart-waiter-backend.onrender.com', // REPLACE with your actual Render URL
+            
+            // Local development fallback
+            // BACKEND_URL: 'http://localhost:3000',
+            
             API_ENDPOINTS: {
-                CUSTOMER_ORDERS: '/api/customer/orders'
+                CUSTOMER_ORDERS: '/api/customer/orders',
+                MENU: '/api/customer/menu',
+                ORDER: '/api/customer/order'
             }
         };
 
-        // Utility Classes (replacement for missing utils.js)
+        // Utility Classes
         const Auth = {
             check: (role) => {
                 const token = localStorage.getItem('token');
                 if (!token) {
-                    window.location.href = '../login.html';
+                    // Check if we're already on login page
+                    if (!window.location.href.includes('login.html')) {
+                        window.location.href = 'login.html';
+                    }
                     return false;
                 }
                 return true;
@@ -484,48 +512,109 @@
             logout: () => {
                 localStorage.removeItem('token');
                 localStorage.removeItem('user');
-                window.location.href = '../login.html';
+                window.location.href = 'login.html';
             }
         };
 
         const SocketManager = {
             connect: () => {
-                return io(CONFIG.BACKEND_URL);
+                try {
+                    // Connect to Render backend with WebSocket
+                    return io(CONFIG.BACKEND_URL, {
+                        transports: ['websocket', 'polling'],
+                        withCredentials: true
+                    });
+                } catch (error) {
+                    console.error('Socket connection error:', error);
+                    return {
+                        on: () => {},
+                        emit: () => {},
+                        disconnect: () => {}
+                    };
+                }
             }
         };
 
         const API = {
             get: async (url, token) => {
-                const response = await fetch(CONFIG.BACKEND_URL + url, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
+                try {
+                    const response = await fetch(CONFIG.BACKEND_URL + url, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
                     }
-                });
-                return response.json();
+                    
+                    return response.json();
+                } catch (error) {
+                    console.error('API GET Error:', error);
+                    throw error;
+                }
+            },
+            post: async (url, data, token) => {
+                try {
+                    const response = await fetch(CONFIG.BACKEND_URL + url, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(data)
+                    });
+                    
+                    if (!response.ok) {
+                        let errorText = await response.text();
+                        throw new Error(`HTTP ${response.status}: ${errorText}`);
+                    }
+                    
+                    return response.json();
+                } catch (error) {
+                    console.error('API POST Error:', error);
+                    throw error;
+                }
             }
         };
 
         const Toast = {
             show: (message, type = 'info') => {
-                // Create toast element
+                const toastContainer = document.querySelector('.toast-container');
                 const toastId = 'toast-' + Date.now();
+                
+                // Map type to Bootstrap classes
+                const typeClasses = {
+                    success: 'bg-success text-white',
+                    error: 'bg-danger text-white',
+                    warning: 'bg-warning text-dark',
+                    info: 'bg-info text-white'
+                };
+                
                 const toastHtml = `
-                    <div id="${toastId}" class="toast align-items-center text-bg-${type} border-0 position-fixed" 
-                         style="top: 20px; right: 20px; z-index: 9999;" role="alert" aria-live="assertive" aria-atomic="true">
-                        <div class="d-flex">
-                            <div class="toast-body">
-                                ${message}
-                            </div>
-                            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                    <div id="${toastId}" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+                        <div class="toast-header ${typeClasses[type] || 'bg-primary text-white'}">
+                            <strong class="me-auto">Notification</strong>
+                            <small>Just now</small>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+                        </div>
+                        <div class="toast-body">
+                            ${message}
                         </div>
                     </div>
                 `;
                 
-                document.body.insertAdjacentHTML('beforeend', toastHtml);
+                toastContainer.insertAdjacentHTML('beforeend', toastHtml);
                 const toastElement = document.getElementById(toastId);
-                const toast = new bootstrap.Toast(toastElement, { delay: 3000 });
+                const toast = new bootstrap.Toast(toastElement, { 
+                    delay: 3000,
+                    autohide: true
+                });
+                
                 toast.show();
                 
+                // Remove from DOM after hiding
                 toastElement.addEventListener('hidden.bs.toast', () => {
                     toastElement.remove();
                 });
@@ -533,16 +622,20 @@
         };
 
         const Loading = {
-            show: (message) => {
-                // Create loading overlay
+            show: (message = 'Loading...') => {
+                // Remove any existing loading overlay
+                this.hide();
+                
                 const loadingId = 'loading-' + Date.now();
                 const loadingHtml = `
                     <div id="${loadingId}" class="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" 
-                         style="background: rgba(0,0,0,0.5); z-index: 9999;">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Loading...</span>
+                         style="background: rgba(0,0,0,0.7); z-index: 9999;">
+                        <div class="text-center">
+                            <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <div class="text-white fs-5">${message}</div>
                         </div>
-                        <div class="ms-3 text-white">${message}</div>
                     </div>
                 `;
                 document.body.insertAdjacentHTML('beforeend', loadingHtml);
@@ -562,49 +655,81 @@
         
         // Initialize application
         async function initApp() {
+            console.log('Initializing application...');
+            console.log('Backend URL:', CONFIG.BACKEND_URL);
+            
             // Check authentication
             if (!Auth.check('customer')) {
+                console.log('Authentication failed, redirecting to login');
                 return;
             }
             
             // Get user
             user = Auth.getUser();
+            console.log('User loaded:', user ? 'Yes' : 'No');
             
-            // Initialize socket
-            initSocket();
-            
-            // Load initial data
-            await loadOrderStatus();
+            // Initialize socket (non-blocking)
+            setTimeout(() => {
+                try {
+                    initSocket();
+                } catch (error) {
+                    console.warn('Socket initialization failed:', error);
+                    Toast.show('Real-time updates unavailable', 'warning');
+                }
+            }, 1000);
             
             // Setup navigation
             setupNavigation();
             
             // Request notification permission
             requestNotificationPermission();
+            
+            // Show welcome message
+            if (user) {
+                Toast.show(`Welcome back, ${user.firstName}!`, 'success');
+            }
         }
         
         // Initialize socket
         function initSocket() {
-            socket = SocketManager.connect();
-            
-            socket.on('status-update', (data) => {
-                console.log('Order status update:', data);
-                if (currentOrders.some(order => order._id === data.orderId)) {
-                    loadOrderStatus();
-                    showNotification(`Order #${data.orderId.substring(0, 8)} status changed to ${data.status}`);
-                }
-            });
-            
-            socket.on('new-order-notification', (data) => {
-                if (data.tableNumber == document.getElementById('tableNumber').value) {
-                    showNotification(`Your order #${data.orderNumber} has been placed!`, 'success');
-                    loadOrderStatus();
-                }
-            });
+            try {
+                socket = SocketManager.connect();
+                
+                socket.on('connect', () => {
+                    console.log('Socket connected successfully');
+                    Toast.show('Connected to real-time updates', 'success');
+                });
+                
+                socket.on('connect_error', (error) => {
+                    console.error('Socket connection error:', error);
+                    Toast.show('Real-time connection lost', 'warning');
+                });
+                
+                socket.on('status-update', (data) => {
+                    console.log('Order status update:', data);
+                    if (currentOrders.some(order => order._id === data.orderId)) {
+                        loadOrderStatus();
+                        showNotification(`Order #${data.orderId?.substring(0, 8) || 'N/A'} status changed to ${data.status}`);
+                    }
+                });
+                
+                socket.on('new-order-notification', (data) => {
+                    const tableNumber = document.getElementById('tableNumber')?.value;
+                    if (tableNumber && data.tableNumber == tableNumber) {
+                        showNotification(`Your order #${data.orderNumber} has been placed!`, 'success');
+                        loadOrderStatus();
+                    }
+                });
+                
+            } catch (error) {
+                console.error('Socket initialization error:', error);
+            }
         }
         
         // Setup navigation
         function setupNavigation() {
+            console.log('Setting up navigation...');
+            
             document.querySelectorAll('.nav-link').forEach(link => {
                 link.addEventListener('click', function(e) {
                     e.preventDefault();
@@ -616,36 +741,50 @@
                     
                     // Show selected section
                     const targetId = this.getAttribute('href').substring(1);
-                    document.getElementById(targetId).style.display = 'block';
-                    
-                    // Update active nav link
-                    document.querySelectorAll('.nav-link').forEach(navLink => {
-                        navLink.classList.remove('active');
-                    });
-                    this.classList.add('active');
-                    
-                    // Load specific content
-                    if (targetId === 'menu') {
-                        loadMenu();
-                    } else if (targetId === 'services') {
-                        loadOrderStatus();
+                    const targetSection = document.getElementById(targetId);
+                    if (targetSection) {
+                        targetSection.style.display = 'block';
+                        
+                        // Update active nav link
+                        document.querySelectorAll('.nav-link').forEach(navLink => {
+                            navLink.classList.remove('active');
+                        });
+                        this.classList.add('active');
+                        
+                        // Load specific content
+                        if (targetId === 'menu') {
+                            loadMenu();
+                        } else if (targetId === 'services') {
+                            loadOrderStatus();
+                        } else if (targetId === 'home') {
+                            // Auto-load menu on home if not loaded yet
+                            if (menuItems.length === 0) {
+                                setTimeout(loadMenu, 1000);
+                            }
+                        }
                     }
                 });
             });
             
             // Show home section by default
-            document.querySelector('[href="#home"]').click();
+            const homeLink = document.querySelector('[href="#home"]');
+            if (homeLink) {
+                homeLink.click();
+            }
             
             // Logout button
-            document.getElementById('logoutBtn').addEventListener('click', function(e) {
-                e.preventDefault();
-                logout();
-            });
+            const logoutBtn = document.getElementById('logoutBtn');
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    logout();
+                });
+            }
         }
         
         // Load menu items
         async function loadMenu() {
-            const tableNumber = document.getElementById('tableNumber').value;
+            const tableNumber = document.getElementById('tableNumber')?.value || 1;
             
             if (!tableNumber || tableNumber < 1) {
                 Toast.show('Please enter a valid table number (1 or higher)', 'error');
@@ -655,9 +794,9 @@
             try {
                 Loading.show('Loading menu...');
                 
-                console.log('Fetching menu from:', CONFIG.BACKEND_URL + '/api/customer/menu');
+                console.log('Fetching menu from:', CONFIG.BACKEND_URL + CONFIG.API_ENDPOINTS.MENU);
                 
-                const response = await fetch(CONFIG.BACKEND_URL + '/api/customer/menu?available=true', {
+                const response = await fetch(`${CONFIG.BACKEND_URL}${CONFIG.API_ENDPOINTS.MENU}?available=true`, {
                     headers: {
                         'Content-Type': 'application/json'
                     }
@@ -673,7 +812,7 @@
                 console.log('Menu API response:', data);
                 
                 // Check if we got valid data
-                let menuItems = [];
+                menuItems = [];
                 
                 if (data.menuItems && Array.isArray(data.menuItems)) {
                     menuItems = data.menuItems;
@@ -692,11 +831,9 @@
                 
                 if (menuItems.length === 0) {
                     console.warn('No menu items found in database');
-                    // Try to seed the database
-                    await seedMenuDatabase();
-                    // Try loading again
-                    await loadMenu();
-                    return;
+                    // Use demo fallback
+                    menuItems = getDemoMenuItems();
+                    Toast.show('Using demo menu', 'info');
                 }
                 
                 displayMenu(menuItems);
@@ -706,42 +843,17 @@
                 console.error('Error loading menu:', error);
                 
                 // Use demo fallback
-                const demoItems = getDemoMenuItems();
-                displayMenu(demoItems);
+                menuItems = getDemoMenuItems();
+                displayMenu(menuItems);
                 
-                Toast.show('Using demo menu (database empty)', 'info');
-                
-                // Try to seed database in background
-                seedMenuDatabase().catch(e => console.log('Background seed failed:', e));
+                Toast.show('Using demo menu (backend unreachable)', 'warning');
                 
             } finally {
                 Loading.hide();
             }
         }
 
-        // Add seed function
-        async function seedMenuDatabase() {
-            try {
-                console.log('Attempting to seed database...');
-                const response = await fetch(CONFIG.BACKEND_URL + '/api/customer/menu/seed', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    console.log('Database seeded successfully:', data);
-                    return true;
-                }
-            } catch (error) {
-                console.log('Seed request failed:', error);
-            }
-            return false;
-        }
-
-        // ADD THIS FUNCTION for demo fallback:
+        // Demo menu items fallback
         function getDemoMenuItems() {
             return [
                 {
@@ -803,6 +915,8 @@
         
         function displayMenu(items) {
             const menuContainer = document.getElementById('menuItems');
+            if (!menuContainer) return;
+            
             menuContainer.innerHTML = '';
             
             if (items.length === 0) {
@@ -855,12 +969,18 @@
         }
         
         function updateCartDisplay() {
-            document.getElementById('cartCount').textContent = cart.reduce((total, item) => total + item.quantity, 0);
+            const cartCount = document.getElementById('cartCount');
+            if (cartCount) {
+                cartCount.textContent = cart.reduce((total, item) => total + item.quantity, 0);
+            }
             
             const cartItemsContainer = document.getElementById('cartItems');
-            const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            const cartTotal = document.getElementById('cartTotal');
             
-            document.getElementById('cartTotal').textContent = total.toFixed(2);
+            if (!cartItemsContainer || !cartTotal) return;
+            
+            const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            cartTotal.textContent = total.toFixed(2);
             
             cartItemsContainer.innerHTML = '';
             
@@ -882,7 +1002,7 @@
                                         onclick="updateQuantity(${index}, -1)">
                                     <i class="fas fa-minus"></i>
                                 </button>
-                                <span>${item.quantity}</span>
+                                <span class="mx-2">${item.quantity}</span>
                                 <button class="btn btn-sm btn-outline-secondary ms-2" 
                                         onclick="updateQuantity(${index}, 1)">
                                     <i class="fas fa-plus"></i>
@@ -900,33 +1020,43 @@
         }
         
         function updateQuantity(index, change) {
-            cart[index].quantity += change;
-            
-            if (cart[index].quantity <= 0) {
-                cart.splice(index, 1);
+            if (cart[index]) {
+                cart[index].quantity += change;
+                
+                if (cart[index].quantity <= 0) {
+                    cart.splice(index, 1);
+                }
+                
+                updateCartDisplay();
             }
-            
-            updateCartDisplay();
         }
         
         function removeFromCart(index) {
-            const itemName = cart[index].name;
-            cart.splice(index, 1);
-            updateCartDisplay();
-            Toast.show(`${itemName} removed from cart`, 'warning');
+            if (cart[index]) {
+                const itemName = cart[index].name;
+                cart.splice(index, 1);
+                updateCartDisplay();
+                Toast.show(`${itemName} removed from cart`, 'warning');
+            }
         }
         
         function showCart() {
-            document.getElementById('cartSidebar').classList.add('active');
+            const cartSidebar = document.getElementById('cartSidebar');
+            if (cartSidebar) {
+                cartSidebar.classList.add('active');
+            }
         }
         
         function hideCart() {
-            document.getElementById('cartSidebar').classList.remove('active');
+            const cartSidebar = document.getElementById('cartSidebar');
+            if (cartSidebar) {
+                cartSidebar.classList.remove('active');
+            }
         }
         
         async function placeOrder() {
-            const tableNumber = document.getElementById('tableNumber').value;
-            const instructions = document.getElementById('specialInstructions').value;
+            const tableNumber = document.getElementById('tableNumber')?.value;
+            const instructions = document.getElementById('specialInstructions')?.value || '';
             
             if (!tableNumber || tableNumber < 1) {
                 Toast.show('Please enter a valid table number', 'error');
@@ -950,55 +1080,27 @@
                     return;
                 }
                 
-                // Build order object - CRITICAL: Match backend expectations
+                // Build order object
                 const orderData = {
                     tableNumber: parseInt(tableNumber),
                     items: cart.map(item => ({
-                        menuItem: item.id,  // MUST be "menuItem" not "id"
+                        menuItem: item.id,
                         name: item.name,
                         price: parseFloat(item.price),
                         quantity: parseInt(item.quantity)
                     })),
-                    customerName: user.firstName + ' ' + user.lastName,
-                    customerEmail: user.email,
-                    instructions: instructions || ''
+                    customerName: (user.firstName + ' ' + user.lastName).trim() || 'Customer',
+                    customerEmail: user.email || 'customer@example.com',
+                    instructions: instructions
                 };
                 
-                console.log('Sending order data:', JSON.stringify(orderData, null, 2));
+                console.log('Sending order to:', CONFIG.BACKEND_URL + CONFIG.API_ENDPOINTS.ORDER);
+                console.log('Order data:', JSON.stringify(orderData, null, 2));
                 
-                // Use fetch directly to see detailed error
-                const response = await fetch(CONFIG.BACKEND_URL + '/api/customer/order', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    },
-                    body: JSON.stringify(orderData)
-                });
+                const token = localStorage.getItem('token');
+                const response = await API.post(CONFIG.API_ENDPOINTS.ORDER, orderData, token);
                 
-                console.log('Order response status:', response.status);
-                
-                if (!response.ok) {
-                    let errorText = await response.text();
-                    console.error('Order error response:', errorText);
-                    
-                    // Try to parse error
-                    let errorMessage = `HTTP ${response.status}: Order failed`;
-                    try {
-                        const errorData = JSON.parse(errorText);
-                        errorMessage = errorData.message || errorMessage;
-                        if (errorData.errors) {
-                            errorMessage += '\n' + errorData.errors.map(e => e.msg).join(', ');
-                        }
-                    } catch (e) {
-                        errorMessage += '\n' + errorText;
-                    }
-                    
-                    throw new Error(errorMessage);
-                }
-                
-                const data = await response.json();
-                console.log('Order success:', data);
+                console.log('Order success:', response);
                 
                 Toast.show('Order placed successfully!', 'success');
                 
@@ -1013,9 +1115,9 @@
                 // Emit socket event
                 if (socket) {
                     socket.emit('new-order', {
-                        orderId: data.order?.id || data.order?._id,
+                        orderId: response.order?.id || response.order?._id,
                         tableNumber: tableNumber,
-                        orderNumber: data.order?.orderNumber,
+                        orderNumber: response.order?.orderNumber,
                         status: 'pending'
                     });
                 }
@@ -1023,138 +1125,42 @@
             } catch (error) {
                 console.error('Order placement error:', error);
                 
-                // Show helpful error message
-                let errorMessage = error.message || 'Failed to place order';
+                let errorMessage = 'Failed to place order. ';
                 
-                // Common fixes based on error
-                if (errorMessage.includes('tableNumber')) {
-                    errorMessage = 'Invalid table number. Please enter a number.';
-                } else if (errorMessage.includes('items') || errorMessage.includes('menuItem')) {
-                    errorMessage = 'Invalid cart items. Please reload the menu and try again.';
-                } else if (errorMessage.includes('customer') || errorMessage.includes('name') || errorMessage.includes('email')) {
-                    errorMessage = 'User information missing. Please login again.';
+                if (error.message.includes('401') || error.message.includes('token')) {
+                    errorMessage += 'Session expired. Please login again.';
                     setTimeout(() => Auth.logout(), 2000);
-                } else if (errorMessage.includes('401') || errorMessage.includes('token')) {
-                    errorMessage = 'Session expired. Please login again.';
-                    setTimeout(() => Auth.logout(), 2000);
+                } else if (error.message.includes('NetworkError') || error.message.includes('Failed to fetch')) {
+                    errorMessage += 'Network error. Please check your connection.';
+                } else {
+                    errorMessage += error.message;
                 }
                 
                 Toast.show(errorMessage, 'error');
                 
-                // Add retry button
+                // Add retry button to cart sidebar
                 const cartSidebar = document.getElementById('cartSidebar');
-                if (cartSidebar) {
+                if (cartSidebar && !cartSidebar.querySelector('.alert')) {
                     const retryHtml = `
                         <div class="alert alert-danger mt-3">
                             <strong>Order Failed:</strong> ${errorMessage}
                             <div class="mt-2">
-                                <button class="btn btn-warning btn-sm me-2" onclick="debugOrder()">
-                                    <i class="fas fa-bug me-1"></i>Debug
-                                </button>
-                                <button class="btn btn-primary btn-sm" onclick="retryOrder()">
-                                    <i class="fas fa-redo me-1"></i>Retry
+                                <button class="btn btn-primary btn-sm" onclick="placeOrder()">
+                                    <i class="fas fa-redo me-1"></i>Retry Order
                                 </button>
                             </div>
                         </div>
                     `;
-                    
-                    // Check if alert already exists
-                    if (!cartSidebar.querySelector('.alert')) {
-                        cartSidebar.innerHTML += retryHtml;
-                    }
+                    cartSidebar.insertAdjacentHTML('beforeend', retryHtml);
                 }
             } finally {
                 Loading.hide();
             }
         }
-
-        // Add debug function
-        async function debugOrder() {
-            console.clear();
-            console.log('=== ORDER DEBUG ===');
-            
-            // Test data
-            const testData = {
-                tableNumber: 1,
-                items: [{
-                    menuItem: 'demo_item_1',
-                    name: 'Test Burger',
-                    price: 12.99,
-                    quantity: 2
-                }],
-                customerName: 'Test Customer',
-                customerEmail: 'test@example.com',
-                instructions: 'Test order'
-            };
-            
-            console.log('Test order data:', testData);
-            
-            // Test 1: Without auth
-            console.log('\n1. Testing without auth...');
-            try {
-                const res1 = await fetch(CONFIG.BACKEND_URL + '/api/customer/order', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(testData)
-                });
-                console.log('Status:', res1.status);
-                const text1 = await res1.text();
-                console.log('Response:', text1);
-            } catch (e) {
-                console.error('Error:', e);
-            }
-            
-            // Test 2: With current token
-            const token = localStorage.getItem('token');
-            console.log('\n2. Testing with current token:', token ? 'Yes' : 'No');
-            if (token) {
-                try {
-                    const res2 = await fetch(CONFIG.BACKEND_URL + '/api/customer/order', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`
-                        },
-                        body: JSON.stringify(testData)
-                    });
-                    console.log('Status:', res2.status);
-                    const text2 = await res2.text();
-                    console.log('Response:', text2);
-                } catch (e) {
-                    console.error('Error:', e);
-                }
-            }
-            
-            // Test 3: Test endpoint
-            console.log('\n3. Testing /api/demo/order...');
-            try {
-                const res3 = await fetch(CONFIG.BACKEND_URL + '/api/demo/order', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ tableNumber: 1, items: [{ name: 'Test', price: 10, quantity: 1 }] })
-                });
-                console.log('Status:', res3.status);
-                const data3 = await res3.json();
-                console.log('Response:', data3);
-            } catch (e) {
-                console.error('Error:', e);
-            }
-            
-            alert('Check console (F12) for debug results');
-        }
-
-        // Add retry function
-        function retryOrder() {
-            hideCart();
-            setTimeout(() => {
-                showCart();
-                placeOrder();
-            }, 500);
-        }
         
         // Request service
         async function requestService(type) {
-            const tableNumber = document.getElementById('tableNumber').value || prompt(`Enter table number for ${type} request:`);
+            const tableNumber = document.getElementById('tableNumber')?.value || prompt(`Enter table number for ${type} request:`);
             
             if (!tableNumber) {
                 Toast.show('Table number is required', 'error');
@@ -1197,18 +1203,28 @@
         async function loadOrderStatus() {
             try {
                 const token = localStorage.getItem('token');
+                if (!token) {
+                    console.warn('No token found for loading orders');
+                    return;
+                }
+                
                 const data = await API.get(CONFIG.API_ENDPOINTS.CUSTOMER_ORDERS, token);
                 currentOrders = data.orders || [];
                 displayOrderStatus(currentOrders);
                 
             } catch (error) {
                 console.error('Error loading orders:', error);
-                Toast.show('Failed to load orders', 'error');
+                // Don't show error if it's just network issue
+                if (!error.message.includes('NetworkError')) {
+                    Toast.show('Failed to load orders', 'warning');
+                }
             }
         }
         
         function displayOrderStatus(orders) {
             const statusContainer = document.getElementById('orderStatus');
+            if (!statusContainer) return;
+            
             statusContainer.innerHTML = '';
             
             if (orders.length === 0) {
@@ -1226,16 +1242,16 @@
                 const orderCard = `
                     <div class="col-md-4 mb-3">
                         <div class="order-status ${statusClass}">
-                            <h6>Order #${order.orderNumber}</h6>
-                            <p><i class="fas fa-chair me-2"></i>Table: ${order.tableNumber}</p>
+                            <h6>Order #${order.orderNumber || 'N/A'}</h6>
+                            <p><i class="fas fa-chair me-2"></i>Table: ${order.tableNumber || 'N/A'}</p>
                             <p><i class="fas fa-box me-2"></i>Items: ${order.items?.length || 0}</p>
                             <p><i class="fas fa-dollar-sign me-2"></i>Total: $${order.totalAmount?.toFixed(2) || '0.00'}</p>
                             <div class="d-flex justify-content-between align-items-center mt-3">
                                 <span class="badge bg-${getOrderStatusColor(order.status)}">
-                                    ${order.status.toUpperCase()}
+                                    ${order.status?.toUpperCase() || 'UNKNOWN'}
                                 </span>
                                 <small class="text-muted">
-                                    ${new Date(order.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                    ${order.createdAt ? new Date(order.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'N/A'}
                                 </small>
                             </div>
                         </div>
@@ -1276,21 +1292,20 @@
         }
         
         // Contact form submission
-        document.getElementById('contactForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            Toast.show('Message sent successfully! We\'ll get back to you soon.', 'success');
-            this.reset();
-        });
-        
-        // Logout
-        function logout() {
-            if (socket) socket.disconnect();
-            Auth.logout();
+        const contactForm = document.getElementById('contactForm');
+        if (contactForm) {
+            contactForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                Toast.show('Message sent successfully! We\'ll get back to you soon.', 'success');
+                this.reset();
+            });
         }
 
-        // Test order function
+        // Test order function for Render testing
         async function placeTestOrder() {
             try {
+                Loading.show('Placing test order...');
+                
                 const testOrder = {
                     tableNumber: 1,
                     items: [{
@@ -1304,11 +1319,14 @@
                     instructions: 'Test order from emergency button'
                 };
                 
-                console.log('Placing test order:', testOrder);
+                console.log('Placing test order to:', CONFIG.BACKEND_URL + '/api/demo/order');
                 
+                // Try demo endpoint first
                 const response = await fetch(CONFIG.BACKEND_URL + '/api/demo/order', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json'
+                    },
                     body: JSON.stringify(testOrder)
                 });
                 
@@ -1319,17 +1337,63 @@
                     Toast.show('Test order placed successfully!', 'success');
                     await loadOrderStatus();
                 } else {
-                    Toast.show('Test order failed: ' + data.message, 'error');
+                    Toast.show('Test order failed: ' + (data.message || 'Unknown error'), 'error');
                 }
                 
             } catch (error) {
                 console.error('Test order error:', error);
-                Toast.show('Test order failed', 'error');
+                Toast.show('Test order failed: ' + error.message, 'error');
+                
+                // Fallback: Add demo order to cart
+                Toast.show('Adding demo item to cart instead', 'info');
+                addToCart('demo_1', 'Demo Burger', 12.99);
+                
+            } finally {
+                Loading.hide();
             }
         }
         
+        // Logout
+        function logout() {
+            if (socket) {
+                try {
+                    socket.disconnect();
+                } catch (e) {
+                    console.log('Socket disconnect error:', e);
+                }
+            }
+            Auth.logout();
+        }
+        
         // Initialize on load
-        document.addEventListener('DOMContentLoaded', initApp);
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, initializing app...');
+            
+            // Add a small delay to ensure all elements are ready
+            setTimeout(() => {
+                try {
+                    initApp();
+                } catch (error) {
+                    console.error('App initialization error:', error);
+                    Toast.show('Application initialization failed', 'error');
+                    
+                    // Try to load at least the menu
+                    setTimeout(loadMenu, 2000);
+                }
+            }, 100);
+        });
+
+        // Make functions available globally for onclick handlers
+        window.addToCart = addToCart;
+        window.updateQuantity = updateQuantity;
+        window.removeFromCart = removeFromCart;
+        window.showCart = showCart;
+        window.hideCart = hideCart;
+        window.placeOrder = placeOrder;
+        window.requestService = requestService;
+        window.placeTestOrder = placeTestOrder;
+        window.loadMenu = loadMenu;
+        window.logout = logout;
     </script>
 </body>
 </html>
