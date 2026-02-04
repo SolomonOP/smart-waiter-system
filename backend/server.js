@@ -1,4 +1,3 @@
-// Production-ready server.js for Render
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -7,492 +6,328 @@ const socketIo = require('socket.io');
 const path = require('path');
 require('dotenv').config();
 
+// Import middleware
+const securityMiddleware = require('./middleware/security');
+
+// Import routes
+const authRoutes = require('./routes/auth');
+const customerRoutes = require('./routes/customer');
+const chefRoutes = require('./routes/chef');
+const adminRoutes = require('./routes/admin');
+const demoRoutes = require('./routes/demo');
+
 const app = express();
 const server = http.createServer(app);
 
-// Production CORS configuration
+// Security Middleware
+securityMiddleware(app);
+
+// Enhanced CORS Configuration
 const allowedOrigins = [
   'https://smart-waiter-frontend.onrender.com',
   'http://localhost:3000',
-  'http://localhost:5500'
+  'http://localhost:5500',
+  'http://localhost:5173'
 ];
 
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
       console.log('Blocked by CORS:', origin);
       callback(new Error('Not allowed by CORS'));
     }
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Serve static files from frontend in production
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../frontend')));
-}
-
-// MongoDB Atlas Connection
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/smart_waiter';
+// MongoDB Connection
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://Spidy:Spidy%401129@cluster0.euzsakw.mongodb.net/smart_waiter?retryWrites=true&w=majority&appName=Cluster0';
 
 mongoose.connect(MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
-  serverSelectionTimeoutMS: 5000,
+  serverSelectionTimeoutMS: 30000,
   socketTimeoutMS: 45000,
+  retryWrites: true,
+  w: 'majority'
 })
-.then(() => console.log('✅ MongoDB Atlas Connected'))
+.then(() => {
+  console.log('✅ MongoDB Atlas Connected Successfully');
+  
+  // Create indexes after connection
+  mongoose.connection.db.collection('users').createIndex({ email: 1 }, { unique: true });
+  mongoose.connection.db.collection('tables').createIndex({ tableNumber: 1 }, { unique: true });
+  mongoose.connection.db.collection('orders').createIndex({ orderNumber: 1 }, { unique: true });
+  
+})
 .catch(err => {
   console.error('❌ MongoDB Connection Error:', err.message);
-  console.log('⚠️  Using in-memory storage for demo');
+  console.log('⚠️  Using demo mode with in-memory storage');
 });
 
-// Socket.io for Real-time Communication
+// Make io accessible to routes via app.set()
 const io = socketIo(server, {
   cors: {
     origin: allowedOrigins,
-    methods: ["GET", "POST"],
-    credentials: true
+    credentials: true,
+    methods: ['GET', 'POST']
   },
   transports: ['websocket', 'polling']
 });
 
-// ==================== ROOT ROUTE ====================
+// Attach io to app
+app.set('io', io);
+
+// API Routes with proper middleware
+app.use('/api/auth', authRoutes);
+app.use('/api/customer', customerRoutes);
+app.use('/api/chef', chefRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/demo', demoRoutes);
+
+// Root Route
 app.get('/', (req, res) => {
   res.json({
     success: true,
-    message: '🚀 Smart Waiter System API - Live on Render',
+    message: '🚀 Smart Waiter System API v2.0',
     version: '2.0.0',
     environment: process.env.NODE_ENV || 'development',
-    deployment: 'Render.com',
-    realtime: 'Socket.io Active',
+    status: 'operational',
     endpoints: {
-      api: '/api',
-      health: '/health',
-      demo: '/api/demo',
-      menu: '/api/menu',
-      login: 'POST /api/auth/login',
-      register: 'POST /api/auth/register'
+      auth: {
+        login: 'POST /api/auth/login',
+        register: 'POST /api/auth/register'
+      },
+      customer: 'GET /api/customer/menu | POST /api/customer/order',
+      chef: 'GET /api/chef/orders',
+      admin: 'GET /api/admin/stats',
+      demo: 'GET /api/demo'
     },
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime()
+    realtime: 'Socket.io Active',
+    database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+    timestamp: new Date().toISOString()
   });
 });
 
-// ==================== HEALTH CHECK ====================
+// Health Check
 app.get('/health', (req, res) => {
+  const dbStatus = mongoose.connection.readyState;
+  const statusMap = {
+    0: 'disconnected',
+    1: 'connected',
+    2: 'connecting',
+    3: 'disconnecting'
+  };
+
   res.json({
     status: 'healthy',
     service: 'smart-waiter-backend',
-    timestamp: new Date().toISOString(),
-    database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+    database: statusMap[dbStatus] || 'unknown',
     uptime: process.uptime(),
     memory: {
       used: `${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB`,
       total: `${Math.round(process.memoryUsage().heapTotal / 1024 / 1024)}MB`
-    }
+    },
+    connections: io.engine.clientsCount || 0,
+    timestamp: new Date().toISOString()
   });
 });
 
-// ==================== API ROUTES ====================
-
-// Demo accounts data
-const demoAccounts = {
-  'customer@demo.com': {
-    password: '123456',
-    user: {
-      id: 1,
-      firstName: 'John',
-      lastName: 'Doe',
-      email: 'customer@demo.com',
-      role: 'customer',
-      phone: '555-1234',
-      tableNumber: 5
-    }
-  },
-  'chef@demo.com': {
-    password: '123456',
-    user: {
-      id: 2,
-      firstName: 'Master',
-      lastName: 'Chef',
-      email: 'chef@demo.com',
-      role: 'chef',
-      phone: '555-5678'
-    }
-  },
-  'admin@demo.com': {
-    password: '123456',
-    user: {
-      id: 3,
-      firstName: 'Admin',
-      lastName: 'User',
-      email: 'admin@demo.com',
-      role: 'admin',
-      phone: '555-9012'
-    }
-  }
-};
-
-// Menu items
-const menuItems = [
-  {
-    id: 1,
-    name: 'Classic Burger',
-    description: 'Juicy beef patty with lettuce, tomato, and special sauce',
-    price: 12.99,
-    category: 'main',
-    image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80',
-    available: true
-  },
-  {
-    id: 2,
-    name: 'Caesar Salad',
-    description: 'Fresh romaine lettuce with Caesar dressing, croutons, and parmesan',
-    price: 9.99,
-    category: 'appetizer',
-    image: 'https://images.unsplash.com/photo-1546793665-c74683f339c1?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80',
-    available: true
-  }
-];
-
-// API: Get demo info
-app.get('/api/demo', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Demo accounts available',
-    accounts: Object.keys(demoAccounts).map(email => ({
-      email,
-      role: demoAccounts[email].user.role,
-      password: '123456'
-    })),
-    frontendUrl: process.env.FRONTEND_URL || 'https://smart-waiter-frontend.onrender.com'
+// Serve static files in production
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, 'public')));
+  
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
   });
-});
+}
 
-// API: Login
-app.post('/api/auth/login', (req, res) => {
-  const { email, password } = req.body;
-  
-  if (!email || !password) {
-    return res.status(400).json({
-      success: false,
-      message: 'Email and password are required'
-    });
-  }
-  
-  const account = demoAccounts[email];
-  
-  if (account && account.password === password) {
-    res.json({
-      success: true,
-      message: 'Login successful',
-      token: 'render_jwt_' + Date.now(),
-      user: account.user
-    });
-  } else {
-    res.status(401).json({
-      success: false,
-      message: 'Invalid email or password'
-    });
-  }
-});
-
-// ==================== REGISTRATION ENDPOINT ====================
-app.post('/api/auth/register', (req, res) => {
-  console.log('📝 Registration attempt:', req.body);
-  
-  const { firstName, lastName, email, password, confirmPassword, phone } = req.body;
-  
-  // Validation
-  const errors = [];
-  
-  if (!firstName || firstName.trim().length < 2) {
-    errors.push('First name must be at least 2 characters');
-  }
-  
-  if (!lastName || lastName.trim().length < 2) {
-    errors.push('Last name must be at least 2 characters');
-  }
-  
-  if (!email || !email.includes('@') || !email.includes('.')) {
-    errors.push('Valid email is required');
-  }
-  
-  if (!password || password.length < 6) {
-    errors.push('Password must be at least 6 characters');
-  }
-  
-  if (password !== confirmPassword) {
-    errors.push('Passwords do not match');
-  }
-  
-  if (!phone || phone.length < 10) {
-    errors.push('Valid phone number is required');
-  }
-  
-  // Check for errors
-  if (errors.length > 0) {
-    return res.status(400).json({
-      success: false,
-      message: 'Validation failed',
-      errors: errors
-    });
-  }
-  
-  // Check if email already exists in demo accounts
-  if (demoAccounts[email]) {
-    return res.status(400).json({
-      success: false,
-      message: 'Email already registered. Please use a different email or login with demo accounts'
-    });
-  }
-  
-  // Generate user ID
-  const userId = Date.now();
-  
-  // Create new user object
-  const newUser = {
-    id: userId,
-    firstName: firstName.trim(),
-    lastName: lastName.trim(),
-    email: email.trim().toLowerCase(),
-    phone: phone.trim(),
-    role: 'customer',
-    createdAt: new Date().toISOString(),
-    tableNumber: Math.floor(Math.random() * 20) + 1
-  };
-  
-  console.log('✅ New user registered:', newUser.email);
-  
-  // Success response
-  res.status(201).json({
-    success: true,
-    message: '🎉 Registration successful! Welcome to Smart Waiter System.',
-    user: newUser,
-    token: 'reg_token_' + userId,
-    instructions: 'You can now login with your credentials'
-  });
-});
-
-// API: Get menu
-app.get('/api/menu', (req, res) => {
-  res.json({
-    success: true,
-    count: menuItems.length,
-    menuItems
-  });
-});
-
-// API: Place order
-const orders = [];
-app.post('/api/orders', (req, res) => {
-  const { tableNumber, items, customerId } = req.body;
-  
-  const order = {
-    id: 'ORD-' + Date.now(),
-    tableNumber,
-    items,
-    customerId,
-    status: 'pending',
-    createdAt: new Date().toISOString(),
-    total: items.reduce((sum, item) => sum + (item.price * item.quantity), 0)
-  };
-  
-  orders.push(order);
-  
-  // Emit real-time event
-  io.emit('new-order', order);
-  
-  res.status(201).json({
-    success: true,
-    message: 'Order placed successfully',
-    order
-  });
-});
-
-// API: Get orders
-app.get('/api/orders', (req, res) => {
-  res.json({
-    success: true,
-    count: orders.length,
-    orders
-  });
-});
-
-// ==================== SOCKET.IO REAL-TIME ====================
-
+// Socket.io Real-time Communication
 const connectedUsers = new Map();
 
 io.on('connection', (socket) => {
-  console.log(`🔌 New connection: ${socket.id} from ${socket.handshake.address}`);
+  console.log(`🔌 New Socket.io Connection: ${socket.id}`);
   
-  // Register user
-  socket.on('register', (userData) => {
-    connectedUsers.set(socket.id, userData);
-    console.log(`👤 ${userData.role.toUpperCase()} connected: ${userData.email || 'Anonymous'}`);
+  // User registration
+  socket.on('register-user', (userData) => {
+    connectedUsers.set(socket.id, {
+      ...userData,
+      socketId: socket.id,
+      connectedAt: new Date()
+    });
     
-    // Join role room
-    socket.join(`role-${userData.role}`);
-    
-    // Join table room if customer
+    // Join role-specific rooms
+    socket.join(`role:${userData.role}`);
     if (userData.tableNumber) {
-      socket.join(`table-${userData.tableNumber}`);
+      socket.join(`table:${userData.tableNumber}`);
+    }
+    if (userData.userId) {
+      socket.join(`user:${userData.userId}`);
     }
     
-    // Send welcome message
-    socket.emit('welcome', {
-      message: `Welcome ${userData.role}! Real-time connection established.`,
-      serverTime: new Date().toISOString(),
-      connectedUsers: connectedUsers.size
-    });
+    console.log(`👤 User Registered: ${userData.email || userData.role} (${socket.id})`);
+    
+    // Broadcast user count
+    io.emit('users-count', { count: connectedUsers.size });
   });
   
-  // Place order (real-time)
+  // Place new order
   socket.on('place-order', (orderData) => {
-    const order = {
+    console.log(`📦 New Order via Socket:`, orderData);
+    
+    // Broadcast to chefs
+    io.to('role:chef').emit('new-order', {
       ...orderData,
-      id: 'RT-' + Date.now(),
-      status: 'pending',
-      timestamp: new Date().toISOString()
-    };
-    
-    // Store order
-    orders.push(order);
-    
-    // Real-time notifications
-    io.to('role-chef').emit('new-order-realtime', order);
-    io.to('role-admin').emit('order-created', order);
-    
-    // Confirmation to customer
-    socket.emit('order-confirmed', {
-      ...order,
-      message: 'Your order has been received!'
+      timestamp: new Date().toISOString(),
+      socketId: socket.id
     });
     
-    console.log(`📦 New order placed: ${order.id} for table ${order.tableNumber}`);
+    // Broadcast to admin
+    io.to('role:admin').emit('order-placed', {
+      ...orderData,
+      timestamp: new Date().toISOString()
+    });
+    
+    // Confirm to customer
+    socket.emit('order-confirmed', {
+      message: 'Order received and being processed',
+      orderId: orderData.orderNumber,
+      estimatedTime: '15-20 minutes'
+    });
   });
   
   // Update order status
   socket.on('update-order-status', (data) => {
-    const { orderId, status, chefName } = data;
-    const order = orders.find(o => o.id === orderId);
+    const { orderId, status, chefName, tableNumber } = data;
     
-    if (order) {
-      order.status = status;
-      order.updatedAt = new Date().toISOString();
-      order.chefName = chefName;
-      
-      // Notify customer
-      io.to(`table-${order.tableNumber}`).emit('order-status-updated', order);
-      
-      // Notify all chefs
-      io.to('role-chef').emit('order-status-changed', order);
-      
-      // Notify admin
-      io.to('role-admin').emit('order-updated', order);
-      
-      console.log(`🔄 Order ${orderId} status changed to: ${status}`);
+    console.log(`🔄 Order Status Update: ${orderId} -> ${status}`);
+    
+    // Notify specific table
+    if (tableNumber) {
+      io.to(`table:${tableNumber}`).emit('order-status-changed', {
+        orderId,
+        status,
+        chefName,
+        timestamp: new Date().toISOString(),
+        message: `Your order is now ${status}`
+      });
     }
+    
+    // Notify all chefs and admin
+    io.to('role:chef').emit('order-updated', data);
+    io.to('role:admin').emit('order-status-update', data);
   });
   
   // Service requests
-  socket.on('request-service', (serviceData) => {
-    const request = {
-      ...serviceData,
-      id: 'SRV-' + Date.now(),
+  socket.on('request-service', (requestData) => {
+    console.log(`🛎️  Service Request:`, requestData);
+    
+    // Notify chefs and admin
+    io.to('role:chef').emit('service-request', {
+      ...requestData,
       timestamp: new Date().toISOString(),
-      status: 'pending'
-    };
-    
-    io.to('role-chef').emit('service-requested', request);
-    io.to('role-admin').emit('service-log', request);
-    
-    socket.emit('service-acknowledged', {
-      ...request,
-      message: 'Service request sent to kitchen'
+      requestId: `SRV-${Date.now()}`
     });
     
-    console.log(`🛎️  Service request: ${request.type} for table ${request.tableNumber}`);
+    io.to('role:admin').emit('service-log', requestData);
+    
+    // Confirm to customer
+    socket.emit('service-acknowledged', {
+      message: 'Service request received',
+      type: requestData.type,
+      estimatedResponse: '5 minutes'
+    });
   });
   
   // Real-time chat
   socket.on('send-message', (messageData) => {
-    const { to, message, from, tableNumber } = messageData;
+    const { to, message, from, tableNumber, type } = messageData;
+    
+    const messageObj = {
+      from,
+      message,
+      timestamp: new Date().toISOString(),
+      type: type || 'chat'
+    };
     
     if (to === 'chef') {
-      io.to('role-chef').emit('customer-message', {
-        from: from || 'Customer',
-        tableNumber,
-        message,
-        timestamp: new Date().toISOString()
+      io.to('role:chef').emit('customer-message', {
+        ...messageObj,
+        tableNumber
       });
+    } else if (to === 'admin') {
+      io.to('role:admin').emit('customer-message', messageObj);
     } else if (to === 'customer' && tableNumber) {
-      io.to(`table-${tableNumber}`).emit('chef-message', {
-        from: from || 'Chef',
-        message,
-        timestamp: new Date().toISOString()
-      });
-    }
-  });
-  
-  // Ping/Pong for connection monitoring
-  socket.on('ping', (callback) => {
-    if (typeof callback === 'function') {
-      callback({
-        serverTime: new Date().toISOString(),
-        uptime: process.uptime()
-      });
+      io.to(`table:${tableNumber}`).emit('staff-message', messageObj);
     }
   });
   
   // Disconnect
   socket.on('disconnect', () => {
-    const userData = connectedUsers.get(socket.id);
-    if (userData) {
-      console.log(`👋 ${userData.role} disconnected: ${userData.email || socket.id}`);
+    const user = connectedUsers.get(socket.id);
+    if (user) {
+      console.log(`👋 User Disconnected: ${user.email || user.role} (${socket.id})`);
       connectedUsers.delete(socket.id);
+      
+      // Update user count
+      io.emit('users-count', { count: connectedUsers.size });
     }
   });
 });
 
-// ==================== ERROR HANDLING ====================
+// Error Handling Middleware
+app.use((err, req, res, next) => {
+  console.error('❌ Server Error:', err.stack);
+  
+  const statusCode = err.status || 500;
+  const message = err.message || 'Internal Server Error';
+  
+  res.status(statusCode).json({
+    success: false,
+    message: message,
+    error: process.env.NODE_ENV === 'production' ? undefined : err.stack,
+    timestamp: new Date().toISOString()
+  });
+});
 
-// 404 handler
-app.use((req, res) => {
+// 404 Handler
+app.use('*', (req, res) => {
   res.status(404).json({
     success: false,
-    message: `Cannot ${req.method} ${req.url}`,
-    suggestion: 'Try GET / for available endpoints'
+    message: `Cannot ${req.method} ${req.originalUrl}`,
+    availableEndpoints: [
+      'GET /',
+      'GET /health',
+      'POST /api/auth/login',
+      'POST /api/auth/register',
+      'GET /api/customer/menu'
+    ]
   });
 });
 
-// Error handler
-app.use((err, req, res, next) => {
-  console.error('❌ Server Error:', err);
-  res.status(500).json({
-    success: false,
-    message: 'Internal server error',
-    error: process.env.NODE_ENV === 'production' ? undefined : err.message
-  });
-});
-
-// ==================== START SERVER ====================
+// Start Server
 const PORT = process.env.PORT || 10000;
-server.listen(PORT, () => {
-  console.log('='.repeat(60));
-  console.log('🚀 SMART WAITER SYSTEM - DEPLOYED ON RENDER');
-  console.log('='.repeat(60));
+
+server.listen(PORT, '0.0.0.0', () => {
+  console.log('='.repeat(70));
+  console.log('🚀 SMART WAITER SYSTEM BACKEND - DEPLOYED ON RENDER');
+  console.log('='.repeat(70));
+  console.log(`📍 Server URL: https://smart-waiter.onrender.com`);
   console.log(`📍 Port: ${PORT}`);
   console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`📍 Frontend URL: ${process.env.FRONTEND_URL || 'Not configured'}`);
   console.log(`📍 Database: ${MONGODB_URI.includes('mongodb+srv') ? 'MongoDB Atlas' : 'Local'}`);
-  console.log(`📍 Frontend URL: ${process.env.FRONTEND_URL || 'Not set'}`);
-  console.log('='.repeat(60));
-  console.log('\n✅ Server is LIVE and ready for real-time connections!');
-  console.log('='.repeat(60));
+  console.log('='.repeat(70));
+  console.log('✅ Server is LIVE and ready for connections!');
+  console.log('✅ Socket.io Real-time Service: ACTIVE');
+  console.log('✅ API Documentation: https://smart-waiter.onrender.com');
+  console.log('='.repeat(70));
 });

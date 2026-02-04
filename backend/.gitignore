@@ -3,6 +3,7 @@ node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+package-lock.json
 
 # Environment variables
 .env
@@ -11,10 +12,36 @@ yarn-error.log*
 .env.test.local
 .env.production.local
 
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+
 # Production
 build/
 dist/
 
-# Misc
+# Uploads
+uploads/
+temp/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
 .DS_Store
 Thumbs.db
+
+# Logs
+logs
+*.log
+
+# Testing
+test-results/
