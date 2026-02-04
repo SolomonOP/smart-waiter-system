@@ -161,7 +161,6 @@
         .status-offline { background-color: #dc3545; }
         .status-connecting { background-color: #ffc107; }
         
-        /* Toast styles */
         .custom-toast {
             position: fixed;
             top: 20px;
@@ -201,7 +200,6 @@
             padding: 0 0 0 15px;
         }
         
-        /* Loading overlay */
         #loading-overlay {
             position: fixed;
             top: 0;
@@ -414,33 +412,29 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
     <script>
-        // Configuration - Combined from config.js
+        // Configuration
         const CONFIG = {
             BACKEND_URL: 'https://smart-waiter-backend.onrender.com',
-            FRONTEND_URL: 'https://smart-waiter-frontend.onrender.com',
             
-            // Demo accounts
-            DEMO_ACCOUNTS: {
-                customer: { email: 'customer@demo.com', password: '123456', name: 'Demo Customer' },
-                chef: { email: 'chef@demo.com', password: '123456', name: 'Demo Chef' },
-                admin: { email: 'admin@demo.com', password: '123456', name: 'Demo Admin' }
+            // Test endpoints
+            TEST_ENDPOINTS: {
+                HEALTH: '/health',
+                TEST: '/api/test',
+                TEST_LOGIN: '/api/test/login'
             },
             
             // API endpoints
             API_ENDPOINTS: {
-                // Health check
-                HEALTH: '/health',
-                
-                // Auth
                 LOGIN: '/api/auth/login',
                 REGISTER: '/api/auth/register',
                 FORGOT_PASSWORD: '/api/auth/forgot-password'
             },
             
-            // Timeouts
-            TIMEOUTS: {
-                API_REQUEST: 10000, // 10 seconds
-                RETRY_DELAY: 2000
+            // Demo accounts - Using direct credentials for testing
+            DEMO_ACCOUNTS: {
+                customer: { email: 'customer@demo.com', password: '123456', name: 'Demo Customer' },
+                chef: { email: 'chef@demo.com', password: '123456', name: 'Demo Chef' },
+                admin: { email: 'admin@demo.com', password: '123456', name: 'Demo Admin' }
             }
         };
 
@@ -518,7 +512,7 @@
             }
         }
 
-        // API Helper
+        // Enhanced API Helper with detailed error reporting
         class APIHelper {
             constructor() {
                 this.baseUrl = CONFIG.BACKEND_URL;
@@ -538,47 +532,65 @@
                 const options = {
                     method,
                     headers,
-                    signal: AbortSignal.timeout(CONFIG.TIMEOUTS.API_REQUEST),
                     mode: 'cors',
-                    credentials: 'include'
+                    credentials: 'omit' // Changed from 'include' to 'omit' to avoid cookie issues
                 };
 
                 if (data && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
                     options.body = JSON.stringify(data);
                 }
 
+                console.log(`API Request: ${method} ${url}`, options);
+
                 try {
                     const response = await fetch(url, options);
                     
+                    console.log(`API Response: ${response.status} ${response.statusText}`);
+                    
                     if (!response.ok) {
-                        let errorMessage = `HTTP ${response.status}`;
+                        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+                        
                         try {
                             const errorData = await response.json();
-                            errorMessage = errorData.message || errorMessage;
-                        } catch {
-                            // If response is not JSON
+                            console.error('Error response data:', errorData);
+                            errorMessage = errorData.message || errorData.error || errorMessage;
+                            
+                            // Handle specific status codes
+                            if (response.status === 500) {
+                                errorMessage = 'Server error. Please try again later or contact support.';
+                            } else if (response.status === 404) {
+                                errorMessage = 'Endpoint not found. The server may be undergoing maintenance.';
+                            } else if (response.status === 401) {
+                                errorMessage = 'Invalid credentials. Please check your email and password.';
+                            } else if (response.status === 400) {
+                                errorMessage = 'Invalid request. Please check your input data.';
+                            }
+                        } catch (parseError) {
+                            console.error('Failed to parse error response:', parseError);
                         }
+                        
                         throw new Error(errorMessage);
                     }
 
-                    // Try to parse as JSON, fallback to text
-                    const contentType = response.headers.get('content-type');
-                    if (contentType && contentType.includes('application/json')) {
-                        return await response.json();
-                    } else {
-                        return await response.text();
+                    // Try to parse as JSON
+                    try {
+                        const responseData = await response.json();
+                        console.log('API Success response:', responseData);
+                        return responseData;
+                    } catch (jsonError) {
+                        console.error('Failed to parse JSON response:', jsonError);
+                        throw new Error('Invalid server response format');
                     }
                 } catch (error) {
-                    console.error(`API ${method} error:`, error);
+                    console.error(`API ${method} error for ${endpoint}:`, error);
                     
                     // Check if it's a connection issue
-                    const isConnectionError = error.name === 'AbortError' || 
-                                            error.name === 'TypeError' || 
-                                            error.message.includes('Failed to fetch') ||
-                                            error.message.includes('NetworkError');
+                    if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+                        throw new Error('Unable to connect to server. Please check: \n1. Your internet connection\n2. If the server is running\n3. CORS settings');
+                    }
                     
-                    if (isConnectionError) {
-                        throw new Error('Unable to connect to the server. Please check your internet connection or try again later.');
+                    if (error.name === 'AbortError') {
+                        throw new Error('Request timeout. Server may be slow or unresponsive.');
                     }
                     
                     throw error;
@@ -603,12 +615,48 @@
             
             async checkBackendHealth() {
                 try {
-                    const response = await fetch(`${this.baseUrl}${CONFIG.API_ENDPOINTS.HEALTH}`, {
-                        signal: AbortSignal.timeout(5000)
+                    console.log('Checking backend health...');
+                    const response = await fetch(`${this.baseUrl}${CONFIG.TEST_ENDPOINTS.HEALTH}`, {
+                        method: 'GET',
+                        mode: 'cors'
                     });
                     
-                    return { online: response.ok };
+                    const isHealthy = response.ok;
+                    console.log(`Backend health: ${isHealthy ? 'Healthy' : 'Unhealthy'} (${response.status})`);
+                    
+                    return { 
+                        online: isHealthy, 
+                        status: response.status,
+                        statusText: response.statusText 
+                    };
                 } catch (error) {
+                    console.error('Backend health check failed:', error);
+                    return { 
+                        online: false, 
+                        error: error.message 
+                    };
+                }
+            }
+            
+            async testConnection() {
+                try {
+                    console.log('Testing connection to all endpoints...');
+                    
+                    // Test basic connection
+                    const health = await this.checkBackendHealth();
+                    console.log('Health check result:', health);
+                    
+                    // Test if backend is reachable at all
+                    try {
+                        const pingResponse = await fetch(this.baseUrl, { mode: 'cors' });
+                        console.log('Basic ping:', pingResponse.status);
+                    } catch (pingError) {
+                        console.error('Basic ping failed:', pingError);
+                    }
+                    
+                    return health;
+                } catch (error) {
+                    console.error('Connection test failed:', error);
                     return { online: false, error: error.message };
                 }
             }
@@ -634,6 +682,13 @@
                 
                 // Notify listeners
                 this.notifyStatusChange();
+                
+                // Log detailed connection info
+                console.log('Initial connection status:', {
+                    deviceOnline: this.isOnline,
+                    backendOnline: this.backendOnline,
+                    backendUrl: CONFIG.BACKEND_URL
+                });
             }
             
             setupEventListeners() {
@@ -657,23 +712,31 @@
             }
             
             async checkBackendConnection() {
-                if (!this.isOnline) return false;
+                if (!this.isOnline) {
+                    console.log('Cannot check backend: device offline');
+                    return false;
+                }
                 
                 try {
+                    console.log('Checking backend connection...');
                     const health = await this.apiHelper.checkBackendHealth();
                     this.backendOnline = health.online;
                     this.notifyStatusChange();
                     
+                    console.log('Backend connection result:', health);
+                    
                     if (health.online) {
                         Toast.show('Connected to server', 'success');
                     } else {
-                        Toast.show('Server is offline', 'error');
+                        Toast.show(`Server is offline (${health.status || 'Connection failed'})`, 'error');
                     }
                     
                     return health.online;
                 } catch (error) {
+                    console.error('Backend connection check error:', error);
                     this.backendOnline = false;
                     this.notifyStatusChange();
+                    Toast.show('Failed to connect to server', 'error');
                     return false;
                 }
             }
@@ -689,6 +752,7 @@
                     timestamp: new Date().toISOString()
                 };
                 
+                console.log('Connection status changed:', status);
                 this.listeners.forEach(listener => listener(status));
             }
             
@@ -736,7 +800,7 @@
                 document.getElementById('rememberMe').checked = true;
             }
             
-            // Check backend connection
+            // Check backend connection with detailed logging
             await checkConnection();
             
             // Set up connection listener
@@ -744,6 +808,13 @@
             
             // Auto-focus email field
             document.getElementById('loginEmail').focus();
+            
+            // Log environment info
+            console.log('Environment info:', {
+                backendUrl: CONFIG.BACKEND_URL,
+                userAgent: navigator.userAgent,
+                platform: navigator.platform
+            });
         });
 
         // Handle connection changes
@@ -793,14 +864,25 @@
         // Check connection
         async function checkConnection() {
             try {
+                console.log('Starting connection check...');
+                
                 if (window.connectionManager) {
+                    console.log('Using connection manager...');
                     const result = await window.connectionManager.checkBackendConnection();
+                    console.log('Connection check result:', result);
                     return result;
                 }
-                return false;
+                
+                console.log('No connection manager, direct check...');
+                // Direct check
+                const api = new APIHelper();
+                const result = await api.testConnection();
+                console.log('Direct connection check result:', result);
+                return result;
+                
             } catch (error) {
                 console.error('Connection check failed:', error);
-                return false;
+                return { online: false, error: error.message };
             }
         }
 
@@ -823,6 +905,12 @@
             
             // Auto-focus login button
             document.getElementById('loginBtn').focus();
+            
+            // Log demo account usage
+            console.log(`Demo account loaded for ${role}:`, { 
+                email: account.email,
+                name: account.name 
+            });
         }
 
         // Initialize form validations
@@ -936,6 +1024,15 @@
                     // Show user what's happening
                     console.log('Attempting login with:', { email, rememberMe });
                     
+                    // Test connection before attempting login
+                    console.log('Testing connection before login...');
+                    const connectionTest = await API.checkBackendHealth();
+                    if (!connectionTest.online) {
+                        throw new Error(`Server is not responding (Status: ${connectionTest.status || 'Unknown'})`);
+                    }
+                    
+                    // Attempt login
+                    console.log('Sending login request...');
                     const data = await API.post(CONFIG.API_ENDPOINTS.LOGIN, { 
                         email, 
                         password,
@@ -976,8 +1073,10 @@
                     let errorMessage = error.message;
                     
                     if (errorMessage.includes('Failed to fetch') || errorMessage.includes('network')) {
-                        errorMessage = 'Unable to connect to server. Please check your internet connection.';
+                        errorMessage = 'Unable to connect to server. Please check:\n\n1. Your internet connection\n2. If the server is running\n3. Try again in a few minutes';
                         updateConnectionStatus('offline', 'Connection failed');
+                    } else if (errorMessage.includes('500') || errorMessage.includes('Server error')) {
+                        errorMessage = 'Server error. The backend may be experiencing issues.\n\nPlease try:\n1. Waiting a few minutes\n2. Contacting support\n3. Using demo accounts for testing';
                     } else if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
                         errorMessage = 'Invalid email or password. Please try again.';
                     } else if (errorMessage.includes('404')) {
@@ -1096,6 +1195,8 @@
                         errorMessage = 'Email already registered. Please login instead.';
                     } else if (errorMessage.includes('400')) {
                         errorMessage = 'Invalid registration data. Please check all fields.';
+                    } else if (errorMessage.includes('500')) {
+                        errorMessage = 'Server error during registration. Please try again later.';
                     }
                     
                     Toast.show(errorMessage, 'error');
