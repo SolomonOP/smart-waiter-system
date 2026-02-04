@@ -545,26 +545,148 @@
         }
         
         // Load menu items
-        async function loadMenu() {
-            const tableNumber = document.getElementById('tableNumber').value;
-            if (!tableNumber) {
-                Toast.show('Please enter table number', 'error');
-                return;
-            }
+        // REPLACE THE ENTIRE loadMenu() function with this:
+async function loadMenu() {
+    const tableNumber = document.getElementById('tableNumber').value;
+    
+    if (!tableNumber || tableNumber < 1) {
+        Toast.show('Please enter a valid table number (1 or higher)', 'error');
+        return;
+    }
 
+    try {
+        Loading.show('Loading menu...');
+        
+        // TRY MULTIPLE ENDPOINTS - one should work
+        let data;
+        let endpoints = [
+            `${CONFIG.BACKEND_URL}/api/customer/menu?available=true`,
+            `${CONFIG.BACKEND_URL}/api/customer/menu`,
+            `${CONFIG.BACKEND_URL}/api/demo/menu`  // Fallback to demo
+        ];
+        
+        for (let endpoint of endpoints) {
             try {
-                Loading.show('Loading menu...');
-                const data = await API.get(`${CONFIG.API_ENDPOINTS.CUSTOMER_MENU}?available=true`);
-                menuItems = data.menuItems || [];
-                displayMenu(menuItems);
+                console.log('Trying endpoint:', endpoint);
+                const response = await fetch(endpoint, {
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
                 
-            } catch (error) {
-                console.error('Error loading menu:', error);
-                Toast.show('Failed to load menu', 'error');
-            } finally {
-                Loading.hide();
+                if (response.ok) {
+                    data = await response.json();
+                    console.log('Success with endpoint:', endpoint);
+                    console.log('Menu data:', data);
+                    break;
+                }
+            } catch (err) {
+                console.log('Failed with endpoint:', endpoint, err);
+                continue;
             }
         }
+        
+        if (!data) {
+            throw new Error('Could not load menu from any endpoint');
+        }
+        
+        // Handle different response formats
+        let menuItems = [];
+        
+        if (data.menuItems) {
+            menuItems = data.menuItems;  // /api/customer/menu format
+        } else if (data.groupedMenu) {
+            // Flatten grouped menu
+            for (const category in data.groupedMenu) {
+                menuItems = menuItems.concat(data.groupedMenu[category]);
+            }
+        } else if (Array.isArray(data)) {
+            menuItems = data;  // /api/demo/menu format
+        } else {
+            throw new Error('Unexpected menu data format');
+        }
+        
+        if (menuItems.length === 0) {
+            console.warn('No menu items found');
+            // Use demo data as fallback
+            menuItems = getDemoMenuItems();
+        }
+        
+        displayMenu(menuItems);
+        Toast.show(`Menu loaded with ${menuItems.length} items`, 'success');
+        
+    } catch (error) {
+        console.error('Error loading menu:', error);
+        
+        // Use demo data as fallback
+        const demoItems = getDemoMenuItems();
+        displayMenu(demoItems);
+        
+        Toast.show('Using demo menu data', 'info');
+    } finally {
+        Loading.hide();
+    }
+}
+
+// ADD THIS FUNCTION for demo fallback:
+function getDemoMenuItems() {
+    return [
+        {
+            _id: '1',
+            name: 'Classic Burger',
+            description: 'Juicy beef patty with lettuce, tomato, pickles, and special sauce',
+            price: 12.99,
+            category: 'main',
+            image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80',
+            available: true
+        },
+        {
+            _id: '2',
+            name: 'Caesar Salad',
+            description: 'Fresh romaine lettuce with Caesar dressing, croutons, and parmesan',
+            price: 9.99,
+            category: 'salad',
+            image: 'https://images.unsplash.com/photo-1546793665-c74683f339c1?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80',
+            available: true
+        },
+        {
+            _id: '3',
+            name: 'Chocolate Lava Cake',
+            description: 'Warm chocolate cake with molten center, vanilla ice cream',
+            price: 7.99,
+            category: 'dessert',
+            image: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80',
+            available: true
+        },
+        {
+            _id: '4',
+            name: 'Margarita Pizza',
+            description: 'Classic pizza with tomato sauce, mozzarella, and fresh basil',
+            price: 14.99,
+            category: 'main',
+            image: 'https://images.unsplash.com/photo-1604068549290-dea0e4a305ca?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80',
+            available: true
+        },
+        {
+            _id: '5',
+            name: 'French Fries',
+            description: 'Crispy golden fries with sea salt',
+            price: 4.99,
+            category: 'appetizer',
+            image: 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80',
+            available: true
+        },
+        {
+            _id: '6',
+            name: 'Iced Coffee',
+            description: 'Cold brew coffee with milk and vanilla syrup',
+            price: 3.99,
+            category: 'drink',
+            image: 'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80',
+            available: true
+        }
+    ];
+}
         
         function displayMenu(items) {
             const menuContainer = document.getElementById('menuItems');

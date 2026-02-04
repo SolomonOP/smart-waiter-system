@@ -9,49 +9,24 @@ const { MenuItem, Order, Table, User } = require('../models');
 // @access  Public
 router.get('/menu', async (req, res) => {
     try {
-        const { category, vegetarian, vegan, glutenFree, popular, sort, limit = 50 } = req.query;
+        const { category, available = true } = req.query;
         
         // Build query
-        let query = { available: true };
+        let query = {};
+        
+        if (available === 'true' || available === true) {
+            query.available = true;
+        }
         
         if (category) {
             query.category = category;
         }
         
-        if (vegetarian === 'true') {
-            query.vegetarian = true;
-        }
-        
-        if (vegan === 'true') {
-            query.vegan = true;
-        }
-        
-        if (glutenFree === 'true') {
-            query.glutenFree = true;
-        }
-        
-        if (popular === 'true') {
-            query.popular = true;
-        }
-        
-        // Build sort
-        let sortOption = {};
-        if (sort === 'price_asc') {
-            sortOption.price = 1;
-        } else if (sort === 'price_desc') {
-            sortOption.price = -1;
-        } else if (sort === 'popular') {
-            sortOption.orderCount = -1;
-        } else {
-            sortOption.category = 1;
-            sortOption.name = 1;
-        }
-        
         const menuItems = await MenuItem.find(query)
-            .sort(sortOption)
-            .limit(parseInt(limit));
+            .sort({ category: 1, name: 1 })
+            .limit(100);
         
-        // Group by category for frontend
+        // Also send grouped by category for frontend
         const groupedMenu = {};
         menuItems.forEach(item => {
             if (!groupedMenu[item.category]) {
@@ -63,15 +38,17 @@ router.get('/menu', async (req, res) => {
         res.json({
             success: true,
             count: menuItems.length,
-            groupedMenu,
-            menuItems
+            menuItems: menuItems,
+            groupedMenu: groupedMenu,
+            message: `Found ${menuItems.length} menu items`
         });
         
     } catch (error) {
         console.error('Get menu error:', error);
         res.status(500).json({
             success: false,
-            message: 'Server error'
+            message: 'Server error loading menu',
+            error: process.env.NODE_ENV === 'production' ? undefined : error.message
         });
     }
 });

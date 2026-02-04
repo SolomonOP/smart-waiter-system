@@ -27,7 +27,9 @@ const CONFIG = {
     CUSTOMER_MENU: '/api/customer/menu',
     CUSTOMER_ORDER: '/api/customer/order',
     CUSTOMER_ORDERS: '/api/customer/orders',
-    
+    CUSTOMER_MENU_ALL: '/api/customer/menu',
+    CUSTOMER_MENU_AVAILABLE: '/api/customer/menu?available=true',
+    CUSTOMER_MENU_CATEGORY: (category) => `/api/customer/menu?category=${category}`,
     // Chef
     CHEF_ORDERS: '/api/chef/orders',
     CHEF_MENU: '/api/chef/menu',
@@ -36,6 +38,8 @@ const CONFIG = {
     CHEF_ORDER_REJECT: (id) => `/api/chef/orders/${id}/reject`,
     CHEF_ORDER_COMPLETE: (id) => `/api/chef/orders/${id}/complete`,
     CHEF_ORDER_READY: (id) => `/api/chef/orders/${id}/ready`,
+    CHEF_MENU_ALL: '/api/chef/menu',
+    CHEF_MENU_AVAILABLE: '/api/chef/menu?available=true',
     
     // Admin
     ADMIN_STATS: '/api/admin/stats',
@@ -49,7 +53,9 @@ const CONFIG = {
     ADMIN_STAFF: '/api/admin/staff',
     ADMIN_STAFF_MEMBER: (id) => `/api/admin/staff/${id}`,
     ADMIN_SALES: '/api/admin/sales',
-    ADMIN_SALES_DATE: (date) => `/api/admin/sales/${date}`
+    ADMIN_SALES_DATE: (date) => `/api/admin/sales/${date}`,
+    ADMIN_MENU_ALL: '/api/admin/menu',
+    ADMIN_MENU_CATEGORY: (category) => `/api/admin/menu?category=${category}`
   }
 };
 
