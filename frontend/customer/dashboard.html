@@ -140,6 +140,19 @@
             border: 2px solid var(--secondary);
         }
         
+        .welcome-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 2000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
         @media (max-width: 768px) {
             .hero-section {
                 padding: 60px 20px;
@@ -164,6 +177,33 @@
     </style>
 </head>
 <body>
+    <!-- Welcome Modal -->
+    <div id="welcomeModal" class="welcome-modal" style="display: none;">
+        <div class="card" style="width: 90%; max-width: 500px;">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0"><i class="fas fa-utensils me-2"></i>Welcome to Gourmet Delight</h4>
+            </div>
+            <div class="card-body">
+                <h5>Database Setup Required</h5>
+                <p class="text-muted">It looks like this is your first time using the system. We need to set up some initial data.</p>
+                
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Note:</strong> This will create demo tables, menu items, and sample data.
+                </div>
+                
+                <div class="mt-4">
+                    <button class="btn btn-success btn-lg w-100 mb-3" onclick="autoSetupDatabase()">
+                        <i class="fas fa-magic me-2"></i>Auto-Setup Database
+                    </button>
+                    <button class="btn btn-outline-secondary w-100" onclick="skipSetup()">
+                        <i class="fas fa-play me-2"></i>Skip & Use Demo Mode
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-dark">
         <div class="container">
@@ -250,15 +290,19 @@
                     <div class="card">
                         <div class="card-body">
                             <h5 class="card-title">Select Your Table</h5>
-                            <p class="text-muted">Select your table number from the list</p>
+                            <p class="text-muted">Click on your table number below</p>
                             <div id="tableButtons">
                                 <!-- Table buttons will be generated here -->
                             </div>
                             <div class="mt-3">
-                                <div class="alert alert-info">
-                                    <i class="fas fa-info-circle me-2"></i>
-                                    <strong>Demo Mode Active:</strong> Using demo data. Tables 1-5 are available.
+                                <div class="input-group">
+                                    <span class="input-group-text">Or enter table number:</span>
+                                    <input type="number" id="tableNumber" class="form-control" min="1" max="50" value="1">
+                                    <button class="btn btn-secondary" onclick="setTableFromInput()">
+                                        <i class="fas fa-check me-2"></i>Set Table
+                                    </button>
                                 </div>
+                                <div id="tableStatus" class="mt-2"></div>
                             </div>
                         </div>
                     </div>
@@ -272,26 +316,39 @@
                 </div>
             </div>
 
-            <!-- Help Section -->
+            <!-- System Status Section -->
             <div class="row mt-4">
                 <div class="col-12">
-                    <div class="card border-info">
-                        <div class="card-header bg-info text-white">
-                            <i class="fas fa-question-circle me-2"></i>Help & Information
+                    <div class="card border-primary">
+                        <div class="card-header bg-primary text-white">
+                            <i class="fas fa-cogs me-2"></i>System Status & Tools
                         </div>
                         <div class="card-body">
-                            <div class="alert alert-warning">
-                                <h6><i class="fas fa-exclamation-triangle me-2"></i>Important Notice:</h6>
-                                <p class="mb-2">The system is currently running in <strong>Demo Mode</strong> because the backend database is not set up.</p>
-                                <p class="mb-0">You can still:</p>
-                                <ul class="mb-2">
-                                    <li>Browse the demo menu</li>
-                                    <li>Add items to cart</li>
-                                    <li>Place demo orders</li>
-                                    <li>Test all features</li>
-                                </ul>
-                                <p class="mb-0"><strong>Note:</strong> To enable full functionality, the backend needs tables and menu items in the database.</p>
+                            <div id="systemStatus" class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                <strong>Database Not Initialized:</strong> Tables and menu items need to be created.
                             </div>
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <button class="btn btn-success w-100" onclick="autoSetupDatabase()">
+                                        <i class="fas fa-magic me-2"></i>Auto-Setup Database
+                                    </button>
+                                    <small class="text-muted">Create tables & menu items</small>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <button class="btn btn-info w-100" onclick="checkSystemStatus()">
+                                        <i class="fas fa-sync-alt me-2"></i>Check Status
+                                    </button>
+                                    <small class="text-muted">Verify system readiness</small>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <button class="btn btn-warning w-100" onclick="createTestOrder()">
+                                        <i class="fas fa-flask me-2"></i>Test Order
+                                    </button>
+                                    <small class="text-muted">Test with Table 1</small>
+                                </div>
+                            </div>
+                            <div id="debugInfo" class="mt-3"></div>
                         </div>
                     </div>
                 </div>
@@ -358,6 +415,107 @@
         </div>
     </section>
 
+    <!-- About Section -->
+    <section id="about" class="section bg-light" style="display: none;">
+        <div class="container">
+            <h2 class="text-center mb-5">About Gourmet Delight</h2>
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <h4 class="mb-3">Experience fine dining with our innovative Smart Waiter System</h4>
+                    <p>Founded in 2010, Gourmet Delight brings you the finest culinary experiences with a touch of technology. Our QR-based ordering system ensures a seamless dining experience from ordering to payment.</p>
+                    <p>Our chefs craft each dish with passion, using only the freshest ingredients sourced from local providers. We take pride in our sustainable practices and commitment to excellence.</p>
+                    
+                    <div class="row mt-4">
+                        <div class="col-md-6 mb-3">
+                            <div class="card h-100 text-center">
+                                <div class="card-body">
+                                    <i class="fas fa-award fa-2x text-warning mb-3"></i>
+                                    <h5>Award Winning Cuisine</h5>
+                                    <p class="text-muted">Best Restaurant 2022 & 2023</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="card h-100 text-center">
+                                <div class="card-body">
+                                    <i class="fas fa-leaf fa-2x text-success mb-3"></i>
+                                    <h5>Eco-Friendly</h5>
+                                    <p class="text-muted">Sustainable sourcing and practices</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <img src="https://images.unsplash.com/photo-1554679665-f5537f187268?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" 
+                         class="img-fluid rounded shadow" alt="Restaurant Interior">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section id="contact" class="section" style="display: none;">
+        <div class="container">
+            <h2 class="text-center mb-5">Contact Us</h2>
+            <p class="text-center mb-5">We'd love to hear from you</p>
+            
+            <div class="row">
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100 border-0 shadow-sm">
+                        <div class="card-body text-center">
+                            <i class="fas fa-map-marker-alt fa-2x text-primary mb-3"></i>
+                            <h5>Address</h5>
+                            <p>123 Gourmet Street, Foodville, FK 12345</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100 border-0 shadow-sm">
+                        <div class="card-body text-center">
+                            <i class="fas fa-phone fa-2x text-success mb-3"></i>
+                            <h5>Phone</h5>
+                            <p>(555) 123-4567</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100 border-0 shadow-sm">
+                        <div class="card-body text-center">
+                            <i class="fas fa-envelope fa-2x text-warning mb-3"></i>
+                            <h5>Email</h5>
+                            <p>info@gourmetdelight.com</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Contact Form -->
+            <div class="row mt-5">
+                <div class="col-md-8 mx-auto">
+                    <form id="contactForm">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <input type="text" class="form-control" placeholder="Name" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <input type="email" class="form-control" placeholder="Email" required>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <textarea class="form-control" rows="5" placeholder="Message" required></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-paper-plane me-2"></i>Send Message
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- Cart Sidebar -->
     <div id="cartSidebar" class="cart-sidebar">
         <div class="d-flex justify-content-between align-items-center mb-4">
@@ -390,91 +548,250 @@
     <div class="toast-container"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     
     <script>
         // Configuration
         const CONFIG = {
-            BACKEND_URL: 'https://smart-waiter-backend.onrender.com'
+            BACKEND_URL: 'https://smart-waiter-backend.onrender.com',
+            API_ENDPOINTS: {
+                CUSTOMER_ORDERS: '/api/customer/orders',
+                MENU: '/api/customer/menu',
+                ORDER: '/api/customer/order',
+                TABLES: '/api/tables',
+                SEED: '/api/seed',
+                SETUP: '/api/setup',
+                CREATE_TABLE: '/api/tables/create',
+                CREATE_MENU: '/api/menu/create'
+            }
+        };
+
+        // Utility Classes
+        const Auth = {
+            check: (role) => {
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    if (!window.location.href.includes('login.html')) {
+                        window.location.href = 'login.html';
+                    }
+                    return false;
+                }
+                return true;
+            },
+            getUser: () => {
+                const userStr = localStorage.getItem('user');
+                return userStr ? JSON.parse(userStr) : null;
+            },
+            logout: () => {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                window.location.href = 'login.html';
+            }
+        };
+
+        const SocketManager = {
+            connect: () => {
+                try {
+                    return io(CONFIG.BACKEND_URL, {
+                        transports: ['websocket', 'polling']
+                    });
+                } catch (error) {
+                    console.error('Socket connection error:', error);
+                    return null;
+                }
+            }
+        };
+
+        const API = {
+            get: async (url, token) => {
+                try {
+                    const headers = {
+                        'Content-Type': 'application/json'
+                    };
+                    
+                    if (token) {
+                        headers['Authorization'] = `Bearer ${token}`;
+                    }
+                    
+                    const response = await fetch(CONFIG.BACKEND_URL + url, {
+                        headers: headers
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    
+                    return response.json();
+                } catch (error) {
+                    console.error('API GET Error:', error);
+                    throw error;
+                }
+            },
+            post: async (url, data, token) => {
+                try {
+                    const headers = {
+                        'Content-Type': 'application/json'
+                    };
+                    
+                    if (token) {
+                        headers['Authorization'] = `Bearer ${token}`;
+                    }
+                    
+                    const response = await fetch(CONFIG.BACKEND_URL + url, {
+                        method: 'POST',
+                        headers: headers,
+                        body: JSON.stringify(data)
+                    });
+                    
+                    if (!response.ok) {
+                        let errorText = await response.text();
+                        throw new Error(`HTTP ${response.status}: ${errorText}`);
+                    }
+                    
+                    return response.json();
+                } catch (error) {
+                    console.error('API POST Error:', error);
+                    throw error;
+                }
+            }
+        };
+
+        const Toast = {
+            show: (message, type = 'info') => {
+                const toastContainer = document.querySelector('.toast-container');
+                const toastId = 'toast-' + Date.now();
+                
+                const typeClasses = {
+                    success: 'bg-success text-white',
+                    error: 'bg-danger text-white',
+                    warning: 'bg-warning text-dark',
+                    info: 'bg-info text-white'
+                };
+                
+                const toastHtml = `
+                    <div id="${toastId}" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+                        <div class="toast-header ${typeClasses[type] || 'bg-primary text-white'}">
+                            <strong class="me-auto">Notification</strong>
+                            <small>Just now</small>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+                        </div>
+                        <div class="toast-body">
+                            ${message}
+                        </div>
+                    </div>
+                `;
+                
+                toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+                const toastElement = document.getElementById(toastId);
+                const toast = new bootstrap.Toast(toastElement, { 
+                    delay: 3000,
+                    autohide: true
+                });
+                
+                toast.show();
+                
+                toastElement.addEventListener('hidden.bs.toast', () => {
+                    toastElement.remove();
+                });
+            }
+        };
+
+        const Loading = {
+            show: (message = 'Loading...') => {
+                Loading.hide();
+                
+                const loadingId = 'loading-' + Date.now();
+                const loadingHtml = `
+                    <div id="${loadingId}" class="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" 
+                         style="background: rgba(0,0,0,0.7); z-index: 9999;">
+                        <div class="text-center">
+                            <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <div class="text-white fs-5">${message}</div>
+                        </div>
+                    </div>
+                `;
+                document.body.insertAdjacentHTML('beforeend', loadingHtml);
+            },
+            hide: () => {
+                const loadingElements = document.querySelectorAll('[id^="loading-"]');
+                loadingElements.forEach(el => el.remove());
+            }
         };
 
         // Initialize
+        let socket = null;
         let cart = [];
+        let user = null;
+        let currentOrders = [];
+        let menuItems = [];
         let currentTable = 1;
         let activeTables = [1, 2, 3, 4, 5];
-        let isDemoMode = true;
-        let menuItems = [];
-        
-        // Utility Functions
-        function Toast() {
-            return {
-                show: function(message, type = 'info') {
-                    const toastContainer = document.querySelector('.toast-container');
-                    const toastId = 'toast-' + Date.now();
-                    
-                    const typeClasses = {
-                        success: 'bg-success text-white',
-                        error: 'bg-danger text-white',
-                        warning: 'bg-warning text-dark',
-                        info: 'bg-info text-white'
-                    };
-                    
-                    const toastHtml = `
-                        <div id="${toastId}" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
-                            <div class="toast-header ${typeClasses[type] || 'bg-primary text-white'}">
-                                <strong class="me-auto">Notification</strong>
-                                <small>Just now</small>
-                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
-                            </div>
-                            <div class="toast-body">
-                                ${message}
-                            </div>
-                        </div>
-                    `;
-                    
-                    toastContainer.insertAdjacentHTML('beforeend', toastHtml);
-                    const toastElement = document.getElementById(toastId);
-                    const toast = new bootstrap.Toast(toastElement, { 
-                        delay: 3000,
-                        autohide: true
-                    });
-                    
-                    toast.show();
-                    
-                    toastElement.addEventListener('hidden.bs.toast', () => {
-                        toastElement.remove();
-                    });
-                }
-            };
-        }
-        
-        const toast = Toast();
+        let isDemoMode = false;
+        let systemInitialized = false;
         
         // Initialize application
-        function initApp() {
+        async function initApp() {
             console.log('Initializing application...');
+            console.log('Backend URL:', CONFIG.BACKEND_URL);
             
             // Check authentication
-            const token = localStorage.getItem('token');
-            if (!token) {
-                window.location.href = 'login.html';
+            if (!Auth.check('customer')) {
+                console.log('Authentication failed, redirecting to login');
                 return;
             }
             
             // Get user
-            const userStr = localStorage.getItem('user');
-            const user = userStr ? JSON.parse(userStr) : null;
+            user = Auth.getUser();
             console.log('User loaded:', user ? 'Yes' : 'No');
             
             // Setup navigation
             setupNavigation();
             
-            // Generate table buttons
-            generateTableButtons();
+            // Check system status
+            await checkSystemStatus();
+            
+            // Show welcome modal if system not initialized
+            if (!systemInitialized && !isDemoMode) {
+                setTimeout(() => {
+                    document.getElementById('welcomeModal').style.display = 'flex';
+                }, 1000);
+            }
+            
+            // Initialize socket
+            initSocket();
             
             // Show welcome message
             if (user) {
-                toast.show(`Welcome back, ${user.firstName || 'Customer'}!`, 'success');
-                toast.show('System is in Demo Mode. All features are available for testing.', 'info');
+                Toast.show(`Welcome back, ${user.firstName || 'Customer'}!`, 'success');
+            }
+        }
+        
+        // Initialize socket
+        function initSocket() {
+            try {
+                socket = SocketManager.connect();
+                
+                if (socket) {
+                    socket.on('connect', () => {
+                        console.log('Socket connected successfully');
+                    });
+                    
+                    socket.on('connect_error', (error) => {
+                        console.error('Socket connection error:', error);
+                    });
+                    
+                    socket.on('status-update', (data) => {
+                        console.log('Order status update:', data);
+                        if (currentOrders.some(order => order._id === data.orderId)) {
+                            loadOrderStatus();
+                            showNotification(`Order #${data.orderId?.substring(0, 8) || 'N/A'} status changed to ${data.status}`);
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Socket initialization error:', error);
             }
         }
         
@@ -506,6 +823,8 @@
                         // Load specific content
                         if (targetId === 'menu') {
                             loadMenu();
+                        } else if (targetId === 'services') {
+                            loadOrderStatus();
                         }
                     }
                 });
@@ -522,10 +841,108 @@
             if (logoutBtn) {
                 logoutBtn.addEventListener('click', function(e) {
                     e.preventDefault();
-                    localStorage.removeItem('token');
-                    localStorage.removeItem('user');
-                    window.location.href = 'login.html';
+                    logout();
                 });
+            }
+        }
+        
+        // Check system status
+        async function checkSystemStatus() {
+            try {
+                Loading.show('Checking system status...');
+                
+                // Check if tables endpoint exists
+                let tablesExist = false;
+                try {
+                    const tablesResponse = await fetch(CONFIG.BACKEND_URL + CONFIG.API_ENDPOINTS.TABLES);
+                    if (tablesResponse.ok) {
+                        const tablesData = await tablesResponse.json();
+                        if (tablesData.tables && Array.isArray(tablesData.tables) && tablesData.tables.length > 0) {
+                            activeTables = tablesData.tables.map(t => t.number).filter(n => n !== undefined);
+                            tablesExist = true;
+                        }
+                    }
+                } catch (e) {
+                    console.log('Tables endpoint not accessible:', e.message);
+                }
+                
+                // Check if menu endpoint exists
+                let menuExists = false;
+                try {
+                    const menuResponse = await fetch(CONFIG.BACKEND_URL + CONFIG.API_ENDPOINTS.MENU);
+                    if (menuResponse.ok) {
+                        const menuData = await menuResponse.json();
+                        if ((menuData.menuItems && menuData.menuItems.length > 0) || 
+                            (menuData.groupedMenu && Object.keys(menuData.groupedMenu).length > 0)) {
+                            menuExists = true;
+                        }
+                    }
+                } catch (e) {
+                    console.log('Menu endpoint not accessible:', e.message);
+                }
+                
+                // Update system status
+                systemInitialized = tablesExist && menuExists;
+                isDemoMode = !systemInitialized;
+                
+                // Generate table buttons
+                generateTableButtons();
+                
+                // Update status display
+                const statusElement = document.getElementById('systemStatus');
+                if (statusElement) {
+                    if (systemInitialized) {
+                        statusElement.className = 'alert alert-success';
+                        statusElement.innerHTML = `
+                            <i class="fas fa-check-circle me-2"></i>
+                            <strong>System Ready:</strong> Tables and menu items are available.
+                        `;
+                    } else {
+                        statusElement.className = 'alert alert-warning';
+                        statusElement.innerHTML = `
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Database Not Initialized:</strong> ${!tablesExist ? 'Tables missing. ' : ''}${!menuExists ? 'Menu items missing.' : ''}
+                        `;
+                    }
+                }
+                
+                // Update table status
+                const tableStatusElement = document.getElementById('tableStatus');
+                if (tableStatusElement) {
+                    if (tablesExist) {
+                        tableStatusElement.innerHTML = `
+                            <div class="alert alert-success">
+                                <i class="fas fa-check-circle me-2"></i>
+                                ${activeTables.length} tables available
+                            </div>
+                        `;
+                    } else {
+                        tableStatusElement.innerHTML = `
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                No tables found. Use Auto-Setup to create tables.
+                            </div>
+                        `;
+                    }
+                }
+                
+                console.log('System status:', { systemInitialized, isDemoMode, tablesExist, menuExists });
+                
+            } catch (error) {
+                console.error('Error checking system status:', error);
+                isDemoMode = true;
+                
+                // Update status display
+                const statusElement = document.getElementById('systemStatus');
+                if (statusElement) {
+                    statusElement.className = 'alert alert-danger';
+                    statusElement.innerHTML = `
+                        <i class="fas fa-times-circle me-2"></i>
+                        <strong>System Error:</strong> Unable to connect to backend.
+                    `;
+                }
+            } finally {
+                Loading.hide();
             }
         }
         
@@ -536,7 +953,10 @@
             
             tableButtonsContainer.innerHTML = '';
             
-            activeTables.forEach(tableNum => {
+            // Sort tables numerically
+            const sortedTables = [...activeTables].sort((a, b) => a - b);
+            
+            sortedTables.forEach(tableNum => {
                 const button = document.createElement('button');
                 button.type = 'button';
                 button.className = `btn btn-outline-primary table-btn ${tableNum === currentTable ? 'active' : ''}`;
@@ -544,6 +964,12 @@
                 button.onclick = () => selectTable(tableNum);
                 tableButtonsContainer.appendChild(button);
             });
+            
+            // Update table input
+            const tableInput = document.getElementById('tableNumber');
+            if (tableInput) {
+                tableInput.value = currentTable;
+            }
             
             // Update cart table number
             const cartTableNumber = document.getElementById('cartTableNumber');
@@ -568,29 +994,260 @@
                 selectedBtn.classList.add('active');
             }
             
+            // Update input
+            const tableInput = document.getElementById('tableNumber');
+            if (tableInput) {
+                tableInput.value = tableNumber;
+            }
+            
             // Update cart display
             const cartTableNumber = document.getElementById('cartTableNumber');
             if (cartTableNumber) {
                 cartTableNumber.textContent = tableNumber;
             }
             
-            toast.show(`Table ${tableNumber} selected`, 'success');
+            Toast.show(`Table ${tableNumber} selected`, 'success');
             
             // Load menu for this table
             loadMenu();
         }
         
+        // Set table from input
+        function setTableFromInput() {
+            const tableInput = document.getElementById('tableNumber');
+            if (!tableInput) return;
+            
+            const tableNumber = parseInt(tableInput.value);
+            if (!tableNumber || tableNumber < 1) {
+                Toast.show('Please enter a valid table number', 'error');
+                return;
+            }
+            
+            // In demo mode, allow any table
+            if (!isDemoMode && !activeTables.includes(tableNumber)) {
+                Toast.show(`Table ${tableNumber} is not available. Please select from available tables.`, 'warning');
+                return;
+            }
+            
+            // Add to active tables if in demo mode
+            if (isDemoMode && !activeTables.includes(tableNumber)) {
+                activeTables.push(tableNumber);
+                generateTableButtons();
+            }
+            
+            selectTable(tableNumber);
+        }
+        
+        // Auto-setup database
+        async function autoSetupDatabase() {
+            try {
+                Loading.show('Setting up database...');
+                
+                // Hide welcome modal
+                document.getElementById('welcomeModal').style.display = 'none';
+                
+                // Try the setup endpoint first
+                let setupSuccess = false;
+                try {
+                    const setupResponse = await fetch(CONFIG.BACKEND_URL + CONFIG.API_ENDPOINTS.SETUP, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ action: 'setup' })
+                    });
+                    
+                    if (setupResponse.ok) {
+                        const setupData = await setupResponse.json();
+                        console.log('Setup response:', setupData);
+                        if (setupData.success) {
+                            setupSuccess = true;
+                            Toast.show('Database setup completed successfully!', 'success');
+                        }
+                    }
+                } catch (e) {
+                    console.log('Setup endpoint failed, trying individual endpoints:', e.message);
+                }
+                
+                // If setup endpoint doesn't work, try individual endpoints
+                if (!setupSuccess) {
+                    // Create tables
+                    const tablesToCreate = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+                    let tablesCreated = 0;
+                    
+                    for (const tableNumber of tablesToCreate) {
+                        try {
+                            const tableResponse = await fetch(CONFIG.BACKEND_URL + CONFIG.API_ENDPOINTS.CREATE_TABLE, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    number: tableNumber,
+                                    capacity: 4,
+                                    status: 'active'
+                                })
+                            });
+                            
+                            if (tableResponse.ok) {
+                                tablesCreated++;
+                            }
+                        } catch (e) {
+                            console.log(`Failed to create table ${tableNumber}:`, e.message);
+                        }
+                    }
+                    
+                    // Create menu items
+                    const demoMenuItems = getDemoMenuItems();
+                    let menuItemsCreated = 0;
+                    
+                    for (const menuItem of demoMenuItems) {
+                        try {
+                            const menuResponse = await fetch(CONFIG.BACKEND_URL + CONFIG.API_ENDPOINTS.CREATE_MENU, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify(menuItem)
+                            });
+                            
+                            if (menuResponse.ok) {
+                                menuItemsCreated++;
+                            }
+                        } catch (e) {
+                            console.log(`Failed to create menu item ${menuItem.name}:`, e.message);
+                        }
+                    }
+                    
+                    if (tablesCreated > 0 || menuItemsCreated > 0) {
+                        setupSuccess = true;
+                        Toast.show(`Created ${tablesCreated} tables and ${menuItemsCreated} menu items!`, 'success');
+                    }
+                }
+                
+                // Update system status
+                if (setupSuccess) {
+                    systemInitialized = true;
+                    isDemoMode = false;
+                    activeTables = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+                    
+                    // Update UI
+                    generateTableButtons();
+                    await checkSystemStatus();
+                    await loadMenu();
+                } else {
+                    Toast.show('Could not setup database. Using demo mode.', 'warning');
+                    skipSetup();
+                }
+                
+            } catch (error) {
+                console.error('Error setting up database:', error);
+                Toast.show('Setup failed. Using demo mode.', 'error');
+                skipSetup();
+            } finally {
+                Loading.hide();
+            }
+        }
+        
+        // Skip setup
+        function skipSetup() {
+            document.getElementById('welcomeModal').style.display = 'none';
+            isDemoMode = true;
+            systemInitialized = false;
+            
+            // Use demo data
+            activeTables = [1, 2, 3, 4, 5];
+            menuItems = getDemoMenuItems();
+            
+            // Update UI
+            generateTableButtons();
+            
+            const statusElement = document.getElementById('systemStatus');
+            if (statusElement) {
+                statusElement.className = 'alert alert-info';
+                statusElement.innerHTML = `
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Demo Mode:</strong> Using local demo data. Some features may be limited.
+                `;
+            }
+            
+            Toast.show('Using demo mode. Some features may be limited.', 'info');
+        }
+        
         // Load menu items
-        function loadMenu() {
+        async function loadMenu() {
             if (!currentTable) {
-                toast.show('Please select a table first', 'error');
+                Toast.show('Please select a table first', 'error');
                 return;
             }
 
-            // Always use demo data
-            menuItems = getDemoMenuItems();
-            displayMenu(menuItems);
-            toast.show(`Demo menu loaded for Table ${currentTable}`, 'info');
+            try {
+                Loading.show('Loading menu...');
+                
+                // In demo mode, use local data
+                if (isDemoMode) {
+                    menuItems = getDemoMenuItems();
+                    displayMenu(menuItems);
+                    Toast.show(`Demo menu loaded for Table ${currentTable}`, 'info');
+                    return;
+                }
+                
+                // Try to load from backend
+                console.log('Fetching menu for table', currentTable);
+                
+                const response = await fetch(`${CONFIG.BACKEND_URL}${CONFIG.API_ENDPOINTS.MENU}?available=true`, {
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                console.log('Response status:', response.status);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                console.log('Menu API response:', data);
+                
+                // Extract menu items
+                menuItems = [];
+                
+                if (data.menuItems && Array.isArray(data.menuItems)) {
+                    menuItems = data.menuItems;
+                } else if (data.groupedMenu) {
+                    for (const category in data.groupedMenu) {
+                        if (Array.isArray(data.groupedMenu[category])) {
+                            menuItems = menuItems.concat(data.groupedMenu[category]);
+                        }
+                    }
+                } else if (Array.isArray(data)) {
+                    menuItems = data;
+                }
+                
+                console.log('Extracted menu items:', menuItems.length, 'items');
+                
+                if (menuItems.length === 0) {
+                    throw new Error('No menu items found');
+                }
+                
+                displayMenu(menuItems);
+                Toast.show(`Menu loaded for Table ${currentTable}`, 'success');
+                
+            } catch (error) {
+                console.error('Error loading menu:', error);
+                
+                // Fall back to demo mode
+                if (!isDemoMode) {
+                    isDemoMode = true;
+                    menuItems = getDemoMenuItems();
+                    displayMenu(menuItems);
+                    Toast.show('Using demo menu (backend unreachable)', 'warning');
+                }
+                
+            } finally {
+                Loading.hide();
+            }
         }
 
         // Demo menu items
@@ -679,8 +1336,10 @@
                                 <p class="card-text text-muted">${safeDescription}</p>
                                 <div class="d-flex justify-content-between align-items-center">
                                     <h5 class="text-primary">$${item.price?.toFixed(2) || '0.00'}</h5>
-                                    <button class="btn btn-sm btn-outline-primary" 
-                                            onclick="addToCart('${item._id}', '${safeName}', ${item.price})">
+                                    <button class="btn btn-sm btn-outline-primary add-to-cart-btn" 
+                                            data-id="${item._id}" 
+                                            data-name="${safeName}" 
+                                            data-price="${item.price}">
                                         <i class="fas fa-plus"></i> Add to Cart
                                     </button>
                                 </div>
@@ -689,6 +1348,16 @@
                     </div>
                 `;
                 menuContainer.innerHTML += menuCard;
+            });
+            
+            // Add event listeners
+            document.querySelectorAll('.add-to-cart-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const id = this.getAttribute('data-id');
+                    const name = this.getAttribute('data-name');
+                    const price = parseFloat(this.getAttribute('data-price'));
+                    addToCart(id, name, price);
+                });
             });
         }
         
@@ -709,7 +1378,7 @@
             
             updateCartDisplay();
             showCart();
-            toast.show(`${name} added to cart`, 'success');
+            Toast.show(`${name} added to cart`, 'success');
         }
         
         function updateCartDisplay() {
@@ -742,17 +1411,17 @@
                                 <small class="text-muted">$${item.price.toFixed(2)} × ${item.quantity}</small>
                             </div>
                             <div class="d-flex align-items-center">
-                                <button class="btn btn-sm btn-outline-secondary me-2" 
-                                        onclick="updateQuantity(${index}, -1)">
+                                <button class="btn btn-sm btn-outline-secondary me-2 decrease-btn" 
+                                        data-index="${index}">
                                     <i class="fas fa-minus"></i>
                                 </button>
                                 <span class="mx-2">${item.quantity}</span>
-                                <button class="btn btn-sm btn-outline-secondary ms-2" 
-                                        onclick="updateQuantity(${index}, 1)">
+                                <button class="btn btn-sm btn-outline-secondary ms-2 increase-btn" 
+                                        data-index="${index}">
                                     <i class="fas fa-plus"></i>
                                 </button>
-                                <button class="btn btn-sm btn-danger ms-2" 
-                                        onclick="removeFromCart(${index})">
+                                <button class="btn btn-sm btn-danger ms-2 remove-btn" 
+                                        data-index="${index}">
                                     <i class="fas fa-trash"></i>
                                 </button>
                             </div>
@@ -760,6 +1429,28 @@
                     </div>
                 `;
                 cartItemsContainer.innerHTML += cartItem;
+            });
+            
+            // Add event listeners
+            document.querySelectorAll('.decrease-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const index = parseInt(this.getAttribute('data-index'));
+                    updateQuantity(index, -1);
+                });
+            });
+            
+            document.querySelectorAll('.increase-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const index = parseInt(this.getAttribute('data-index'));
+                    updateQuantity(index, 1);
+                });
+            });
+            
+            document.querySelectorAll('.remove-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const index = parseInt(this.getAttribute('data-index'));
+                    removeFromCart(index);
+                });
             });
         }
         
@@ -780,7 +1471,7 @@
                 const itemName = cart[index].name;
                 cart.splice(index, 1);
                 updateCartDisplay();
-                toast.show(`${itemName} removed from cart`, 'warning');
+                Toast.show(`${itemName} removed from cart`, 'warning');
             }
         }
         
@@ -800,61 +1491,330 @@
         
         async function placeOrder() {
             if (!currentTable) {
-                toast.show('Please select a table first', 'error');
+                Toast.show('Please select a table first', 'error');
                 return;
             }
             
             if (cart.length === 0) {
-                toast.show('Your cart is empty', 'error');
+                Toast.show('Your cart is empty', 'error');
                 return;
             }
             
-            // Get user info
-            const userStr = localStorage.getItem('user');
-            const user = userStr ? JSON.parse(userStr) : null;
-            
-            if (!user) {
-                toast.show('Please login first', 'error');
-                return;
+            try {
+                Loading.show('Placing your order...');
+                
+                // Get user info
+                const user = Auth.getUser();
+                console.log('Current user:', user);
+                
+                if (!user) {
+                    Toast.show('Please login first', 'error');
+                    return;
+                }
+                
+                // In demo mode, simulate order
+                if (isDemoMode) {
+                    // Simulate order placement
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    
+                    Toast.show(`Demo order placed for Table ${currentTable}! (Demo Mode)`, 'success');
+                    
+                    // Reset cart
+                    cart = [];
+                    updateCartDisplay();
+                    hideCart();
+                    
+                    return;
+                }
+                
+                // Build order object
+                const orderData = {
+                    tableNumber: parseInt(currentTable),
+                    items: cart.map(item => ({
+                        menuItem: item.id,
+                        name: item.name,
+                        price: parseFloat(item.price),
+                        quantity: parseInt(item.quantity)
+                    })),
+                    customerName: (user.firstName + ' ' + user.lastName).trim() || 'Customer',
+                    customerEmail: user.email || 'customer@example.com',
+                    instructions: document.getElementById('specialInstructions')?.value || ''
+                };
+                
+                console.log('Sending order to:', CONFIG.BACKEND_URL + CONFIG.API_ENDPOINTS.ORDER);
+                console.log('Order data:', JSON.stringify(orderData, null, 2));
+                
+                const token = localStorage.getItem('token');
+                const response = await API.post(CONFIG.API_ENDPOINTS.ORDER, orderData, token);
+                
+                console.log('Order success:', response);
+                
+                Toast.show(`Order placed successfully for Table ${currentTable}!`, 'success');
+                
+                // Reset cart
+                    cart = [];
+                    updateCartDisplay();
+                    hideCart();
+                
+                // Load updated order status
+                await loadOrderStatus();
+                
+                // Emit socket event
+                if (socket) {
+                    socket.emit('new-order', {
+                        orderId: response.order?.id || response.order?._id,
+                        tableNumber: currentTable,
+                        orderNumber: response.order?.orderNumber,
+                        status: 'pending'
+                    });
+                }
+                
+            } catch (error) {
+                console.error('Order placement error:', error);
+                
+                let errorMessage = 'Failed to place order. ';
+                
+                if (error.message.includes('400') && error.message.includes('Table not found')) {
+                    errorMessage = `Table ${currentTable} is not active in the database. `;
+                    errorMessage += 'Please use the Auto-Setup button to create tables.';
+                    
+                    // Show setup prompt
+                    document.getElementById('debugInfo').innerHTML = `
+                        <div class="alert alert-danger">
+                            <strong>Database Setup Required:</strong> ${errorMessage}
+                            <div class="mt-2">
+                                <button class="btn btn-success btn-sm" onclick="autoSetupDatabase()">
+                                    <i class="fas fa-magic me-1"></i>Auto-Setup Database
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    
+                } else if (error.message.includes('401') || error.message.includes('token')) {
+                    errorMessage += 'Session expired. Please login again.';
+                    setTimeout(() => logout(), 2000);
+                } else if (error.message.includes('NetworkError') || error.message.includes('Failed to fetch')) {
+                    errorMessage += 'Network error. Please check your connection.';
+                } else {
+                    errorMessage += error.message;
+                }
+                
+                Toast.show(errorMessage, 'error');
+                
+            } finally {
+                Loading.hide();
             }
-            
-            // In demo mode, simulate order
-            toast.show(`Demo order placed for Table ${currentTable}! (Demo Mode)`, 'success');
-            
-            // Show order summary
-            const orderSummary = cart.map(item => 
-                `${item.quantity}x ${item.name} - $${(item.price * item.quantity).toFixed(2)}`
-            ).join('<br>');
-            
-            const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-            
-            toast.show(`
-                <strong>Order Summary (Table ${currentTable}):</strong><br>
-                ${orderSummary}<br>
-                <strong>Total: $${total.toFixed(2)}</strong><br>
-                <small>Demo order - not sent to kitchen</small>
-            `, 'info');
-            
-            // Reset cart
-            cart = [];
-            updateCartDisplay();
-            hideCart();
+        }
+        
+        // Create test order
+        async function createTestOrder() {
+            try {
+                Loading.show('Creating test order...');
+                
+                // Switch to table 1 for testing
+                selectTable(1);
+                
+                // Add demo items to cart
+                cart = [
+                    {
+                        id: '1',
+                        name: 'Classic Burger',
+                        price: 12.99,
+                        quantity: 1
+                    },
+                    {
+                        id: '6',
+                        name: 'Iced Coffee',
+                        price: 3.99,
+                        quantity: 2
+                    }
+                ];
+                
+                updateCartDisplay();
+                
+                // Try to place order
+                await placeOrder();
+                
+            } catch (error) {
+                console.error('Test order error:', error);
+                Toast.show('Test order failed: ' + error.message, 'error');
+            } finally {
+                Loading.hide();
+            }
         }
         
         // Request service
-        function requestService(type) {
+        async function requestService(type) {
             if (!currentTable) {
-                toast.show('Please select a table first', 'error');
+                Toast.show('Please select a table first', 'error');
                 return;
             }
             
-            const serviceNames = {
-                'water': 'Water Refill',
-                'cleaning': 'Table Cleaning',
-                'bill': 'Bill Payment'
-            };
+            try {
+                Loading.show('Sending request...');
+                
+                // In demo mode, simulate
+                if (isDemoMode) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    Toast.show(`${getServiceName(type)} request sent for table ${currentTable} (Demo Mode)`, 'success');
+                    return;
+                }
+                
+                const request = {
+                    type: type,
+                    tableNumber: parseInt(currentTable),
+                    timestamp: new Date().toISOString()
+                };
+                
+                // Emit socket event
+                if (socket) {
+                    socket.emit('service-request', request);
+                }
+                
+                Toast.show(`${getServiceName(type)} request sent for table ${currentTable}`, 'success');
+                
+            } catch (error) {
+                Toast.show('Failed to send request', 'error');
+            } finally {
+                Loading.hide();
+            }
+        }
+        
+        function getServiceName(type) {
+            switch(type) {
+                case 'water': return 'Water Refill';
+                case 'cleaning': return 'Table Cleaning';
+                case 'bill': return 'Bill Payment';
+                default: return 'Service';
+            }
+        }
+        
+        // Load order status
+        async function loadOrderStatus() {
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    console.warn('No token found for loading orders');
+                    return;
+                }
+                
+                const data = await API.get(CONFIG.API_ENDPOINTS.CUSTOMER_ORDERS, token);
+                currentOrders = data.orders || [];
+                displayOrderStatus(currentOrders);
+                
+            } catch (error) {
+                console.error('Error loading orders:', error);
+                // In demo mode, show demo orders
+                if (isDemoMode) {
+                    currentOrders = [
+                        {
+                            _id: 'demo_1',
+                            orderNumber: 'DEMO001',
+                            tableNumber: currentTable,
+                            items: [{name: 'Demo Item', price: 10, quantity: 1}],
+                            totalAmount: 10,
+                            status: 'pending',
+                            createdAt: new Date().toISOString()
+                        }
+                    ];
+                    displayOrderStatus(currentOrders);
+                }
+            }
+        }
+        
+        function displayOrderStatus(orders) {
+            const statusContainer = document.getElementById('orderStatus');
+            if (!statusContainer) return;
             
-            toast.show(`${serviceNames[type] || 'Service'} request sent for table ${currentTable} (Demo Mode)`, 'success');
+            statusContainer.innerHTML = '';
+            
+            if (orders.length === 0) {
+                statusContainer.innerHTML = `
+                    <div class="col-12 text-center text-muted py-4">
+                        <p>No active orders</p>
+                        <p class="small">Visit the Menu section to place an order</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            orders.forEach(order => {
+                const statusClass = `status-${order.status}`;
+                const orderCard = `
+                    <div class="col-md-4 mb-3">
+                        <div class="order-status ${statusClass}">
+                            <h6>Order #${order.orderNumber || 'N/A'}</h6>
+                            <p><i class="fas fa-chair me-2"></i>Table: ${order.tableNumber || 'N/A'}</p>
+                            <p><i class="fas fa-box me-2"></i>Items: ${order.items?.length || 0}</p>
+                            <p><i class="fas fa-dollar-sign me-2"></i>Total: $${order.totalAmount?.toFixed(2) || '0.00'}</p>
+                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                <span class="badge bg-${getOrderStatusColor(order.status)}">
+                                    ${order.status?.toUpperCase() || 'UNKNOWN'}
+                                </span>
+                                <small class="text-muted">
+                                    ${order.createdAt ? new Date(order.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'N/A'}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                statusContainer.innerHTML += orderCard;
+            });
+        }
+        
+        function getOrderStatusColor(status) {
+            switch(status) {
+                case 'pending': return 'warning';
+                case 'preparing': return 'info';
+                case 'ready': return 'success';
+                case 'completed': return 'secondary';
+                default: return 'dark';
+            }
+        }
+        
+        // Show notification
+        function showNotification(message, type = 'info') {
+            Toast.show(message, type);
+            
+            if ('Notification' in window && Notification.permission === 'granted') {
+                try {
+                    new Notification('Smart Waiter Update', {
+                        body: message,
+                        icon: 'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/icons/utensils.svg'
+                    });
+                } catch (error) {
+                    console.log('Browser notification error:', error);
+                }
+            }
+        }
+        
+        // Request notification permission
+        function requestNotificationPermission() {
+            if ('Notification' in window && Notification.permission === 'default') {
+                Notification.requestPermission();
+            }
+        }
+        
+        // Logout function
+        function logout() {
+            if (socket) {
+                try {
+                    socket.disconnect();
+                } catch (e) {
+                    console.log('Socket disconnect error:', e);
+                }
+            }
+            Auth.logout();
+        }
+        
+        // Contact form submission
+        const contactForm = document.getElementById('contactForm');
+        if (contactForm) {
+            contactForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                Toast.show('Message sent successfully! We\'ll get back to you soon.', 'success');
+                this.reset();
+            });
         }
         
         // Initialize on load
@@ -866,12 +1826,12 @@
                     initApp();
                 } catch (error) {
                     console.error('App initialization error:', error);
-                    toast.show('Application initialization failed', 'error');
+                    Toast.show('Application initialization failed', 'error');
                 }
             }, 100);
         });
 
-        // Make functions available globally
+        // Make ALL functions available globally
         window.addToCart = addToCart;
         window.updateQuantity = updateQuantity;
         window.removeFromCart = removeFromCart;
@@ -880,7 +1840,13 @@
         window.placeOrder = placeOrder;
         window.requestService = requestService;
         window.loadMenu = loadMenu;
+        window.logout = logout;
         window.selectTable = selectTable;
+        window.setTableFromInput = setTableFromInput;
+        window.autoSetupDatabase = autoSetupDatabase;
+        window.skipSetup = skipSetup;
+        window.checkSystemStatus = checkSystemStatus;
+        window.createTestOrder = createTestOrder;
     </script>
 </body>
 </html>
