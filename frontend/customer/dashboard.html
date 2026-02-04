@@ -337,6 +337,15 @@
                     <p>Enter your table number and click "Load Menu" to see available items</p>
                 </div>
             </div>
+
+            <!-- Emergency Test Order Button -->
+            <div class="row mt-4">
+                <div class="col-12 text-center">
+                    <button class="btn btn-success" onclick="placeTestOrder()" id="testOrderBtn">
+                        <i class="fas fa-flask me-2"></i>Test Order (Direct)
+                    </button>
+                </div>
+            </div>
         </div>
     </section>
 
@@ -446,14 +455,104 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Load config -->
-    <script src="../config.js"></script>
-    <!-- Load utils -->
-    <script src="../js/utils.js"></script>
     <!-- Load Socket.io -->
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     
     <script>
+        // Configuration
+        const CONFIG = {
+            BACKEND_URL: 'http://localhost:3000',
+            API_ENDPOINTS: {
+                CUSTOMER_ORDERS: '/api/customer/orders'
+            }
+        };
+
+        // Utility Classes (replacement for missing utils.js)
+        const Auth = {
+            check: (role) => {
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    window.location.href = '../login.html';
+                    return false;
+                }
+                return true;
+            },
+            getUser: () => {
+                const userStr = localStorage.getItem('user');
+                return userStr ? JSON.parse(userStr) : null;
+            },
+            logout: () => {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                window.location.href = '../login.html';
+            }
+        };
+
+        const SocketManager = {
+            connect: () => {
+                return io(CONFIG.BACKEND_URL);
+            }
+        };
+
+        const API = {
+            get: async (url, token) => {
+                const response = await fetch(CONFIG.BACKEND_URL + url, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                return response.json();
+            }
+        };
+
+        const Toast = {
+            show: (message, type = 'info') => {
+                // Create toast element
+                const toastId = 'toast-' + Date.now();
+                const toastHtml = `
+                    <div id="${toastId}" class="toast align-items-center text-bg-${type} border-0 position-fixed" 
+                         style="top: 20px; right: 20px; z-index: 9999;" role="alert" aria-live="assertive" aria-atomic="true">
+                        <div class="d-flex">
+                            <div class="toast-body">
+                                ${message}
+                            </div>
+                            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.insertAdjacentHTML('beforeend', toastHtml);
+                const toastElement = document.getElementById(toastId);
+                const toast = new bootstrap.Toast(toastElement, { delay: 3000 });
+                toast.show();
+                
+                toastElement.addEventListener('hidden.bs.toast', () => {
+                    toastElement.remove();
+                });
+            }
+        };
+
+        const Loading = {
+            show: (message) => {
+                // Create loading overlay
+                const loadingId = 'loading-' + Date.now();
+                const loadingHtml = `
+                    <div id="${loadingId}" class="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" 
+                         style="background: rgba(0,0,0,0.5); z-index: 9999;">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <div class="ms-3 text-white">${message}</div>
+                    </div>
+                `;
+                document.body.insertAdjacentHTML('beforeend', loadingHtml);
+            },
+            hide: () => {
+                const loadingElements = document.querySelectorAll('[id^="loading-"]');
+                loadingElements.forEach(el => el.remove());
+            }
+        };
+
         // Initialize
         let socket = null;
         let cart = [];
@@ -545,163 +644,162 @@
         }
         
         // Load menu items
-        // REPLACE THE ENTIRE loadMenu() function with this:
-async function loadMenu() {
-    const tableNumber = document.getElementById('tableNumber').value;
-    
-    if (!tableNumber || tableNumber < 1) {
-        Toast.show('Please enter a valid table number (1 or higher)', 'error');
-        return;
-    }
-
-    try {
-        Loading.show('Loading menu...');
-        
-        console.log('Fetching menu from:', CONFIG.BACKEND_URL + '/api/customer/menu');
-        
-        const response = await fetch(CONFIG.BACKEND_URL + '/api/customer/menu?available=true', {
-            headers: {
-                'Content-Type': 'application/json'
+        async function loadMenu() {
+            const tableNumber = document.getElementById('tableNumber').value;
+            
+            if (!tableNumber || tableNumber < 1) {
+                Toast.show('Please enter a valid table number (1 or higher)', 'error');
+                return;
             }
-        });
-        
-        console.log('Response status:', response.status);
-        
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-        
-        const data = await response.json();
-        console.log('Menu API response:', data);
-        
-        // Check if we got valid data
-        let menuItems = [];
-        
-        if (data.menuItems && Array.isArray(data.menuItems)) {
-            menuItems = data.menuItems;
-        } else if (data.groupedMenu) {
-            // Flatten grouped menu
-            for (const category in data.groupedMenu) {
-                if (Array.isArray(data.groupedMenu[category])) {
-                    menuItems = menuItems.concat(data.groupedMenu[category]);
+
+            try {
+                Loading.show('Loading menu...');
+                
+                console.log('Fetching menu from:', CONFIG.BACKEND_URL + '/api/customer/menu');
+                
+                const response = await fetch(CONFIG.BACKEND_URL + '/api/customer/menu?available=true', {
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                console.log('Response status:', response.status);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
+                
+                const data = await response.json();
+                console.log('Menu API response:', data);
+                
+                // Check if we got valid data
+                let menuItems = [];
+                
+                if (data.menuItems && Array.isArray(data.menuItems)) {
+                    menuItems = data.menuItems;
+                } else if (data.groupedMenu) {
+                    // Flatten grouped menu
+                    for (const category in data.groupedMenu) {
+                        if (Array.isArray(data.groupedMenu[category])) {
+                            menuItems = menuItems.concat(data.groupedMenu[category]);
+                        }
+                    }
+                } else if (Array.isArray(data)) {
+                    menuItems = data;
+                }
+                
+                console.log('Extracted menu items:', menuItems.length, 'items');
+                
+                if (menuItems.length === 0) {
+                    console.warn('No menu items found in database');
+                    // Try to seed the database
+                    await seedMenuDatabase();
+                    // Try loading again
+                    await loadMenu();
+                    return;
+                }
+                
+                displayMenu(menuItems);
+                Toast.show(`Menu loaded with ${menuItems.length} items`, 'success');
+                
+            } catch (error) {
+                console.error('Error loading menu:', error);
+                
+                // Use demo fallback
+                const demoItems = getDemoMenuItems();
+                displayMenu(demoItems);
+                
+                Toast.show('Using demo menu (database empty)', 'info');
+                
+                // Try to seed database in background
+                seedMenuDatabase().catch(e => console.log('Background seed failed:', e));
+                
+            } finally {
+                Loading.hide();
             }
-        } else if (Array.isArray(data)) {
-            menuItems = data;
         }
-        
-        console.log('Extracted menu items:', menuItems.length, 'items');
-        
-        if (menuItems.length === 0) {
-            console.warn('No menu items found in database');
-            // Try to seed the database
-            await seedMenuDatabase();
-            // Try loading again
-            await loadMenu();
-            return;
-        }
-        
-        displayMenu(menuItems);
-        Toast.show(`Menu loaded with ${menuItems.length} items`, 'success');
-        
-    } catch (error) {
-        console.error('Error loading menu:', error);
-        
-        // Use demo fallback
-        const demoItems = getDemoMenuItems();
-        displayMenu(demoItems);
-        
-        Toast.show('Using demo menu (database empty)', 'info');
-        
-        // Try to seed database in background
-        seedMenuDatabase().catch(e => console.log('Background seed failed:', e));
-        
-    } finally {
-        Loading.hide();
-    }
-}
 
-// Add seed function
-async function seedMenuDatabase() {
-    try {
-        console.log('Attempting to seed database...');
-        const response = await fetch(CONFIG.BACKEND_URL + '/api/customer/menu/seed', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
+        // Add seed function
+        async function seedMenuDatabase() {
+            try {
+                console.log('Attempting to seed database...');
+                const response = await fetch(CONFIG.BACKEND_URL + '/api/customer/menu/seed', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('Database seeded successfully:', data);
+                    return true;
+                }
+            } catch (error) {
+                console.log('Seed request failed:', error);
             }
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            console.log('Database seeded successfully:', data);
-            return true;
+            return false;
         }
-    } catch (error) {
-        console.log('Seed request failed:', error);
-    }
-    return false;
-}
 
-// ADD THIS FUNCTION for demo fallback:
-function getDemoMenuItems() {
-    return [
-        {
-            _id: '1',
-            name: 'Classic Burger',
-            description: 'Juicy beef patty with lettuce, tomato, pickles, and special sauce',
-            price: 12.99,
-            category: 'main',
-            image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80',
-            available: true
-        },
-        {
-            _id: '2',
-            name: 'Caesar Salad',
-            description: 'Fresh romaine lettuce with Caesar dressing, croutons, and parmesan',
-            price: 9.99,
-            category: 'salad',
-            image: 'https://images.unsplash.com/photo-1546793665-c74683f339c1?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80',
-            available: true
-        },
-        {
-            _id: '3',
-            name: 'Chocolate Lava Cake',
-            description: 'Warm chocolate cake with molten center, vanilla ice cream',
-            price: 7.99,
-            category: 'dessert',
-            image: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80',
-            available: true
-        },
-        {
-            _id: '4',
-            name: 'Margarita Pizza',
-            description: 'Classic pizza with tomato sauce, mozzarella, and fresh basil',
-            price: 14.99,
-            category: 'main',
-            image: 'https://images.unsplash.com/photo-1604068549290-dea0e4a305ca?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80',
-            available: true
-        },
-        {
-            _id: '5',
-            name: 'French Fries',
-            description: 'Crispy golden fries with sea salt',
-            price: 4.99,
-            category: 'appetizer',
-            image: 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80',
-            available: true
-        },
-        {
-            _id: '6',
-            name: 'Iced Coffee',
-            description: 'Cold brew coffee with milk and vanilla syrup',
-            price: 3.99,
-            category: 'drink',
-            image: 'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80',
-            available: true
+        // ADD THIS FUNCTION for demo fallback:
+        function getDemoMenuItems() {
+            return [
+                {
+                    _id: '1',
+                    name: 'Classic Burger',
+                    description: 'Juicy beef patty with lettuce, tomato, pickles, and special sauce',
+                    price: 12.99,
+                    category: 'main',
+                    image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80',
+                    available: true
+                },
+                {
+                    _id: '2',
+                    name: 'Caesar Salad',
+                    description: 'Fresh romaine lettuce with Caesar dressing, croutons, and parmesan',
+                    price: 9.99,
+                    category: 'salad',
+                    image: 'https://images.unsplash.com/photo-1546793665-c74683f339c1?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80',
+                    available: true
+                },
+                {
+                    _id: '3',
+                    name: 'Chocolate Lava Cake',
+                    description: 'Warm chocolate cake with molten center, vanilla ice cream',
+                    price: 7.99,
+                    category: 'dessert',
+                    image: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80',
+                    available: true
+                },
+                {
+                    _id: '4',
+                    name: 'Margarita Pizza',
+                    description: 'Classic pizza with tomato sauce, mozzarella, and fresh basil',
+                    price: 14.99,
+                    category: 'main',
+                    image: 'https://images.unsplash.com/photo-1604068549290-dea0e4a305ca?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80',
+                    available: true
+                },
+                {
+                    _id: '5',
+                    name: 'French Fries',
+                    description: 'Crispy golden fries with sea salt',
+                    price: 4.99,
+                    category: 'appetizer',
+                    image: 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80',
+                    available: true
+                },
+                {
+                    _id: '6',
+                    name: 'Iced Coffee',
+                    description: 'Cold brew coffee with milk and vanilla syrup',
+                    price: 3.99,
+                    category: 'drink',
+                    image: 'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80',
+                    available: true
+                }
+            ];
         }
-    ];
-}
         
         function displayMenu(items) {
             const menuContainer = document.getElementById('menuItems');
@@ -827,232 +925,232 @@ function getDemoMenuItems() {
         }
         
         async function placeOrder() {
-    const tableNumber = document.getElementById('tableNumber').value;
-    const instructions = document.getElementById('specialInstructions').value;
-    
-    if (!tableNumber || tableNumber < 1) {
-        Toast.show('Please enter a valid table number', 'error');
-        return;
-    }
-    
-    if (cart.length === 0) {
-        Toast.show('Your cart is empty', 'error');
-        return;
-    }
-    
-    try {
-        Loading.show('Placing your order...');
-        
-        // Get user info
-        const user = Auth.getUser();
-        console.log('Current user:', user);
-        
-        if (!user) {
-            Toast.show('Please login first', 'error');
-            return;
-        }
-        
-        // Build order object - CRITICAL: Match backend expectations
-        const orderData = {
-            tableNumber: parseInt(tableNumber),
-            items: cart.map(item => ({
-                menuItem: item.id,  // MUST be "menuItem" not "id"
-                name: item.name,
-                price: parseFloat(item.price),
-                quantity: parseInt(item.quantity)
-            })),
-            customerName: user.firstName + ' ' + user.lastName,
-            customerEmail: user.email,
-            instructions: instructions || ''
-        };
-        
-        console.log('Sending order data:', JSON.stringify(orderData, null, 2));
-        
-        // Use fetch directly to see detailed error
-        const response = await fetch(CONFIG.BACKEND_URL + '/api/customer/order', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            body: JSON.stringify(orderData)
-        });
-        
-        console.log('Order response status:', response.status);
-        
-        if (!response.ok) {
-            let errorText = await response.text();
-            console.error('Order error response:', errorText);
+            const tableNumber = document.getElementById('tableNumber').value;
+            const instructions = document.getElementById('specialInstructions').value;
             
-            // Try to parse error
-            let errorMessage = `HTTP ${response.status}: Order failed`;
+            if (!tableNumber || tableNumber < 1) {
+                Toast.show('Please enter a valid table number', 'error');
+                return;
+            }
+            
+            if (cart.length === 0) {
+                Toast.show('Your cart is empty', 'error');
+                return;
+            }
+            
             try {
-                const errorData = JSON.parse(errorText);
-                errorMessage = errorData.message || errorMessage;
-                if (errorData.errors) {
-                    errorMessage += '\n' + errorData.errors.map(e => e.msg).join(', ');
+                Loading.show('Placing your order...');
+                
+                // Get user info
+                const user = Auth.getUser();
+                console.log('Current user:', user);
+                
+                if (!user) {
+                    Toast.show('Please login first', 'error');
+                    return;
                 }
+                
+                // Build order object - CRITICAL: Match backend expectations
+                const orderData = {
+                    tableNumber: parseInt(tableNumber),
+                    items: cart.map(item => ({
+                        menuItem: item.id,  // MUST be "menuItem" not "id"
+                        name: item.name,
+                        price: parseFloat(item.price),
+                        quantity: parseInt(item.quantity)
+                    })),
+                    customerName: user.firstName + ' ' + user.lastName,
+                    customerEmail: user.email,
+                    instructions: instructions || ''
+                };
+                
+                console.log('Sending order data:', JSON.stringify(orderData, null, 2));
+                
+                // Use fetch directly to see detailed error
+                const response = await fetch(CONFIG.BACKEND_URL + '/api/customer/order', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify(orderData)
+                });
+                
+                console.log('Order response status:', response.status);
+                
+                if (!response.ok) {
+                    let errorText = await response.text();
+                    console.error('Order error response:', errorText);
+                    
+                    // Try to parse error
+                    let errorMessage = `HTTP ${response.status}: Order failed`;
+                    try {
+                        const errorData = JSON.parse(errorText);
+                        errorMessage = errorData.message || errorMessage;
+                        if (errorData.errors) {
+                            errorMessage += '\n' + errorData.errors.map(e => e.msg).join(', ');
+                        }
+                    } catch (e) {
+                        errorMessage += '\n' + errorText;
+                    }
+                    
+                    throw new Error(errorMessage);
+                }
+                
+                const data = await response.json();
+                console.log('Order success:', data);
+                
+                Toast.show('Order placed successfully!', 'success');
+                
+                // Reset cart
+                cart = [];
+                updateCartDisplay();
+                hideCart();
+                
+                // Load updated order status
+                await loadOrderStatus();
+                
+                // Emit socket event
+                if (socket) {
+                    socket.emit('new-order', {
+                        orderId: data.order?.id || data.order?._id,
+                        tableNumber: tableNumber,
+                        orderNumber: data.order?.orderNumber,
+                        status: 'pending'
+                    });
+                }
+                
+            } catch (error) {
+                console.error('Order placement error:', error);
+                
+                // Show helpful error message
+                let errorMessage = error.message || 'Failed to place order';
+                
+                // Common fixes based on error
+                if (errorMessage.includes('tableNumber')) {
+                    errorMessage = 'Invalid table number. Please enter a number.';
+                } else if (errorMessage.includes('items') || errorMessage.includes('menuItem')) {
+                    errorMessage = 'Invalid cart items. Please reload the menu and try again.';
+                } else if (errorMessage.includes('customer') || errorMessage.includes('name') || errorMessage.includes('email')) {
+                    errorMessage = 'User information missing. Please login again.';
+                    setTimeout(() => Auth.logout(), 2000);
+                } else if (errorMessage.includes('401') || errorMessage.includes('token')) {
+                    errorMessage = 'Session expired. Please login again.';
+                    setTimeout(() => Auth.logout(), 2000);
+                }
+                
+                Toast.show(errorMessage, 'error');
+                
+                // Add retry button
+                const cartSidebar = document.getElementById('cartSidebar');
+                if (cartSidebar) {
+                    const retryHtml = `
+                        <div class="alert alert-danger mt-3">
+                            <strong>Order Failed:</strong> ${errorMessage}
+                            <div class="mt-2">
+                                <button class="btn btn-warning btn-sm me-2" onclick="debugOrder()">
+                                    <i class="fas fa-bug me-1"></i>Debug
+                                </button>
+                                <button class="btn btn-primary btn-sm" onclick="retryOrder()">
+                                    <i class="fas fa-redo me-1"></i>Retry
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Check if alert already exists
+                    if (!cartSidebar.querySelector('.alert')) {
+                        cartSidebar.innerHTML += retryHtml;
+                    }
+                }
+            } finally {
+                Loading.hide();
+            }
+        }
+
+        // Add debug function
+        async function debugOrder() {
+            console.clear();
+            console.log('=== ORDER DEBUG ===');
+            
+            // Test data
+            const testData = {
+                tableNumber: 1,
+                items: [{
+                    menuItem: 'demo_item_1',
+                    name: 'Test Burger',
+                    price: 12.99,
+                    quantity: 2
+                }],
+                customerName: 'Test Customer',
+                customerEmail: 'test@example.com',
+                instructions: 'Test order'
+            };
+            
+            console.log('Test order data:', testData);
+            
+            // Test 1: Without auth
+            console.log('\n1. Testing without auth...');
+            try {
+                const res1 = await fetch(CONFIG.BACKEND_URL + '/api/customer/order', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(testData)
+                });
+                console.log('Status:', res1.status);
+                const text1 = await res1.text();
+                console.log('Response:', text1);
             } catch (e) {
-                errorMessage += '\n' + errorText;
+                console.error('Error:', e);
             }
             
-            throw new Error(errorMessage);
-        }
-        
-        const data = await response.json();
-        console.log('Order success:', data);
-        
-        Toast.show('Order placed successfully!', 'success');
-        
-        // Reset cart
-        cart = [];
-        updateCartDisplay();
-        hideCart();
-        
-        // Load updated order status
-        await loadOrderStatus();
-        
-        // Emit socket event
-        if (socket) {
-            socket.emit('new-order', {
-                orderId: data.order?.id || data.order?._id,
-                tableNumber: tableNumber,
-                orderNumber: data.order?.orderNumber,
-                status: 'pending'
-            });
-        }
-        
-    } catch (error) {
-        console.error('Order placement error:', error);
-        
-        // Show helpful error message
-        let errorMessage = error.message || 'Failed to place order';
-        
-        // Common fixes based on error
-        if (errorMessage.includes('tableNumber')) {
-            errorMessage = 'Invalid table number. Please enter a number.';
-        } else if (errorMessage.includes('items') || errorMessage.includes('menuItem')) {
-            errorMessage = 'Invalid cart items. Please reload the menu and try again.';
-        } else if (errorMessage.includes('customer') || errorMessage.includes('name') || errorMessage.includes('email')) {
-            errorMessage = 'User information missing. Please login again.';
-            setTimeout(() => Auth.logout(), 2000);
-        } else if (errorMessage.includes('401') || errorMessage.includes('token')) {
-            errorMessage = 'Session expired. Please login again.';
-            setTimeout(() => Auth.logout(), 2000);
-        }
-        
-        Toast.show(errorMessage, 'error');
-        
-        // Add retry button
-        const cartSidebar = document.getElementById('cartSidebar');
-        if (cartSidebar) {
-            const retryHtml = `
-                <div class="alert alert-danger mt-3">
-                    <strong>Order Failed:</strong> ${errorMessage}
-                    <div class="mt-2">
-                        <button class="btn btn-warning btn-sm me-2" onclick="debugOrder()">
-                            <i class="fas fa-bug me-1"></i>Debug
-                        </button>
-                        <button class="btn btn-primary btn-sm" onclick="retryOrder()">
-                            <i class="fas fa-redo me-1"></i>Retry
-                        </button>
-                    </div>
-                </div>
-            `;
-            
-            // Check if alert already exists
-            if (!cartSidebar.querySelector('.alert')) {
-                cartSidebar.innerHTML += retryHtml;
+            // Test 2: With current token
+            const token = localStorage.getItem('token');
+            console.log('\n2. Testing with current token:', token ? 'Yes' : 'No');
+            if (token) {
+                try {
+                    const res2 = await fetch(CONFIG.BACKEND_URL + '/api/customer/order', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify(testData)
+                    });
+                    console.log('Status:', res2.status);
+                    const text2 = await res2.text();
+                    console.log('Response:', text2);
+                } catch (e) {
+                    console.error('Error:', e);
+                }
             }
+            
+            // Test 3: Test endpoint
+            console.log('\n3. Testing /api/demo/order...');
+            try {
+                const res3 = await fetch(CONFIG.BACKEND_URL + '/api/demo/order', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tableNumber: 1, items: [{ name: 'Test', price: 10, quantity: 1 }] })
+                });
+                console.log('Status:', res3.status);
+                const data3 = await res3.json();
+                console.log('Response:', data3);
+            } catch (e) {
+                console.error('Error:', e);
+            }
+            
+            alert('Check console (F12) for debug results');
         }
-    } finally {
-        Loading.hide();
-    }
-}
 
-// Add debug function
-async function debugOrder() {
-    console.clear();
-    console.log('=== ORDER DEBUG ===');
-    
-    // Test data
-    const testData = {
-        tableNumber: 1,
-        items: [{
-            menuItem: 'demo_item_1',
-            name: 'Test Burger',
-            price: 12.99,
-            quantity: 2
-        }],
-        customerName: 'Test Customer',
-        customerEmail: 'test@example.com',
-        instructions: 'Test order'
-    };
-    
-    console.log('Test order data:', testData);
-    
-    // Test 1: Without auth
-    console.log('\n1. Testing without auth...');
-    try {
-        const res1 = await fetch(CONFIG.BACKEND_URL + '/api/customer/order', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(testData)
-        });
-        console.log('Status:', res1.status);
-        const text1 = await res1.text();
-        console.log('Response:', text1);
-    } catch (e) {
-        console.error('Error:', e);
-    }
-    
-    // Test 2: With current token
-    const token = localStorage.getItem('token');
-    console.log('\n2. Testing with current token:', token ? 'Yes' : 'No');
-    if (token) {
-        try {
-            const res2 = await fetch(CONFIG.BACKEND_URL + '/api/customer/order', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(testData)
-            });
-            console.log('Status:', res2.status);
-            const text2 = await res2.text();
-            console.log('Response:', text2);
-        } catch (e) {
-            console.error('Error:', e);
+        // Add retry function
+        function retryOrder() {
+            hideCart();
+            setTimeout(() => {
+                showCart();
+                placeOrder();
+            }, 500);
         }
-    }
-    
-    // Test 3: Test endpoint
-    console.log('\n3. Testing /api/demo/order...');
-    try {
-        const res3 = await fetch(CONFIG.BACKEND_URL + '/api/demo/order', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ tableNumber: 1, items: [{ name: 'Test', price: 10, quantity: 1 }] })
-        });
-        console.log('Status:', res3.status);
-        const data3 = await res3.json();
-        console.log('Response:', data3);
-    } catch (e) {
-        console.error('Error:', e);
-    }
-    
-    alert('Check console (F12) for debug results');
-}
-
-// Add retry function
-function retryOrder() {
-    hideCart();
-    setTimeout(() => {
-        showCart();
-        placeOrder();
-    }, 500);
-}
         
         // Request service
         async function requestService(type) {
@@ -1189,55 +1287,49 @@ function retryOrder() {
             if (socket) socket.disconnect();
             Auth.logout();
         }
+
+        // Test order function
+        async function placeTestOrder() {
+            try {
+                const testOrder = {
+                    tableNumber: 1,
+                    items: [{
+                        menuItem: 'demo_item_123',
+                        name: 'Test Burger',
+                        price: 12.99,
+                        quantity: 1
+                    }],
+                    customerName: 'Test Customer',
+                    customerEmail: 'test@example.com',
+                    instructions: 'Test order from emergency button'
+                };
+                
+                console.log('Placing test order:', testOrder);
+                
+                const response = await fetch(CONFIG.BACKEND_URL + '/api/demo/order', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(testOrder)
+                });
+                
+                const data = await response.json();
+                console.log('Test order response:', data);
+                
+                if (data.success) {
+                    Toast.show('Test order placed successfully!', 'success');
+                    await loadOrderStatus();
+                } else {
+                    Toast.show('Test order failed: ' + data.message, 'error');
+                }
+                
+            } catch (error) {
+                console.error('Test order error:', error);
+                Toast.show('Test order failed', 'error');
+            }
+        }
         
         // Initialize on load
         document.addEventListener('DOMContentLoaded', initApp);
-
-
-        // Add emergency order button to HTML
-<button class="btn btn-success mt-3" onclick="placeTestOrder()" id="testOrderBtn">
-    <i class="fas fa-flask me-2"></i>Test Order (Direct)
-</button>
-
-// Add function
-async function placeTestOrder() {
-    try {
-        const testOrder = {
-            tableNumber: 1,
-            items: [{
-                menuItem: 'demo_item_123',
-                name: 'Test Burger',
-                price: 12.99,
-                quantity: 1
-            }],
-            customerName: 'Test Customer',
-            customerEmail: 'test@example.com',
-            instructions: 'Test order from emergency button'
-        };
-        
-        console.log('Placing test order:', testOrder);
-        
-        const response = await fetch(CONFIG.BACKEND_URL + '/api/demo/order', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(testOrder)
-        });
-        
-        const data = await response.json();
-        console.log('Test order response:', data);
-        
-        if (data.success) {
-            Toast.show('Test order placed successfully!', 'success');
-            await loadOrderStatus();
-        } else {
-            Toast.show('Test order failed: ' + data.message, 'error');
-        }
-        
-    } catch (error) {
-        console.error('Test order error:', error);
-        Toast.show('Test order failed', 'error');
-    }
-}
     </script>
 </body>
 </html>
