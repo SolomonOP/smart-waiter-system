@@ -1444,25 +1444,39 @@ function initSocket() {
             container.innerHTML = html;
         }
 
-        // Orders Management Functions
         async function loadOrders() {
-            try {
-                Loading.show();
-                
-                const response = await API.get(CONFIG.API_ENDPOINTS.CHEF_ORDERS);
-                
-                if (response.success) {
-                    orders = response.orders || [];
-                    renderOrdersByStatus();
-                }
-                
-                Loading.hide();
-                
-            } catch (error) {
-                Loading.hide();
-                ErrorHandler.handle(error, 'loadOrders');
+    try {
+        Loading.show();
+        console.log('🔍 loadOrders() called');
+        console.log('🔍 Using URL:', CONFIG.BACKEND_URL + CONFIG.API_ENDPOINTS.CHEF_ORDERS);
+        
+        const response = await API.get(CONFIG.API_ENDPOINTS.CHEF_ORDERS);
+        console.log('🔍 API Response:', response);
+        
+        if (response.success) {
+            orders = response.orders || [];
+            console.log('✅ Orders loaded:', orders.length, 'orders');
+            if (orders.length > 0) {
+                console.log('📋 Sample order:', {
+                    id: orders[0]._id,
+                    orderNumber: orders[0].orderNumber,
+                    status: orders[0].status,
+                    tableNumber: orders[0].tableNumber
+                });
             }
+            renderOrdersByStatus();
+        } else {
+            console.error('❌ API returned success: false');
         }
+        
+        Loading.hide();
+        
+    } catch (error) {
+        Loading.hide();
+        console.error('❌ loadOrders error:', error);
+        ErrorHandler.handle(error, 'loadOrders');
+    }
+}
 
         function renderOrdersByStatus() {
     const statusGroups = {
@@ -1493,17 +1507,20 @@ function initSocket() {
     }
 
     // DEBUG: Log all orders and their status
-    console.log('🔍 DEBUG: All orders status:');
-    orders.forEach((order, index) => {
-        console.log(`Order ${index + 1}:`, {
-            orderNumber: order.orderNumber,
-            status: order.status,
-            tableNumber: order.tableNumber,
-            isPreparing: order.status === 'preparing',
-            isPreparingStrict: order.status === 'preparing',
-            statusType: typeof order.status
-        });
-    });
+console.log('🔍 DEBUG: All orders status:');
+console.table(orders.map((order, index) => ({
+    '#': index + 1,
+    'Order #': order.orderNumber,
+    'Status': order.status,
+    'Table': order.tableNumber,
+    'Customer': order.customerName,
+    'Total': order.totalAmount,
+    'Has Items': order.items?.length || 0,
+    'isPreparing?': order.status === 'preparing'
+})));
+
+// Also log the raw orders array
+console.log('📦 Raw orders array:', JSON.stringify(orders, null, 2));
 
     // Rest of your function remains the same...
 
@@ -1625,7 +1642,21 @@ function initSocket() {
             `;
         });
 
+        // Add this at the end of your renderOrdersByStatus() function, just before container.innerHTML = html;
+console.log('🔧 Rendering HTML for status:', status);
+console.log('🔧 Sample order buttons HTML:', html.substring(0, 500)); // First 500 chars
+
+// Also add a test button that shows for all orders
+html = html.replace('</div>', `
+    <div class="mt-2">
+        <button class="btn btn-sm btn-secondary" onclick="console.log('Test Order:', ${JSON.stringify({id: order._id, status: order.status, orderNumber: order.orderNumber})})">
+            Test (${order.status})
+        </button>
+    </div>
+</div>`);
+
         container.innerHTML = html;
+        
     });
 }
 
