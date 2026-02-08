@@ -6,7 +6,7 @@ const { Order, MenuItem, Table, User } = require('../models');
 
 // Middleware to check if user is a chef
 const isChef = (req, res, next) => {
-    if (req.userRole !== 'chef' && req.userRole !== 'admin') {
+    if (req.user.role !== 'chef' && req.user.role !== 'admin') {
         return res.status(403).json({
             success: false,
             message: 'Access denied. Chef role required.'
@@ -20,7 +20,7 @@ const isChef = (req, res, next) => {
 // @access  Private (Chef)
 router.get('/orders', auth, isChef, async (req, res) => {
     try {
-        const { status, assigned, limit = 50 } = req.query;
+        const { status } = req.query;
         
         let query = {
             status: { $in: ['pending', 'confirmed', 'preparing', 'ready'] }
@@ -30,15 +30,8 @@ router.get('/orders', auth, isChef, async (req, res) => {
             query.status = status;
         }
         
-        if (assigned === 'me') {
-            query.assignedChef = req.userId;
-        } else if (assigned === 'unassigned') {
-            query.assignedChef = { $exists: false };
-        }
-        
         const orders = await Order.find(query)
-            .sort({ createdAt: 1 })
-            .limit(parseInt(limit))
+            .sort({ createdAt: -1 })
             .populate('items.menuItem', 'name category preparationTime')
             .populate('customer', 'firstName lastName')
             .populate('assignedChef', 'firstName lastName');
@@ -69,49 +62,22 @@ router.get('/orders/stats', auth, isChef, async (req, res) => {
         const tomorrow = new Date(today);
         tomorrow.setDate(tomorrow.getDate() + 1);
         
-        // Today's stats
-        const todayQuery = {
-            updatedAt: { $gte: today, $lt: tomorrow },
-            assignedChef: req.userId
+        // Get today's orders
+        const todayOrders = await Order.find({
+            createdAt: { $gte: today, $lt: tomorrow }
+        });
+        
+        // Calculate stats
+        const stats = {
+            pending: todayOrders.filter(o => o.status === 'pending' || o.status === 'confirmed').length,
+            preparing: todayOrders.filter(o => o.status === 'preparing').length,
+            ready: todayOrders.filter(o => o.status === 'ready').length,
+            totalToday: todayOrders.length
         };
-        
-        const totalToday = await Order.countDocuments(todayQuery);
-        const completedToday = await Order.countDocuments({
-            ...todayQuery,
-            status: 'completed'
-        });
-        const preparingToday = await Order.countDocuments({
-            ...todayQuery,
-            status: 'preparing'
-        });
-        
-        // Average preparation time
-        const completedOrders = await Order.find({
-            assignedChef: req.userId,
-            status: 'completed',
-            preparingAt: { $exists: true },
-            readyAt: { $exists: true }
-        }).limit(100);
-        
-        let avgPrepTime = 0;
-        if (completedOrders.length > 0) {
-            const totalTime = completedOrders.reduce((sum, order) => {
-                return sum + ((order.readyAt - order.preparingAt) / 60000); // minutes
-            }, 0);
-            avgPrepTime = Math.round(totalTime / completedOrders.length);
-        }
         
         res.json({
             success: true,
-            stats: {
-                today: {
-                    total: totalToday,
-                    completed: completedToday,
-                    preparing: preparingToday
-                },
-                averagePreparationTime: avgPrepTime,
-                chefName: req.user.firstName + ' ' + req.user.lastName
-            }
+            stats
         });
         
     } catch (error) {
@@ -144,16 +110,9 @@ router.post('/orders/:id/accept', auth, isChef, async (req, res) => {
             });
         }
         
-        if (order.assignedChef && order.assignedChef.toString() !== req.userId) {
-            return res.status(400).json({
-                success: false,
-                message: 'Order is already assigned to another chef'
-            });
-        }
-        
         // Update order
         order.status = 'preparing';
-        order.assignedChef = req.userId;
+        order.assignedChef = req.user.id;
         order.chefName = req.user.firstName + ' ' + req.user.lastName;
         order.preparingAt = new Date();
         await order.save();
@@ -161,13 +120,19 @@ router.post('/orders/:id/accept', auth, isChef, async (req, res) => {
         // Real-time notification
         const io = req.app.get('io');
         if (io) {
-            io.to(`table:${order.tableNumber}`).emit('order-status-changed', {
+            io.emit('order-status-update', {
                 orderId: order._id,
                 orderNumber: order.orderNumber,
                 status: order.status,
                 chefName: order.chefName,
-                message: `Chef ${order.chefName} has started preparing your order`,
                 timestamp: new Date().toISOString()
+            });
+            
+            // Notify specific table
+            io.to(`table:${order.tableNumber}`).emit('order-updated', {
+                message: `Chef ${order.chefName} has started preparing your order`,
+                status: order.status,
+                orderId: order._id
             });
         }
         
@@ -185,60 +150,6 @@ router.post('/orders/:id/accept', auth, isChef, async (req, res) => {
         
     } catch (error) {
         console.error('Accept order error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Server error'
-        });
-    }
-});
-
-// @route   POST /api/chef/orders/:id/reject
-// @desc    Chef rejects an order
-// @access  Private (Chef)
-router.post('/orders/:id/reject', auth, isChef, async (req, res) => {
-    try {
-        const order = await Order.findById(req.params.id);
-        
-        if (!order) {
-            return res.status(404).json({
-                success: false,
-                message: 'Order not found'
-            });
-        }
-        
-        if (order.status !== 'pending') {
-            return res.status(400).json({
-                success: false,
-                message: `Cannot reject order in ${order.status} status`
-            });
-        }
-        
-        // Update order
-        order.status = 'rejected';
-        order.rejectedAt = new Date();
-        
-        await order.save();
-        
-        // Real-time notification
-        const io = req.app.get('io');
-        if (io) {
-            io.to('role:admin').emit('order-rejected', {
-                orderId: order._id,
-                orderNumber: order.orderNumber,
-                tableNumber: order.tableNumber,
-                chefName: req.user.firstName + ' ' + req.user.lastName,
-                timestamp: new Date().toISOString()
-            });
-        }
-        
-        res.json({
-            success: true,
-            message: 'Order rejected successfully',
-            order
-        });
-        
-    } catch (error) {
-        console.error('Reject order error:', error);
         res.status(500).json({
             success: false,
             message: 'Server error'
@@ -268,7 +179,7 @@ router.post('/orders/:id/ready', auth, isChef, async (req, res) => {
         }
         
         // Check if chef is assigned to this order
-        if (order.assignedChef && order.assignedChef.toString() !== req.userId) {
+        if (order.assignedChef && order.assignedChef.toString() !== req.user.id) {
             return res.status(403).json({
                 success: false,
                 message: 'Not authorized to update this order'
@@ -289,22 +200,19 @@ router.post('/orders/:id/ready', auth, isChef, async (req, res) => {
         // Real-time notification
         const io = req.app.get('io');
         if (io) {
-            io.to(`table:${order.tableNumber}`).emit('order-status-changed', {
+            io.emit('order-status-update', {
                 orderId: order._id,
                 orderNumber: order.orderNumber,
                 status: order.status,
-                chefName: order.chefName,
-                message: 'Your order is ready! Please wait for server.',
+                message: 'Order is ready!',
                 timestamp: new Date().toISOString()
             });
             
-            // Notify all staff
-            io.emit('order-ready', {
-                orderId: order._id,
-                orderNumber: order.orderNumber,
-                tableNumber: order.tableNumber,
-                chefName: order.chefName,
-                timestamp: new Date().toISOString()
+            // Notify specific table
+            io.to(`table:${order.tableNumber}`).emit('order-ready', {
+                message: 'Your order is ready! Please wait for server.',
+                status: order.status,
+                orderId: order._id
             });
         }
         
@@ -370,7 +278,28 @@ router.post('/orders/:id/complete', auth, isChef, async (req, res) => {
                 table.currentCustomer = null;
                 table.customerName = null;
                 await table.save();
+                
+                // Notify table is available
+                const io = req.app.get('io');
+                if (io) {
+                    io.emit('table-updated', {
+                        tableNumber: table.tableNumber,
+                        status: table.status
+                    });
+                }
             }
+        }
+        
+        // Real-time notification
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('order-status-update', {
+                orderId: order._id,
+                orderNumber: order.orderNumber,
+                status: order.status,
+                message: 'Order completed',
+                timestamp: new Date().toISOString()
+            });
         }
         
         res.json({
@@ -394,15 +323,16 @@ router.post('/orders/:id/complete', auth, isChef, async (req, res) => {
 });
 
 // @route   GET /api/chef/service-requests
-// @desc    Get pending service requests
+// @desc    Get service requests for chef
 // @access  Private (Chef)
 router.get('/service-requests', auth, isChef, async (req, res) => {
     try {
+        // Get orders with pending service requests
         const orders = await Order.find({
             'serviceRequests.status': 'pending'
         })
         .select('orderNumber tableNumber serviceRequests customerName')
-        .sort({ createdAt: 1 });
+        .sort({ createdAt: -1 });
         
         // Extract service requests
         const serviceRequests = [];
@@ -438,15 +368,13 @@ router.get('/service-requests', auth, isChef, async (req, res) => {
     }
 });
 
-// @route   POST /api/chef/service-requests/:requestId/accept
+// @route   POST /api/chef/service-requests/:id/accept
 // @desc    Accept a service request
 // @access  Private (Chef)
-router.post('/service-requests/:requestId/accept', auth, isChef, async (req, res) => {
+router.post('/service-requests/:id/accept', auth, isChef, async (req, res) => {
     try {
-        const { requestId } = req.params;
-        
         const order = await Order.findOne({
-            'serviceRequests._id': requestId
+            'serviceRequests._id': req.params.id
         });
         
         if (!order) {
@@ -456,36 +384,30 @@ router.post('/service-requests/:requestId/accept', auth, isChef, async (req, res
             });
         }
         
-        // Find and update the specific request
-        const request = order.serviceRequests.id(requestId);
-        if (!request) {
+        // Find the specific service request
+        const serviceRequest = order.serviceRequests.id(req.params.id);
+        if (!serviceRequest) {
             return res.status(404).json({
                 success: false,
                 message: 'Service request not found'
             });
         }
         
-        if (request.status !== 'pending') {
+        if (serviceRequest.status !== 'pending') {
             return res.status(400).json({
                 success: false,
-                message: `Service request is already ${request.status}`
+                message: `Service request is already ${serviceRequest.status}`
             });
         }
         
-        request.status = 'assigned';
-        request.assignedTo = req.userId;
+        serviceRequest.status = 'assigned';
+        serviceRequest.assignedTo = req.user.id;
         await order.save();
         
         res.json({
             success: true,
             message: 'Service request accepted',
-            request: {
-                id: request._id,
-                type: request.type,
-                tableNumber: request.tableNumber,
-                status: request.status,
-                assignedTo: request.assignedTo
-            }
+            request: serviceRequest
         });
         
     } catch (error) {
@@ -497,15 +419,13 @@ router.post('/service-requests/:requestId/accept', auth, isChef, async (req, res
     }
 });
 
-// @route   POST /api/chef/service-requests/:requestId/complete
+// @route   POST /api/chef/service-requests/:id/complete
 // @desc    Complete a service request
 // @access  Private (Chef)
-router.post('/service-requests/:requestId/complete', auth, isChef, async (req, res) => {
+router.post('/service-requests/:id/complete', auth, isChef, async (req, res) => {
     try {
-        const { requestId } = req.params;
-        
         const order = await Order.findOne({
-            'serviceRequests._id': requestId
+            'serviceRequests._id': req.params.id
         });
         
         if (!order) {
@@ -515,44 +435,30 @@ router.post('/service-requests/:requestId/complete', auth, isChef, async (req, r
             });
         }
         
-        // Find and update the specific request
-        const request = order.serviceRequests.id(requestId);
-        if (!request) {
+        // Find the specific service request
+        const serviceRequest = order.serviceRequests.id(req.params.id);
+        if (!serviceRequest) {
             return res.status(404).json({
                 success: false,
                 message: 'Service request not found'
             });
         }
         
-        if (request.status !== 'assigned') {
+        if (serviceRequest.status !== 'assigned') {
             return res.status(400).json({
                 success: false,
                 message: 'Service request must be assigned first'
             });
         }
         
-        // Check if assigned to this chef
-        if (request.assignedTo && request.assignedTo.toString() !== req.userId) {
-            return res.status(403).json({
-                success: false,
-                message: 'Not authorized to complete this request'
-            });
-        }
-        
-        request.status = 'completed';
-        request.completedAt = new Date();
+        serviceRequest.status = 'completed';
+        serviceRequest.completedAt = new Date();
         await order.save();
         
         res.json({
             success: true,
             message: 'Service request completed',
-            request: {
-                id: request._id,
-                type: request.type,
-                tableNumber: request.tableNumber,
-                status: request.status,
-                completedAt: request.completedAt
-            }
+            request: serviceRequest
         });
         
     } catch (error) {
@@ -565,7 +471,7 @@ router.post('/service-requests/:requestId/complete', auth, isChef, async (req, r
 });
 
 // @route   GET /api/chef/menu
-// @desc    Get menu items for chef (with availability control)
+// @desc    Get menu items for chef
 // @access  Private (Chef)
 router.get('/menu', auth, isChef, async (req, res) => {
     try {
@@ -573,7 +479,7 @@ router.get('/menu', auth, isChef, async (req, res) => {
         
         let query = {};
         
-        if (category) {
+        if (category && category !== 'all') {
             query.category = category;
         }
         
@@ -628,6 +534,16 @@ router.put('/menu/:id/availability', auth, isChef, [
         menuItem.available = available;
         await menuItem.save();
         
+        // Real-time update
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('menu-item-updated', {
+                itemId: menuItem._id,
+                available: menuItem.available,
+                name: menuItem.name
+            });
+        }
+        
         res.json({
             success: true,
             message: `Menu item ${available ? 'enabled' : 'disabled'} successfully`,
@@ -646,8 +562,6 @@ router.put('/menu/:id/availability', auth, isChef, [
         });
     }
 });
-
-// In routes/chef.js, update the orders/new endpoint:
 
 // @route   POST /api/chef/orders/new
 // @desc    Create new order directly (for walk-ins)
@@ -670,12 +584,12 @@ router.post('/orders/new', auth, isChef, [
             });
         }
         
-        const { tableNumber, items, specialInstructions } = req.body;
+        const { tableNumber, items, specialInstructions, customerName } = req.body;
         
         console.log('Creating new order for table:', tableNumber);
         console.log('Items:', items);
         
-        // Check table availability
+        // Check table
         const table = await Table.findOne({ tableNumber, isActive: true });
         if (!table) {
             console.log('Table not found:', tableNumber);
@@ -709,9 +623,9 @@ router.post('/orders/new', auth, isChef, [
                 });
             }
             
-            console.log('Menu item found:', menuItem.name, 'Available:', menuItem.isAvailable);
+            console.log('Menu item found:', menuItem.name, 'Available:', menuItem.available);
             
-            if (!menuItem.isAvailable) {
+            if (!menuItem.available) {
                 return res.status(400).json({
                     success: false,
                     message: `${menuItem.name} is currently unavailable`
@@ -742,21 +656,29 @@ router.post('/orders/new', auth, isChef, [
         const lastOrder = await Order.findOne().sort({ orderNumber: -1 });
         const orderNumber = lastOrder ? lastOrder.orderNumber + 1 : 1000;
         
+        // Calculate totals
+        const subtotal = totalAmount;
+        const tax = subtotal * 0.1; // 10% tax
+        const serviceCharge = subtotal * 0.05; // 5% service charge
+        const finalTotal = subtotal + tax + serviceCharge;
+        
         // Create order
         const order = new Order({
             orderNumber,
             tableNumber,
-            customer: null, // Walk-in customer
-            customerName: 'Walk-in Customer',
+            customerName: customerName || 'Walk-in Customer',
             items: orderItems,
-            subtotal: totalAmount,
-            totalAmount,
+            subtotal,
+            tax,
+            serviceCharge,
+            totalAmount: finalTotal,
             paymentMethod: 'pending',
             specialInstructions: specialInstructions || '',
             estimatedPrepTime,
             status: 'pending',
-            assignedChef: req.userId,
-            chefName: req.user.firstName + ' ' + req.user.lastName
+            assignedChef: req.user.id,
+            chefName: req.user.firstName + ' ' + req.user.lastName,
+            orderType: 'walk-in'
         });
         
         console.log('Saving order...');
@@ -766,8 +688,7 @@ router.post('/orders/new', auth, isChef, [
         // Update table status
         table.status = 'occupied';
         table.currentOrder = order._id;
-        table.currentCustomer = null;
-        table.customerName = 'Walk-in Customer';
+        table.customerName = customerName || 'Walk-in Customer';
         table.occupiedAt = new Date();
         await table.save();
         console.log('Table updated');
@@ -775,12 +696,13 @@ router.post('/orders/new', auth, isChef, [
         // Real-time notification
         const io = req.app.get('io');
         if (io) {
-            io.to('role:admin').emit('new-order', {
+            io.emit('new-order', {
                 orderId: order._id,
                 orderNumber: order.orderNumber,
                 tableNumber: order.tableNumber,
-                items: order.items,
                 customerName: order.customerName,
+                items: order.items,
+                totalAmount: order.totalAmount,
                 estimatedPrepTime: order.estimatedPrepTime,
                 timestamp: new Date().toISOString()
             });
@@ -788,7 +710,7 @@ router.post('/orders/new', auth, isChef, [
         
         res.status(201).json({
             success: true,
-            message: 'Order created successfully!',
+            message: 'Walk-in order created successfully!',
             order: {
                 id: order._id,
                 orderNumber: order.orderNumber,
@@ -813,396 +735,74 @@ router.post('/orders/new', auth, isChef, [
     }
 });
 
-// @route   GET /api/chef/chefs
-// @desc    Get list of chefs
-// @access  Private (Chef/Admin)
-router.get('/chefs', auth, isChef, async (req, res) => {
-    try {
-        const chefs = await User.find({ role: 'chef', isActive: true })
-            .select('firstName lastName email phone')
-            .sort({ firstName: 1 });
-        
-        res.json({
-            success: true,
-            count: chefs.length,
-            chefs
-        });
-        
-    } catch (error) {
-        console.error('Get chefs error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Server error'
-        });
-    }
-});
-
-// @route   GET /api/chef/orders/queue
-// @desc    Get orders in queue for chef
+// @route   GET /api/chef/dashboard-stats
+// @desc    Get comprehensive dashboard stats
 // @access  Private (Chef)
-router.get('/orders/queue', auth, isChef, async (req, res) => {
+router.get('/dashboard-stats', auth, isChef, async (req, res) => {
     try {
-        // Get orders assigned to this chef that are still pending/preparing
-        const chefOrders = await Order.find({
-            assignedChef: req.userId,
-            status: { $in: ['preparing', 'pending'] }
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        
+        // Get today's orders
+        const todayOrders = await Order.find({
+            createdAt: { $gte: today, $lt: tomorrow }
+        });
+        
+        // Calculate stats
+        const stats = {
+            pending: todayOrders.filter(o => o.status === 'pending' || o.status === 'confirmed').length,
+            preparing: todayOrders.filter(o => o.status === 'preparing').length,
+            ready: todayOrders.filter(o => o.status === 'ready').length,
+            totalToday: todayOrders.length
+        };
+        
+        // Get recent orders (last 5)
+        const recentOrders = await Order.find({
+            status: { $in: ['pending', 'confirmed', 'preparing', 'ready'] }
         })
-        .sort({ createdAt: 1 })
-        .select('orderNumber tableNumber items status estimatedPrepTime')
-        .populate('items.menuItem', 'name preparationTime');
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .populate('items.menuItem', 'name');
         
-        // Get unassigned pending orders
-        const unassignedOrders = await Order.find({
-            assignedChef: { $exists: false },
-            status: 'pending'
+        // Get service requests from orders
+        const ordersWithRequests = await Order.find({
+            'serviceRequests.status': 'pending',
+            'serviceRequests.type': { $in: ['chef_attention'] }
         })
-        .sort({ createdAt: 1 })
-        .select('orderNumber tableNumber items estimatedPrepTime')
-        .populate('items.menuItem', 'name preparationTime')
-        .limit(10);
+        .sort({ createdAt: -1 })
+        .limit(5);
         
-        res.json({
-            success: true,
-            chefOrders: {
-                count: chefOrders.length,
-                orders: chefOrders
-            },
-            unassignedOrders: {
-                count: unassignedOrders.length,
-                orders: unassignedOrders
-            }
-        });
-        
-    } catch (error) {
-        console.error('Get order queue error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Server error'
-        });
-    }
-});
-
-// @route   GET /api/chef/ingredients/low-stock
-// @desc    Get low stock ingredients
-// @access  Private (Chef)
-router.get('/ingredients/low-stock', auth, isChef, async (req, res) => {
-    try {
-        // This would typically query an Ingredients model
-        // For now, return sample data or implement based on your schema
-        
-        const lowStockItems = await MenuItem.find({
-            'ingredients.stock': { $lt: 10 } // Example threshold
-        })
-        .select('name ingredients')
-        .sort({ 'ingredients.stock': 1 })
-        .limit(20);
-        
-        res.json({
-            success: true,
-            count: lowStockItems.length,
-            items: lowStockItems
-        });
-        
-    } catch (error) {
-        console.error('Get low stock ingredients error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Server error'
-        });
-    }
-});
-
-// @route   POST /api/chef/broadcast
-// @desc    Broadcast message to all customers
-// @access  Private (Chef/Admin)
-router.post('/broadcast', auth, isChef, [
-    check('message', 'Message is required').not().isEmpty(),
-    check('type', 'Type must be info, warning, or success').isIn(['info', 'warning', 'success'])
-], async (req, res) => {
-    try {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-            return res.status(400).json({
-                success: false,
-                errors: errors.array()
-            });
-        }
-        
-        const { message, type } = req.body;
-        
-        // Real-time broadcast
-        const io = req.app.get('io');
-        if (io) {
-            io.emit('broadcast-message', {
-                message,
-                type,
-                from: `Chef ${req.user.firstName} ${req.user.lastName}`,
-                timestamp: new Date().toISOString()
-            });
-        }
-        
-        res.json({
-            success: true,
-            message: 'Broadcast sent successfully'
-        });
-        
-    } catch (error) {
-        console.error('Broadcast message error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Server error'
-        });
-    }
-});
-
-// @route   POST /api/chef/orders/:id/update
-// @desc    Update order details (add/remove items)
-// @access  Private (Chef)
-router.post('/orders/:id/update', auth, isChef, [
-    check('action', 'Action is required').isIn(['add_item', 'remove_item', 'update_quantity']),
-    check('itemId', 'Item ID is required').not().isEmpty()
-], async (req, res) => {
-    try {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-            return res.status(400).json({
-                success: false,
-                errors: errors.array()
-            });
-        }
-        
-        const { action, itemId, quantity, reason } = req.body;
-        
-        const order = await Order.findById(req.params.id);
-        
-        if (!order) {
-            return res.status(404).json({
-                success: false,
-                message: 'Order not found'
-            });
-        }
-        
-        if (order.status !== 'pending' && order.status !== 'preparing') {
-            return res.status(400).json({
-                success: false,
-                message: `Cannot update order in ${order.status} status`
-            });
-        }
-        
-        // Check if chef is assigned to this order
-        if (order.assignedChef && order.assignedChef.toString() !== req.userId) {
-            return res.status(403).json({
-                success: false,
-                message: 'Not authorized to update this order'
-            });
-        }
-        
-        let updateMessage = '';
-        
-        switch (action) {
-            case 'add_item':
-                const menuItem = await MenuItem.findById(itemId);
-                if (!menuItem) {
-                    return res.status(404).json({
-                        success: false,
-                        message: 'Menu item not found'
+        // Extract service requests
+        const serviceRequests = [];
+        ordersWithRequests.forEach(order => {
+            order.serviceRequests.forEach(request => {
+                if (request.status === 'pending' && request.type === 'chef_attention') {
+                    serviceRequests.push({
+                        id: request._id,
+                        type: request.type,
+                        tableNumber: request.tableNumber,
+                        description: request.description,
+                        orderNumber: order.orderNumber,
+                        customerName: order.customerName,
+                        createdAt: request.createdAt,
+                        orderId: order._id
                     });
                 }
-                
-                if (!menuItem.isAvailable) {
-                    return res.status(400).json({
-                        success: false,
-                        message: `${menuItem.name} is currently unavailable`
-                    });
-                }
-                
-                order.items.push({
-                    menuItem: itemId,
-                    name: menuItem.name,
-                    price: menuItem.price,
-                    quantity: quantity || 1,
-                    specialInstructions: reason || ''
-                });
-                
-                // Update total
-                const newItemTotal = menuItem.price * (quantity || 1);
-                order.totalAmount += newItemTotal;
-                
-                updateMessage = `Added ${quantity || 1} x ${menuItem.name}`;
-                break;
-                
-            case 'remove_item':
-                const itemIndex = order.items.findIndex(item => 
-                    item.menuItem.toString() === itemId || item._id.toString() === itemId
-                );
-                
-                if (itemIndex === -1) {
-                    return res.status(404).json({
-                        success: false,
-                        message: 'Item not found in order'
-                    });
-                }
-                
-                // Update total
-                const removedItem = order.items[itemIndex];
-                order.totalAmount -= removedItem.price * removedItem.quantity;
-                
-                order.items.splice(itemIndex, 1);
-                updateMessage = `Removed ${removedItem.name}`;
-                break;
-                
-            case 'update_quantity':
-                const updateItemIndex = order.items.findIndex(item => 
-                    item.menuItem.toString() === itemId || item._id.toString() === itemId
-                );
-                
-                if (updateItemIndex === -1) {
-                    return res.status(404).json({
-                        success: false,
-                        message: 'Item not found in order'
-                    });
-                }
-                
-                const itemToUpdate = order.items[updateItemIndex];
-                const oldQuantity = itemToUpdate.quantity;
-                const newQuantity = quantity;
-                
-                // Update total
-                const quantityDiff = newQuantity - oldQuantity;
-                order.totalAmount += itemToUpdate.price * quantityDiff;
-                
-                itemToUpdate.quantity = newQuantity;
-                itemToUpdate.specialInstructions = reason || itemToUpdate.specialInstructions;
-                
-                updateMessage = `Updated ${itemToUpdate.name} quantity from ${oldQuantity} to ${newQuantity}`;
-                break;
-        }
-        
-        // Add update note
-        order.notes = order.notes || [];
-        order.notes.push({
-            type: 'update',
-            message: updateMessage,
-            updatedBy: req.userId,
-            updatedByName: req.user.firstName + ' ' + req.user.lastName,
-            timestamp: new Date()
-        });
-        
-        await order.save();
-        
-        // Real-time notification
-        const io = req.app.get('io');
-        if (io) {
-            io.to(`table:${order.tableNumber}`).emit('order-updated', {
-                orderId: order._id,
-                orderNumber: order.orderNumber,
-                action,
-                message: updateMessage,
-                timestamp: new Date().toISOString()
-            });
-        }
-        
-        res.json({
-            success: true,
-            message: 'Order updated successfully',
-            order: {
-                id: order._id,
-                orderNumber: order.orderNumber,
-                items: order.items,
-                totalAmount: order.totalAmount,
-                status: order.status
-            }
-        });
-        
-    } catch (error) {
-        console.error('Update order error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Server error'
-        });
-    }
-});
-
-// @route   GET /api/chef/performance
-// @desc    Get chef performance metrics
-// @access  Private (Chef)
-router.get('/performance', auth, isChef, async (req, res) => {
-    try {
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        
-        // Get chef's completed orders in last 30 days
-        const completedOrders = await Order.find({
-            assignedChef: req.userId,
-            status: 'completed',
-            completedAt: { $gte: thirtyDaysAgo }
-        });
-        
-        // Calculate metrics
-        const totalOrders = completedOrders.length;
-        const totalRevenue = completedOrders.reduce((sum, order) => sum + order.totalAmount, 0);
-        
-        // Average preparation time
-        const prepTimes = completedOrders
-            .filter(order => order.actualPrepTime)
-            .map(order => order.actualPrepTime);
-        
-        const avgPrepTime = prepTimes.length > 0 
-            ? Math.round(prepTimes.reduce((sum, time) => sum + time, 0) / prepTimes.length)
-            : 0;
-        
-        // Most prepared items
-        const itemCounts = {};
-        completedOrders.forEach(order => {
-            order.items.forEach(item => {
-                const itemName = item.name;
-                itemCounts[itemName] = (itemCounts[itemName] || 0) + item.quantity;
             });
         });
         
-        const topItems = Object.entries(itemCounts)
-            .map(([name, count]) => ({ name, count }))
-            .sort((a, b) => b.count - a.count)
-            .slice(0, 5);
-        
-        // Daily performance
-        const dailyStats = {};
-        completedOrders.forEach(order => {
-            const date = order.completedAt.toISOString().split('T')[0];
-            if (!dailyStats[date]) {
-                dailyStats[date] = { orders: 0, revenue: 0 };
-            }
-            dailyStats[date].orders++;
-            dailyStats[date].revenue += order.totalAmount;
-        });
-        
-        const dailyPerformance = Object.entries(dailyStats)
-            .map(([date, stats]) => ({
-                date,
-                orders: stats.orders,
-                revenue: stats.revenue
-            }))
-            .sort((a, b) => new Date(a.date) - new Date(b.date));
-        
         res.json({
             success: true,
-            performance: {
-                chefName: req.user.firstName + ' ' + req.user.lastName,
-                period: 'Last 30 days',
-                metrics: {
-                    totalOrders,
-                    totalRevenue,
-                    averageOrderValue: totalOrders > 0 ? (totalRevenue / totalOrders).toFixed(2) : 0,
-                    averagePrepTime: avgPrepTime,
-                    efficiency: avgPrepTime > 0 ? Math.min(100, Math.round(150 / avgPrepTime * 100)) : 0 // Score out of 100
-                },
-                topItems,
-                dailyPerformance
-            }
+            stats,
+            recentOrders,
+            serviceRequests
         });
         
     } catch (error) {
-        console.error('Get chef performance error:', error);
+        console.error('Get dashboard stats error:', error);
         res.status(500).json({
             success: false,
             message: 'Server error'

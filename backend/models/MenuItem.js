@@ -24,7 +24,7 @@ const MenuItemSchema = new mongoose.Schema({
     category: {
         type: String,
         enum: {
-            values: ['appetizer', 'main', 'dessert', 'drink', 'soup', 'salad'],
+            values: ['appetizer', 'main', 'dessert', 'drink', 'soup', 'salad', 'beverage'],
             message: 'Please select a valid category'
         },
         default: 'main'
@@ -40,10 +40,10 @@ const MenuItemSchema = new mongoose.Schema({
     images: [{
         type: String
     }],
-    isAvailable: {
-    type: Boolean,
-    default: true
-},
+    available: {
+        type: Boolean,
+        default: true
+    },
     popular: {
         type: Boolean,
         default: false

@@ -14,16 +14,14 @@ const OrderSchema = new mongoose.Schema({
     },
     customer: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-        required: true
+        ref: 'User'
     },
     customerName: {
         type: String,
         required: true
     },
     customerEmail: {
-        type: String,
-        required: true
+        type: String
     },
     items: [{
         menuItem: {
@@ -119,7 +117,7 @@ const OrderSchema = new mongoose.Schema({
     serviceRequests: [{
         type: {
             type: String,
-            enum: ['water', 'cleaning', 'bill', 'cutlery', 'napkin', 'extra_sauce', 'other'],
+            enum: ['water', 'cleaning', 'bill', 'cutlery', 'napkin', 'extra_sauce', 'other', 'chef_attention'],
             required: true
         },
         tableNumber: {
@@ -153,6 +151,11 @@ const OrderSchema = new mongoose.Schema({
     feedback: {
         type: String,
         maxlength: [500, 'Feedback cannot exceed 500 characters']
+    },
+    orderType: {
+        type: String,
+        enum: ['customer', 'walk-in'],
+        default: 'customer'
     },
     createdAt: {
         type: Date,
@@ -248,5 +251,6 @@ OrderSchema.index({ assignedChef: 1, status: 1 });
 OrderSchema.index({ createdAt: -1 });
 OrderSchema.index({ 'serviceRequests.status': 1 });
 OrderSchema.index({ totalAmount: 1 });
+OrderSchema.index({ orderType: 1 }); // Added for walk-in orders
 
 module.exports = mongoose.model('Order', OrderSchema);

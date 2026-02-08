@@ -78,6 +78,7 @@
         
         .nav-item {
             margin: 5px 15px;
+            position: relative;
         }
         
         .nav-link {
@@ -225,18 +226,10 @@
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
         
-        .table-card {
-            transition: all 0.3s;
-        }
-        
-        .table-card:hover {
-            transform: scale(1.02);
-        }
-        
         .notification-badge {
             position: absolute;
-            top: -5px;
-            right: -5px;
+            top: 5px;
+            right: 5px;
             background: var(--secondary);
             color: white;
             border-radius: 50%;
@@ -442,6 +435,19 @@
             50% { transform: scale(1.05); }
             100% { transform: scale(1); }
         }
+        
+        .service-request-card {
+            border-left: 4px solid var(--warning);
+        }
+        
+        .blink {
+            animation: blink 1s infinite;
+        }
+        
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
     </style>
 </head>
 <body>
@@ -471,6 +477,7 @@
             <li class="nav-item">
                 <a class="nav-link active" href="#" onclick="showSection('dashboard')">
                     <i class="fas fa-tachometer-alt"></i> Dashboard
+                    <span class="notification-badge" id="dashboardBadge">0</span>
                 </a>
             </li>
             <li class="nav-item">
@@ -488,11 +495,6 @@
                 <a class="nav-link" href="#" onclick="showSection('services')">
                     <i class="fas fa-concierge-bell"></i> Service Requests
                     <span class="notification-badge" id="serviceRequestsBadge">0</span>
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" href="#" onclick="showSection('reports')">
-                    <i class="fas fa-chart-bar"></i> Reports
                 </a>
             </li>
             <li class="nav-item mt-5">
@@ -594,16 +596,16 @@
                                 </div>
                             </div>
                             <div class="progress mt-3">
-                                <div class="progress-bar bg-primary" id="totalProgress" style="width: 0%"></div>
+                                <div class="progress-bar bg-primary" id="totalProgress" style="width: 100%"></div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
             
-            <!-- Recent Orders -->
+            <!-- Recent Orders and Service Requests -->
             <div class="row">
-                <div class="col-md-8 mb-4">
+                <div class="col-md-6 mb-4">
                     <div class="card h-100">
                         <div class="card-header bg-white d-flex justify-content-between align-items-center">
                             <h5 class="mb-0">Recent Orders</h5>
@@ -619,16 +621,17 @@
                     </div>
                 </div>
                 
-                <div class="col-md-4 mb-4">
+                <div class="col-md-6 mb-4">
                     <div class="card h-100">
-                        <div class="card-header bg-white">
-                            <h5 class="mb-0">Recent Activity</h5>
+                        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Recent Service Requests</h5>
+                            <a href="#" onclick="showSection('services')" class="btn btn-sm btn-outline-primary">View All</a>
                         </div>
-                        <div class="card-body recent-activity" id="recentActivity">
+                        <div class="card-body recent-activity" id="recentServiceRequests">
                             <div class="empty-state">
-                                <i class="fas fa-history"></i>
-                                <h5>No activity yet</h5>
-                                <p>Activity will appear here</p>
+                                <i class="fas fa-concierge-bell"></i>
+                                <h5>No service requests</h5>
+                                <p>Service requests will appear here</p>
                             </div>
                         </div>
                     </div>
@@ -746,75 +749,6 @@
                 <!-- Service requests will be loaded here -->
             </div>
         </section>
-
-        <!-- Reports Section -->
-        <section id="reportsSection" class="section-content" style="display: none;">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h1 class="h3 mb-0">Reports & Analytics</h1>
-                <div class="btn-group">
-                    <button type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown">
-                        <i class="fas fa-download me-2"></i>Export
-                    </button>
-                    <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="#" onclick="exportReport('pdf')">PDF</a></li>
-                        <li><a class="dropdown-item" href="#" onclick="exportReport('excel')">Excel</a></li>
-                        <li><a class="dropdown-item" href="#" onclick="exportReport('csv')">CSV</a></li>
-                    </ul>
-                </div>
-            </div>
-            
-            <!-- Report Cards -->
-            <div class="row mb-4">
-                <div class="col-md-4 mb-3">
-                    <div class="card">
-                        <div class="card-body text-center">
-                            <h6 class="card-title">Today's Revenue</h6>
-                            <h2 class="text-success" id="todayRevenue">$0.00</h2>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-4 mb-3">
-                    <div class="card">
-                        <div class="card-body text-center">
-                            <h6 class="card-title">Orders Today</h6>
-                            <h2 class="text-primary" id="todayOrders">0</h2>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-4 mb-3">
-                    <div class="card">
-                        <div class="card-body text-center">
-                            <h6 class="card-title">Average Prep Time</h6>
-                            <h2 class="text-info" id="avgPrepTime">0 min</h2>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Charts -->
-            <div class="row">
-                <div class="col-md-8 mb-4">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0">Order Volume (Last 7 Days)</h5>
-                        </div>
-                        <div class="card-body">
-                            <canvas id="orderChart" height="250"></canvas>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-4 mb-4">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0">Top Items</h5>
-                        </div>
-                        <div class="card-body">
-                            <div id="topItemsList"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
     </div>
 
     <!-- Walk-in Order Modal -->
@@ -832,22 +766,22 @@
                         <div class="row mb-4">
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label class="form-label">Table Number</label>
+                                    <label class="form-label">Table Number *</label>
                                     <input type="number" class="form-control" id="walkinTableNumber" min="1" max="50" required>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label class="form-label">Customer Name (Optional)</label>
-                                    <input type="text" class="form-control" id="walkinCustomerName">
+                                    <input type="text" class="form-control" id="walkinCustomerName" placeholder="Walk-in Customer">
                                 </div>
                             </div>
                         </div>
                         
                         <div class="mb-4">
-                            <h6 class="mb-3">Select Menu Items</h6>
+                            <h6 class="mb-3">Select Menu Items *</h6>
                             <div id="walkinMenuItems">
-                                <!-- Menu items will be loaded here -->
+                                <p class="text-muted">Loading menu items...</p>
                             </div>
                         </div>
                         
@@ -890,7 +824,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <script>
         // Configuration
@@ -902,13 +835,13 @@
                 CHEF_MENU: '/api/chef/menu',
                 CHEF_CREATE_ORDER: '/api/chef/orders/new',
                 SERVICE_REQUESTS: '/api/chef/service-requests',
-                CHEF_STATS: '/api/chef/orders/stats',
-                CHEF_REPORTS: '/api/chef/performance'
+                DASHBOARD_STATS: '/api/chef/dashboard-stats'
             },
             SOCKET_EVENTS: {
                 NEW_ORDER: 'new-order',
-                ORDER_UPDATE: 'order-status-update',
-                SERVICE_REQUEST: 'service-request',
+                ORDER_UPDATE: 'order-status-updated',
+                SERVICE_REQUEST: 'new-service-request',
+                MENU_UPDATE: 'menu-item-updated',
                 DISCONNECT: 'disconnect',
                 RECONNECT: 'reconnect'
             }
@@ -1069,10 +1002,6 @@
                 const date = new Date(dateString);
                 return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             },
-            formatDate: (dateString) => {
-                const date = new Date(dateString);
-                return date.toLocaleDateString();
-            },
             formatCategory: (category) => {
                 const categories = {
                     'appetizer': 'Appetizer',
@@ -1106,7 +1035,6 @@
         let orders = [];
         let menuItems = [];
         let serviceRequests = [];
-        let orderChart = null;
         let selectedMenuItems = new Map();
 
         // Initialize Application
@@ -1150,23 +1078,40 @@
                 socket.on('connect', () => {
                     console.log('Socket connected');
                     document.getElementById('liveIndicator').style.display = 'block';
+                    Toast.show('Connected to live updates', 'success');
                 });
 
                 socket.on('disconnect', () => {
                     console.log('Socket disconnected');
                     document.getElementById('liveIndicator').style.display = 'none';
+                    Toast.show('Disconnected from live updates', 'warning');
                 });
 
                 // Listen for new orders
                 socket.on(CONFIG.SOCKET_EVENTS.NEW_ORDER, async (data) => {
                     Toast.show(`New order from Table ${data.tableNumber}`, 'info');
                     await loadDashboard();
+                    await loadOrders();
+                });
+
+                // Listen for order updates
+                socket.on(CONFIG.SOCKET_EVENTS.ORDER_UPDATE, async (data) => {
+                    console.log('Order update received:', data);
+                    await loadDashboard();
+                    await loadOrders();
                 });
 
                 // Listen for service requests
                 socket.on(CONFIG.SOCKET_EVENTS.SERVICE_REQUEST, async (data) => {
-                    Toast.show(`New ${data.type} request from Table ${data.tableNumber}`, 'warning');
+                    Toast.show(`New service request from Table ${data.tableNumber}`, 'warning');
+                    await loadDashboard();
                     await loadServiceRequests();
+                });
+
+                // Listen for menu updates
+                socket.on(CONFIG.SOCKET_EVENTS.MENU_UPDATE, async (data) => {
+                    console.log('Menu update received:', data);
+                    await loadMenuItems();
                 });
 
             } catch (error) {
@@ -1222,9 +1167,6 @@
                 case 'services':
                     loadServiceRequests();
                     break;
-                case 'reports':
-                    loadReports();
-                    break;
             }
             
             // Hide sidebar on mobile
@@ -1235,209 +1177,91 @@
 
         // Dashboard Functions
         async function loadDashboard() {
-    try {
-        Loading.show();
-        
-        // Get stats from correct endpoint
-        let statsData = null;
-        try {
-            statsData = await API.get(CONFIG.API_ENDPOINTS.CHEF_STATS);
-        } catch (error) {
-            console.log('Stats endpoint failed, calculating from orders...');
-            // Fallback: calculate stats from orders
-            statsData = { 
-                success: true, 
-                stats: await calculateStatsFromOrders() 
-            };
-        }
-        
-        // Get orders
-        let ordersData;
-        try {
-            ordersData = await API.get(CONFIG.API_ENDPOINTS.CHEF_ORDERS);
-        } catch (error) {
-            console.error('Failed to get orders:', error);
-            ordersData = { success: true, orders: [] };
-        }
-        
-        // Update statistics
-        if (statsData.success) {
-            const stats = statsData.stats;
-            
-            // Check if stats are nested in 'today' property
-            if (stats.today) {
-                document.getElementById('pendingCount').textContent = stats.pending || 0;
-                document.getElementById('preparingCount').textContent = stats.preparing || stats.today.preparing || 0;
-                document.getElementById('readyCount').textContent = stats.ready || 0;
-                document.getElementById('totalCount').textContent = stats.totalToday || stats.today.total || 0;
-            } else {
-                // Direct stats structure
-                document.getElementById('pendingCount').textContent = stats.pending || 0;
-                document.getElementById('preparingCount').textContent = stats.preparing || 0;
-                document.getElementById('readyCount').textContent = stats.ready || 0;
-                document.getElementById('totalCount').textContent = stats.totalToday || 0;
+            try {
+                Loading.show();
+                
+                const response = await API.get(CONFIG.API_ENDPOINTS.DASHBOARD_STATS);
+                
+                if (response.success) {
+                    const { stats, recentOrders, serviceRequests } = response;
+                    
+                    // Update statistics
+                    document.getElementById('pendingCount').textContent = stats.pending || 0;
+                    document.getElementById('preparingCount').textContent = stats.preparing || 0;
+                    document.getElementById('readyCount').textContent = stats.ready || 0;
+                    document.getElementById('totalCount').textContent = stats.totalToday || 0;
+                    
+                    // Update notification badges
+                    document.getElementById('pendingOrdersBadge').textContent = stats.pending || 0;
+                    document.getElementById('serviceRequestsBadge').textContent = serviceRequests.length || 0;
+                    document.getElementById('dashboardBadge').textContent = 
+                        (stats.pending || 0) + (serviceRequests.length || 0);
+                    
+                    // Update recent orders
+                    updateRecentOrders(recentOrders);
+                    
+                    // Update recent service requests
+                    updateRecentServiceRequests(serviceRequests);
+                }
+                
+                Loading.hide();
+                
+            } catch (error) {
+                Loading.hide();
+                ErrorHandler.handle(error, 'loadDashboard');
             }
-            
-            // Update progress bars
-            const total = Math.max(stats.totalToday || stats.today?.total || 1, 1);
-            const pending = stats.pending || 0;
-            const preparing = stats.preparing || stats.today?.preparing || 0;
-            const ready = stats.ready || 0;
-            
-            document.getElementById('pendingProgress').style.width = `${(pending / total * 100)}%`;
-            document.getElementById('preparingProgress').style.width = `${(preparing / total * 100)}%`;
-            document.getElementById('readyProgress').style.width = `${(ready / total * 100)}%`;
-            document.getElementById('totalProgress').style.width = '100%';
-            
-            // Update notification badges
-            document.getElementById('pendingOrdersBadge').textContent = pending;
         }
-        
-        // Update recent orders
-        if (ordersData.success) {
-            orders = ordersData.orders || [];
-            updateRecentOrders(orders.slice(0, 5));
-            updateRecentActivity(orders);
-        }
-        
-        Loading.hide();
-        
-    } catch (error) {
-        Loading.hide();
-        ErrorHandler.handle(error, 'loadDashboard');
-    }
-}
 
-// Helper function to calculate stats from orders
-async function calculateStatsFromOrders() {
-    try {
-        const ordersData = await API.get(CONFIG.API_ENDPOINTS.CHEF_ORDERS);
-        if (!ordersData.success || !ordersData.orders) {
-            return { pending: 0, preparing: 0, ready: 0, totalToday: 0 };
-        }
-        
-        // Filter today's orders
-        const today = new Date().toISOString().split('T')[0];
-        const todayOrders = ordersData.orders.filter(order => {
-            const orderDate = new Date(order.createdAt).toISOString().split('T')[0];
-            return orderDate === today;
-        });
-        
-        // Calculate stats
-        const stats = {
-            pending: todayOrders.filter(o => o.status === 'pending').length,
-            preparing: todayOrders.filter(o => o.status === 'preparing').length,
-            ready: todayOrders.filter(o => o.status === 'ready').length,
-            totalToday: todayOrders.length
-        };
-        
-        return stats;
-    } catch (error) {
-        console.error('Error calculating stats:', error);
-        return { pending: 0, preparing: 0, ready: 0, totalToday: 0 };
-    }
-}
-
-        function updateRecentOrders(recentOrders) {
-    const container = document.getElementById('recentOrders');
-    
-    if (!recentOrders || recentOrders.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-clipboard-list"></i>
-                <h5>No recent orders</h5>
-                <p>Orders will appear here as they come in</p>
-            </div>
-        `;
-        return;
-    }
-    
-    let html = '';
-    recentOrders.forEach(order => {
-        const statusClass = `order-${order.status}`;
-        const statusColor = getStatusColor(order.status);
-        
-        // Check if items is an array and has proper structure
-        const itemsHtml = order.items && Array.isArray(order.items) 
-            ? order.items.map(item => `
-                <div class="d-flex justify-content-between align-items-center mb-1">
-                    <span>${item.quantity}x ${item.name}</span>
-                    <span class="text-muted">$${(item.price * item.quantity).toFixed(2)}</span>
-                </div>
-            `).join('') 
-            : '<div class="text-muted">No items</div>';
-        
-        html += `
-            <div class="order-card ${statusClass} mb-3 p-3" data-order-id="${order._id}">
-                <div class="d-flex justify-content-between align-items-start mb-2">
-                    <div>
-                        <h6 class="mb-1">Order #${order.orderNumber || 'N/A'}</h6>
-                        <small class="text-muted">
-                            Table ${order.tableNumber} • ${FormatUtils.formatTime(order.createdAt)}
-                        </small>
-                    </div>
-                    <span class="badge badge-status" style="background-color: ${statusColor}">
-                        ${order.status ? order.status.toUpperCase() : 'UNKNOWN'}
-                    </span>
-                </div>
-                <div class="order-items mb-3">
-                    ${itemsHtml}
-                </div>
-                <div class="d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">$${order.totalAmount ? order.totalAmount.toFixed(2) : '0.00'}</h5>
-                    <div>
-                        ${order.status === 'pending' || order.status === 'confirmed' ? `
-                            <button class="btn btn-accept btn-sm" onclick="acceptOrder('${order._id}')">
-                                <i class="fas fa-check me-1"></i>Accept
-                            </button>
-                        ` : ''}
-                        ${order.status === 'preparing' ? `
-                            <button class="btn btn-ready btn-sm" onclick="markAsReady('${order._id}')">
-                                <i class="fas fa-check-double me-1"></i>Ready
-                            </button>
-                        ` : ''}
-                        ${order.status === 'ready' ? `
-                            <button class="btn btn-complete btn-sm" onclick="completeOrder('${order._id}')">
-                                <i class="fas fa-check-circle me-1"></i>Complete
-                            </button>
-                        ` : ''}
-                    </div>
-                </div>
-            </div>
-        `;
-    });
-    
-    container.innerHTML = html;
-}
-
-        function updateRecentActivity(orders) {
-            const container = document.getElementById('recentActivity');
+        function updateRecentOrders(orders) {
+            const container = document.getElementById('recentOrders');
             
             if (!orders || orders.length === 0) {
                 container.innerHTML = `
                     <div class="empty-state">
-                        <i class="fas fa-history"></i>
-                        <h5>No activity yet</h5>
-                        <p>Activity will appear here</p>
+                        <i class="fas fa-clipboard-list"></i>
+                        <h5>No recent orders</h5>
+                        <p>Orders will appear here as they come in</p>
                     </div>
                 `;
                 return;
             }
             
             let html = '';
-            const sortedOrders = [...orders].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)).slice(0, 10);
-            
-            sortedOrders.forEach(order => {
-                const timeAgo = getTimeAgo(order.updatedAt);
+            orders.forEach(order => {
+                const statusClass = `order-${order.status}`;
+                const statusColor = getStatusColor(order.status);
                 
                 html += `
-                    <div class="activity-item">
-                        <div class="d-flex justify-content-between align-items-start">
+                    <div class="order-card ${statusClass} mb-3 p-3" data-order-id="${order._id}">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
                             <div>
-                                <strong>Order #${order.orderNumber}</strong>
-                                <p class="mb-0 small">Table ${order.tableNumber} • ${order.status}</p>
+                                <h6 class="mb-1">Order #${order.orderNumber || 'N/A'}</h6>
+                                <small class="text-muted">
+                                    Table ${order.tableNumber} • ${FormatUtils.formatTime(order.createdAt)}
+                                </small>
                             </div>
-                            <small class="activity-time">${timeAgo}</small>
+                            <span class="badge badge-status" style="background-color: ${statusColor}">
+                                ${order.status ? order.status.toUpperCase() : 'UNKNOWN'}
+                            </span>
+                        </div>
+                        <div class="order-items mb-3">
+                            ${order.items && order.items.length > 0 ? 
+                                order.items.map(item => `
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <span>${item.quantity}x ${item.name}</span>
+                                        <span class="text-muted">${FormatUtils.formatCurrency(item.price * item.quantity)}</span>
+                                    </div>
+                                `).join('') : 
+                                '<div class="text-muted">No items</div>'
+                            }
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">${FormatUtils.formatCurrency(order.totalAmount || 0)}</h5>
+                            ${order.status === 'pending' ? `
+                                <button class="btn btn-accept btn-sm" onclick="acceptOrder('${order._id}')">
+                                    <i class="fas fa-check me-1"></i>Accept
+                                </button>
+                            ` : ''}
                         </div>
                     </div>
                 `;
@@ -1446,20 +1270,45 @@ async function calculateStatsFromOrders() {
             container.innerHTML = html;
         }
 
-        function getTimeAgo(dateString) {
-            const date = new Date(dateString);
-            const now = new Date();
-            const diffMs = now - date;
-            const diffMins = Math.floor(diffMs / 60000);
+        function updateRecentServiceRequests(requests) {
+            const container = document.getElementById('recentServiceRequests');
             
-            if (diffMins < 1) return 'Just now';
-            if (diffMins < 60) return `${diffMins}m ago`;
+            if (!requests || requests.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-concierge-bell"></i>
+                        <h5>No service requests</h5>
+                        <p>Service requests will appear here</p>
+                    </div>
+                `;
+                return;
+            }
             
-            const diffHours = Math.floor(diffMins / 60);
-            if (diffHours < 24) return `${diffHours}h ago`;
+            let html = '';
+            requests.forEach(request => {
+                const icon = getServiceIcon(request.type);
+                const serviceName = getServiceName(request.type);
+                
+                html += `
+                    <div class="activity-item service-request-card p-3 mb-2">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="mb-1">${serviceName}</h6>
+                                <p class="mb-0 small">Table ${request.table?.tableNumber || request.tableNumber}</p>
+                                <small class="text-muted">${request.description || 'No description'}</small>
+                            </div>
+                            <div>
+                                <button class="btn btn-sm btn-primary" onclick="acceptServiceRequest('${request._id}')">
+                                    <i class="fas fa-user-check me-1"></i>Accept
+                                </button>
+                            </div>
+                        </div>
+                        <small class="activity-time">${FormatUtils.formatTime(request.createdAt)}</small>
+                    </div>
+                `;
+            });
             
-            const diffDays = Math.floor(diffHours / 24);
-            return `${diffDays}d ago`;
+            container.innerHTML = html;
         }
 
         // Orders Management Functions
@@ -1521,6 +1370,8 @@ async function calculateStatsFromOrders() {
             orders.forEach(order => {
                 if (groupedOrders[order.status]) {
                     groupedOrders[order.status].push(order);
+                } else if (order.status === 'confirmed') {
+                    groupedOrders['pending'].push(order);
                 }
             });
 
@@ -1571,25 +1422,28 @@ async function calculateStatsFromOrders() {
                                     
                                     <div class="order-items mb-3">
                                         <h6 class="small mb-2">Items:</h6>
-                                        ${order.items ? order.items.map(item => `
-                                            <div class="d-flex justify-content-between align-items-center mb-1">
-                                                <span class="small">${item.quantity}x ${item.name}</span>
-                                                <span class="small text-muted">${FormatUtils.formatCurrency(item.price)}</span>
-                                            </div>
-                                        `).join('') : ''}
+                                        ${order.items && order.items.length > 0 ? 
+                                            order.items.map(item => `
+                                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                                    <span class="small">${item.quantity}x ${item.name}</span>
+                                                    <span class="small text-muted">${FormatUtils.formatCurrency(item.price)}</span>
+                                                </div>
+                                            `).join('') : 
+                                            '<div class="text-muted">No items</div>'
+                                        }
                                     </div>
                                     
-                                    ${order.instructions ? `
+                                    ${order.specialInstructions ? `
                                         <div class="mb-3">
                                             <h6 class="small mb-1">Instructions:</h6>
-                                            <p class="small text-muted mb-0">${order.instructions}</p>
+                                            <p class="small text-muted mb-0">${order.specialInstructions}</p>
                                         </div>
                                     ` : ''}
                                     
                                     <div class="d-flex justify-content-between align-items-center mt-auto">
                                         <h5 class="mb-0">${FormatUtils.formatCurrency(order.totalAmount || 0)}</h5>
                                         <div>
-                                            ${order.status === 'pending' ? `
+                                            ${order.status === 'pending' || order.status === 'confirmed' ? `
                                                 <button class="btn btn-accept btn-sm" onclick="acceptOrder('${order._id}')">
                                                     <i class="fas fa-check me-1"></i>Accept
                                                 </button>
@@ -1617,97 +1471,85 @@ async function calculateStatsFromOrders() {
         }
 
         async function acceptOrder(orderId) {
-    try {
-        Loading.show('Accepting order...');
-        
-        const response = await API.post(`${CONFIG.API_ENDPOINTS.CHEF_UPDATE_ORDER}/${orderId}/accept`, {
-            // Your backend doesn't need extra data for accept
-        });
-        
-        if (response.success) {
-            Toast.show('Order accepted successfully!', 'success');
-            
-            // Refresh data
-            await Promise.all([loadDashboard(), loadOrders()]);
+            try {
+                Loading.show('Accepting order...');
+                
+                const response = await API.post(`${CONFIG.API_ENDPOINTS.CHEF_UPDATE_ORDER}/${orderId}/accept`, {});
+                
+                if (response.success) {
+                    Toast.show('Order accepted successfully!', 'success');
+                    await Promise.all([loadDashboard(), loadOrders()]);
+                }
+                
+                Loading.hide();
+                
+            } catch (error) {
+                Loading.hide();
+                ErrorHandler.handle(error, 'acceptOrder');
+            }
         }
-        
-        Loading.hide();
-        
-    } catch (error) {
-        Loading.hide();
-        ErrorHandler.handle(error, 'acceptOrder');
-    }
-}
 
-async function markAsReady(orderId) {
-    try {
-        Loading.show('Marking order as ready...');
-        
-        const response = await API.post(`${CONFIG.API_ENDPOINTS.CHEF_UPDATE_ORDER}/${orderId}/ready`, {
-            // Your backend doesn't need extra data for ready
-        });
-        
-        if (response.success) {
-            Toast.show('Order marked as ready!', 'success');
-            
-            // Refresh data
-            await Promise.all([loadDashboard(), loadOrders()]);
+        async function markAsReady(orderId) {
+            try {
+                Loading.show('Marking order as ready...');
+                
+                const response = await API.post(`${CONFIG.API_ENDPOINTS.CHEF_UPDATE_ORDER}/${orderId}/ready`, {});
+                
+                if (response.success) {
+                    Toast.show('Order marked as ready!', 'success');
+                    await Promise.all([loadDashboard(), loadOrders()]);
+                }
+                
+                Loading.hide();
+                
+            } catch (error) {
+                Loading.hide();
+                ErrorHandler.handle(error, 'markAsReady');
+            }
         }
-        
-        Loading.hide();
-        
-    } catch (error) {
-        Loading.hide();
-        ErrorHandler.handle(error, 'markAsReady');
-    }
-}
 
-async function completeOrder(orderId) {
-    try {
-        Loading.show('Completing order...');
-        
-        const response = await API.post(`${CONFIG.API_ENDPOINTS.CHEF_UPDATE_ORDER}/${orderId}/complete`, {
-            // Your backend doesn't need extra data for complete
-        });
-        
-        if (response.success) {
-            Toast.show('Order completed successfully!', 'success');
-            
-            // Refresh data
-            await Promise.all([loadDashboard(), loadOrders()]);
+        async function completeOrder(orderId) {
+            try {
+                Loading.show('Completing order...');
+                
+                const response = await API.post(`${CONFIG.API_ENDPOINTS.CHEF_UPDATE_ORDER}/${orderId}/complete`, {});
+                
+                if (response.success) {
+                    Toast.show('Order completed successfully!', 'success');
+                    await Promise.all([loadDashboard(), loadOrders()]);
+                }
+                
+                Loading.hide();
+                
+            } catch (error) {
+                Loading.hide();
+                ErrorHandler.handle(error, 'completeOrder');
+            }
         }
-        
-        Loading.hide();
-        
-    } catch (error) {
-        Loading.hide();
-        ErrorHandler.handle(error, 'completeOrder');
-    }
-}
 
         // Menu Management Functions
         async function loadMenuItems() {
-    try {
-        Loading.show();
-        
-        // Load only available items by default
-        const response = await API.get(CONFIG.API_ENDPOINTS.CHEF_MENU + '?available=true');
-        
-        if (response.success) {
-            menuItems = response.menuItems || [];
-            renderMenuItems(menuItems);
+            try {
+                Loading.show();
+                
+                const response = await API.get(CONFIG.API_ENDPOINTS.CHEF_MENU + '?available=true');
+                
+                if (response.success) {
+                    menuItems = response.menuItems || [];
+                    renderMenuItems(menuItems);
+                }
+                
+                Loading.hide();
+                
+            } catch (error) {
+                Loading.hide();
+                ErrorHandler.handle(error, 'loadMenuItems');
+            }
         }
-        
-        Loading.hide();
-        
-    } catch (error) {
-        Loading.hide();
-        ErrorHandler.handle(error, 'loadMenuItems');
-    }
-}
 
         function renderMenuItems(items) {
             const container = document.getElementById('menuItemsGrid');
+            container.innerHTML = '';
             
             if (!items || items.length === 0) {
                 container.innerHTML = `
@@ -1722,7 +1564,6 @@ async function completeOrder(orderId) {
                 return;
             }
             
-            let html = '';
             items.forEach(item => {
                 const col = document.createElement('div');
                 col.className = 'col-md-4 mb-4';
@@ -1750,8 +1591,10 @@ async function completeOrder(orderId) {
                                 <div>
                                     <div class="form-check form-switch">
                                         <input class="form-check-input" type="checkbox" 
+                                               id="toggle-${item._id}"
                                                ${item.available ? 'checked' : ''}
-                                               onclick="updateMenuItemStatus('${item._id}', this.checked)">
+                                               onchange="updateMenuItemStatus('${item._id}', this.checked)">
+                                        <label class="form-check-label" for="toggle-${item._id}"></label>
                                     </div>
                                 </div>
                             </div>
@@ -1767,29 +1610,28 @@ async function completeOrder(orderId) {
             });
         }
 
-        // Update menu item status function (FIXED VERSION)
         async function updateMenuItemStatus(itemId, isAvailable) {
-    try {
-        Loading.show('Updating menu item...');
-        
-        const response = await API.put(
-            `${CONFIG.API_ENDPOINTS.CHEF_MENU}/${itemId}/availability`,
-            { available: isAvailable }
-        );
-        
-        if (response.success) {
-            Toast.show(`Menu item ${isAvailable ? 'enabled' : 'disabled'} successfully!`, 'success');
-            await loadMenuItems(); // Refresh the list
+            try {
+                Loading.show('Updating menu item...');
+                
+                const response = await API.put(
+                    `${CONFIG.API_ENDPOINTS.CHEF_MENU}/${itemId}/availability`,
+                    { available: isAvailable }
+                );
+                
+                if (response.success) {
+                    Toast.show(`Menu item ${isAvailable ? 'enabled' : 'disabled'} successfully!`, 'success');
+                    await loadMenuItems();
+                }
+                
+                Loading.hide();
+            } catch (error) {
+                Loading.hide();
+                ErrorHandler.handle(error, 'updateMenuItemStatus');
+            }
         }
-        
-        Loading.hide();
-    } catch (error) {
-        Loading.hide();
-        ErrorHandler.handle(error, 'updateMenuItemStatus');
-    }
-}
 
-        async function searchMenuItems() {
+        function searchMenuItems() {
             const searchTerm = document.getElementById('menuSearch').value.toLowerCase();
             
             if (!searchTerm) {
@@ -1799,7 +1641,7 @@ async function completeOrder(orderId) {
             
             const filteredItems = menuItems.filter(item => 
                 item.name.toLowerCase().includes(searchTerm) ||
-                item.description.toLowerCase().includes(searchTerm) ||
+                (item.description && item.description.toLowerCase().includes(searchTerm)) ||
                 item.category.toLowerCase().includes(searchTerm)
             );
             
@@ -1830,16 +1672,13 @@ async function completeOrder(orderId) {
             buttons.forEach(btn => btn.classList.remove('active'));
             event.target.classList.add('active');
             
-            let filteredItems = [];
-            
             if (category === 'all') {
-                filteredItems = menuItems;
+                loadMenuItems();
             } else {
-                filteredItems = menuItems.filter(item => item.category === category);
+                const filteredItems = menuItems.filter(item => item.category === category);
+                document.getElementById('menuItemsGrid').innerHTML = '';
+                renderMenuItems(filteredItems);
             }
-            
-            document.getElementById('menuItemsGrid').innerHTML = '';
-            renderMenuItems(filteredItems);
         }
 
         // Service Requests Functions
@@ -1854,8 +1693,7 @@ async function completeOrder(orderId) {
                     renderServiceRequests(serviceRequests);
                     
                     // Update notification badge
-                    const pendingCount = serviceRequests.filter(req => req.status === 'pending').length;
-                    document.getElementById('serviceRequestsBadge').textContent = pendingCount;
+                    document.getElementById('serviceRequestsBadge').textContent = serviceRequests.length;
                 }
                 
                 Loading.hide();
@@ -1901,18 +1739,23 @@ async function completeOrder(orderId) {
                                     <div>
                                         <h6 class="mb-1">${serviceName}</h6>
                                         <p class="text-muted small mb-0">
-                                            Table ${request.tableNumber}
+                                            Table ${request.table?.tableNumber || request.tableNumber}
                                         </p>
                                     </div>
                                 </div>
                                 
                                 <div class="mb-3">
                                     <small class="text-muted d-block">
-                                        <i class="fas fa-user me-1"></i>${request.customerName || 'Guest'}
+                                        <i class="fas fa-user me-1"></i>${request.customer?.firstName || 'Guest'}
                                     </small>
                                     <small class="text-muted d-block">
                                         <i class="fas fa-clock me-1"></i>${FormatUtils.formatTime(request.createdAt)}
                                     </small>
+                                    ${request.description ? `
+                                        <small class="text-muted d-block">
+                                            <i class="fas fa-comment me-1"></i>${request.description}
+                                        </small>
+                                    ` : ''}
                                 </div>
                                 
                                 <div class="d-flex justify-content-between align-items-center">
@@ -1921,12 +1764,12 @@ async function completeOrder(orderId) {
                                     </span>
                                     
                                     ${request.status === 'pending' ? `
-                                        <button class="btn btn-sm btn-primary" onclick="assignServiceRequest('${request._id}')">
-                                            <i class="fas fa-user-check me-1"></i>Assign to Me
+                                        <button class="btn btn-sm btn-primary" onclick="acceptServiceRequest('${request._id}')">
+                                            <i class="fas fa-user-check me-1"></i>Accept
                                         </button>
                                     ` : `
                                         <button class="btn btn-sm btn-success" onclick="completeServiceRequest('${request._id}')">
-                                            <i class="fas fa-check me-1"></i>Mark Complete
+                                            <i class="fas fa-check me-1"></i>Complete
                                         </button>
                                     `}
                                 </div>
@@ -1939,63 +1782,41 @@ async function completeOrder(orderId) {
             container.innerHTML = html;
         }
 
-        async function assignServiceRequest(requestId) {
-    try {
-        Loading.show('Assigning request...');
-        
-        const response = await API.post(`${CONFIG.API_ENDPOINTS.SERVICE_REQUESTS}/${requestId}/accept`, {
-            // Your backend doesn't need extra data
-        });
-        
-        if (response.success) {
-            Toast.show('Service request assigned to you!', 'success');
-            await loadServiceRequests();
-        }
-        
-        Loading.hide();
-        
-    } catch (error) {
-        Loading.hide();
-        ErrorHandler.handle(error, 'assignServiceRequest');
-    }
-}
-
-async function completeServiceRequest(requestId) {
-    try {
-        Loading.show('Completing request...');
-        
-        const response = await API.post(`${CONFIG.API_ENDPOINTS.SERVICE_REQUESTS}/${requestId}/complete`, {
-            // Your backend doesn't need extra data
-        });
-        
-        if (response.success) {
-            Toast.show('Service request completed!', 'success');
-            await loadServiceRequests();
-        }
-        
-        Loading.hide();
-        
-    } catch (error) {
-        Loading.hide();
-        ErrorHandler.handle(error, 'completeServiceRequest');
-    }
-}
-
-        function getServiceIcon(type) {
-            switch(type) {
-                case 'water': return 'fas fa-tint';
-                case 'cleaning': return 'fas fa-broom';
-                case 'bill': return 'fas fa-file-invoice-dollar';
-                default: return 'fas fa-concierge-bell';
+        async function acceptServiceRequest(requestId) {
+            try {
+                Loading.show('Accepting request...');
+                
+                const response = await API.post(`${CONFIG.API_ENDPOINTS.SERVICE_REQUESTS}/${requestId}/accept`, {});
+                
+                if (response.success) {
+                    Toast.show('Service request accepted!', 'success');
+                    await Promise.all([loadDashboard(), loadServiceRequests()]);
+                }
+                
+                Loading.hide();
+                
+            } catch (error) {
+                Loading.hide();
+                ErrorHandler.handle(error, 'acceptServiceRequest');
             }
         }
 
-        function getServiceName(type) {
-            switch(type) {
-                case 'water': return 'Water Refill';
-                case 'cleaning': return 'Table Cleaning';
-                case 'bill': return 'Bill Payment';
-                default: return 'Service Request';
+        async function completeServiceRequest(requestId) {
+            try {
+                Loading.show('Completing request...');
+                
+                const response = await API.post(`${CONFIG.API_ENDPOINTS.SERVICE_REQUESTS}/${requestId}/complete`, {});
+                
+                if (response.success) {
+                    Toast.show('Service request completed!', 'success');
+                    await Promise.all([loadDashboard(), loadServiceRequests()]);
+                }
+                
+                Loading.hide();
+                
+            } catch (error) {
+                Loading.hide();
+                ErrorHandler.handle(error, 'completeServiceRequest');
             }
         }
 
@@ -2006,7 +1827,7 @@ async function completeServiceRequest(requestId) {
                 const response = await API.get(CONFIG.API_ENDPOINTS.CHEF_MENU + '?available=true');
                 
                 if (response.success) {
-                    const availableItems = response.menuItems || response.items || [];
+                    const availableItems = response.menuItems || [];
                     renderWalkinMenuItems(availableItems);
                 }
                 
@@ -2046,11 +1867,11 @@ async function completeServiceRequest(requestId) {
                                 <div class="d-flex justify-content-between align-items-center">
                                     <h5 class="text-primary mb-0">${FormatUtils.formatCurrency(item.price)}</h5>
                                     <div class="quantity-control">
-                                        <button class="quantity-btn" onclick="decreaseWalkinItem('${item._id}')">
+                                        <button type="button" class="quantity-btn" onclick="decreaseWalkinItem('${item._id}')">
                                             <i class="fas fa-minus"></i>
                                         </button>
                                         <span class="item-quantity" id="quantity-${item._id}">0</span>
-                                        <button class="quantity-btn" onclick="increaseWalkinItem('${item._id}', '${item.name}', ${item.price})">
+                                        <button type="button" class="quantity-btn" onclick="increaseWalkinItem('${item._id}', '${item.name}', ${item.price})">
                                             <i class="fas fa-plus"></i>
                                         </button>
                                     </div>
@@ -2125,7 +1946,7 @@ async function completeServiceRequest(requestId) {
                         </div>
                         <div>
                             <span class="text-primary">${FormatUtils.formatCurrency(item.price * item.quantity)}</span>
-                            <button class="btn btn-sm btn-outline-danger ms-2" onclick="removeWalkinItem('${itemId}')">
+                            <button type="button" class="btn btn-sm btn-outline-danger ms-2" onclick="removeWalkinItem('${itemId}')">
                                 <i class="fas fa-times"></i>
                             </button>
                         </div>
@@ -2153,248 +1974,119 @@ async function completeServiceRequest(requestId) {
         }
 
         async function submitNewOrder() {
-    try {
-        Loading.show('Placing order...');
-        
-        // Get form data
-        const tableNumber = parseInt(document.getElementById('walkinTableNumber').value);
-        
-        // Validate table number
-        if (!tableNumber || tableNumber < 1) {
-            Toast.show('Please enter a valid table number', 'error');
-            Loading.hide();
-            return;
-        }
-        
-        // Collect order items with correct field names for backend
-        const items = [];
-        selectedMenuItems.forEach(item => {
-            items.push({
-                itemId: item.id, // Backend expects itemId, not menuItem
-                name: item.name,
-                price: item.price,
-                quantity: item.quantity
-            });
-        });
-        
-        if (items.length === 0) {
-            Toast.show('Please add at least one item to the order', 'warning');
-            Loading.hide();
-            return;
-        }
-        
-        const orderData = {
-            tableNumber: tableNumber,
-            items: items,
-            specialInstructions: document.getElementById('walkinSpecialInstructions')?.value || '',
-            customerName: document.getElementById('walkinCustomerName')?.value || 'Walk-in Customer'
-            // Don't send chefId/chefName - backend gets it from token
-        };
-        
-        console.log('Submitting walk-in order:', orderData);
-        
-        const response = await API.post(CONFIG.API_ENDPOINTS.CHEF_CREATE_ORDER, orderData);
-        
-        if (response.success) {
-            Toast.show('Walk-in order created successfully!', 'success');
-            
-            // Close modal
-            const modal = bootstrap.Modal.getInstance(document.getElementById('walkinOrderModal'));
-            if (modal) modal.hide();
-            
-            // Reset form
-            document.getElementById('walkinOrderForm').reset();
-            selectedMenuItems.clear();
-            
-            // Refresh dashboard
-            await Promise.all([loadDashboard(), loadOrders()]);
-        }
-        
-        Loading.hide();
-    } catch (error) {
-        Loading.hide();
-        console.error('Order creation error:', error);
-        
-        let errorMessage = 'Failed to create order. ';
-        
-        // Try to parse error message
-        try {
-            const errorMatch = error.message.match(/\{.*\}/);
-            if (errorMatch) {
-                const errorJson = JSON.parse(errorMatch[0]);
-                if (errorJson.message) {
-                    errorMessage = errorJson.message;
-                } else if (errorJson.errors && Array.isArray(errorJson.errors)) {
-                    errorMessage = errorJson.errors.map(e => e.msg).join(', ');
-                }
-            }
-        } catch (parseError) {
-            // Use original error message
-            if (error.message.includes('400')) {
-                if (error.message.includes('Table not found')) {
-                    errorMessage = 'Table not found or inactive.';
-                } else if (error.message.includes('unavailable')) {
-                    errorMessage = 'Some menu items are unavailable.';
-                }
-            } else if (error.message.includes('401')) {
-                errorMessage = 'Session expired. Please login again.';
-                setTimeout(() => Auth.logout(), 2000);
-            } else if (error.message.includes('404')) {
-                errorMessage = 'Order creation endpoint not found.';
-            }
-        }
-        
-        Toast.show(errorMessage, 'error');
-    }
-}
-
-        // Reports Functions
-        async function loadReports() {
             try {
-                Loading.show();
+                Loading.show('Placing order...');
                 
-                const response = await API.get(CONFIG.API_ENDPOINTS.CHEF_REPORTS);
+                // Get form data
+                const tableNumber = parseInt(document.getElementById('walkinTableNumber').value);
+                const customerName = document.getElementById('walkinCustomerName').value || 'Walk-in Customer';
+                const specialInstructions = document.getElementById('walkinSpecialInstructions').value;
+                
+                // Validate table number
+                if (!tableNumber || tableNumber < 1) {
+                    Toast.show('Please enter a valid table number', 'error');
+                    Loading.hide();
+                    return;
+                }
+                
+                // Validate items
+                if (selectedMenuItems.size === 0) {
+                    Toast.show('Please add at least one item to the order', 'warning');
+                    Loading.hide();
+                    return;
+                }
+                
+                // Prepare items for API
+                const items = [];
+                selectedMenuItems.forEach(item => {
+                    items.push({
+                        itemId: item.id,
+                        name: item.name,
+                        price: item.price,
+                        quantity: item.quantity
+                    });
+                });
+                
+                const orderData = {
+                    tableNumber: tableNumber,
+                    items: items,
+                    specialInstructions: specialInstructions,
+                    customerName: customerName
+                };
+                
+                console.log('Submitting order:', orderData);
+                
+                const response = await API.post(CONFIG.API_ENDPOINTS.CHEF_CREATE_ORDER, orderData);
                 
                 if (response.success) {
-                    const reportData = response.data;
+                    Toast.show('Walk-in order created successfully!', 'success');
                     
-                    // Update report cards
-                    document.getElementById('todayRevenue').textContent = 
-                        FormatUtils.formatCurrency(reportData.todayRevenue || 0);
-                    document.getElementById('todayOrders').textContent = 
-                        reportData.todayOrders || 0;
-                    document.getElementById('avgPrepTime').textContent = 
-                        `${reportData.avgPrepTime || 0} min`;
+                    // Close modal
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('walkinOrderModal'));
+                    if (modal) modal.hide();
                     
-                    // Render chart
-                    renderOrderChart(reportData.chartData);
+                    // Reset form
+                    document.getElementById('walkinOrderForm').reset();
+                    selectedMenuItems.clear();
                     
-                    // Render top items
-                    renderTopItems(reportData.topItems);
+                    // Refresh dashboard
+                    await Promise.all([loadDashboard(), loadOrders()]);
                 }
                 
                 Loading.hide();
                 
             } catch (error) {
                 Loading.hide();
-                ErrorHandler.handle(error, 'loadReports');
-            }
-        }
-
-        function renderOrderChart(chartData) {
-            const ctx = document.getElementById('orderChart').getContext('2d');
-            
-            if (orderChart) {
-                orderChart.destroy();
-            }
-            
-            const labels = chartData?.labels || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-            const data = chartData?.data || [0, 0, 0, 0, 0, 0, 0];
-            
-            orderChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Orders',
-                        data: data,
-                        borderColor: '#3498db',
-                        backgroundColor: 'rgba(52, 152, 219, 0.1)',
-                        borderWidth: 2,
-                        fill: true,
-                        tension: 0.4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: {
-                            display: false
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                stepSize: 5
-                            }
-                        }
-                    }
+                console.error('Order creation error:', error);
+                
+                let errorMessage = 'Failed to create order. ';
+                
+                if (error.message.includes('400')) {
+                    errorMessage = 'Invalid order data. Please check table number and items.';
+                } else if (error.message.includes('401')) {
+                    errorMessage = 'Session expired. Please login again.';
+                    setTimeout(() => Auth.logout(), 2000);
+                } else if (error.message.includes('NetworkError')) {
+                    errorMessage = 'Network error. Please check your connection.';
                 }
-            });
-        }
-
-        // Add this function to test all endpoints
-async function testAllEndpoints() {
-    console.log('Testing backend endpoints...');
-    
-    const endpoints = [
-        '/api/chef/orders',
-        '/api/chef/orders/stats',
-        '/api/chef/menu',
-        '/api/chef/service-requests',
-        '/api/chef/performance'
-    ];
-    
-    for (const endpoint of endpoints) {
-        try {
-            const response = await fetch(CONFIG.BACKEND_URL + endpoint, {
-                headers: {
-                    'Authorization': `Bearer ${Auth.getToken()}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-            
-            const data = await response.json();
-            console.log(`${endpoint}: ${response.status} - ${data.success ? '✅' : '❌'}`);
-            
-        } catch (error) {
-            console.log(`${endpoint}: ❌ ERROR - ${error.message}`);
-        }
-    }
-}
-
-
-        function renderTopItems(topItems) {
-            const container = document.getElementById('topItemsList');
-            
-            if (!topItems || topItems.length === 0) {
-                container.innerHTML = '<p class="text-muted text-center">No data available</p>';
-                return;
+                
+                Toast.show(errorMessage, 'error');
             }
-            
-            let html = '';
-            topItems.forEach((item, index) => {
-                html += `
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <div>
-                            <span class="badge bg-primary me-2">${index + 1}</span>
-                            <span>${item.name}</span>
-                        </div>
-                        <span class="text-muted">${item.count} orders</span>
-                    </div>
-                `;
-            });
-            
-            container.innerHTML = html;
-        }
-
-        function exportReport(format) {
-            Toast.show(`Exporting report as ${format.toUpperCase()}...`, 'info');
-            // In a real application, this would generate and download the report
-            setTimeout(() => {
-                Toast.show('Report exported successfully!', 'success');
-            }, 1500);
         }
 
         // Utility Functions
         function getStatusColor(status) {
             switch(status) {
-                case 'pending': return '#f39c12';
+                case 'pending':
+                case 'confirmed': return '#f39c12';
                 case 'preparing': return '#3498db';
                 case 'ready': return '#27ae60';
                 case 'completed': return '#7f8c8d';
                 default: return '#95a5a6';
+            }
+        }
+
+        function getServiceIcon(type) {
+            switch(type) {
+                case 'water': return 'fas fa-tint';
+                case 'chef_attention': return 'fas fa-utensils';
+                case 'item_modification': return 'fas fa-edit';
+                case 'special_request': return 'fas fa-star';
+                case 'cleaning': return 'fas fa-broom';
+                case 'bill': return 'fas fa-file-invoice-dollar';
+                default: return 'fas fa-concierge-bell';
+            }
+        }
+
+        function getServiceName(type) {
+            switch(type) {
+                case 'water': return 'Water Refill';
+                case 'chef_attention': return 'Chef Attention';
+                case 'item_modification': return 'Item Modification';
+                case 'special_request': return 'Special Request';
+                case 'cleaning': return 'Table Cleaning';
+                case 'bill': return 'Bill Payment';
+                default: return 'Service Request';
             }
         }
 
@@ -2431,7 +2123,7 @@ async function testAllEndpoints() {
         window.searchMenuItems = searchMenuItems;
         window.filterMenu = filterMenu;
         window.filterByCategory = filterByCategory;
-        window.assignServiceRequest = assignServiceRequest;
+        window.acceptServiceRequest = acceptServiceRequest;
         window.completeServiceRequest = completeServiceRequest;
         window.showWalkinOrderModal = showWalkinOrderModal;
         window.increaseWalkinItem = increaseWalkinItem;
@@ -2442,8 +2134,6 @@ async function testAllEndpoints() {
         window.loadOrders = loadOrders;
         window.loadMenuItems = loadMenuItems;
         window.loadServiceRequests = loadServiceRequests;
-        window.loadReports = loadReports;
-        window.exportReport = exportReport;
     </script>
 </body>
 </html>

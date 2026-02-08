@@ -139,11 +139,31 @@ io.on('connection', (socket) => {
     if (data.role) {
       socket.join(`role:${data.role}`);
       console.log(`👤 Socket ${socket.id} registered as ${data.role}`);
+              if (data.role === 'chef') {
+            socket.join('chef-room');
+        }
+
     }
     if (data.userId) {
       socket.join(`user:${data.userId}`);
     }
   });
+
+  socket.on('chef-join', (data) => {
+    console.log(`👨‍🍳 Chef joined: ${data.chefName || 'Unknown'}`);
+    socket.join('chef-dashboard');
+});
+
+// For order status updates
+socket.on('order-update', (data) => {
+    console.log('🔄 Order update from socket:', data);
+    // Notify all chefs
+    io.to('chef-dashboard').emit('order-status-updated', data);
+    // Notify specific table
+    if (data.tableNumber) {
+        io.to(`table:${data.tableNumber}`).emit('order-status-changed', data);
+    }
+});
 
   // Join table-specific room
   socket.on('join-table', (tableNumber) => {
