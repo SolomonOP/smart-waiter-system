@@ -291,13 +291,6 @@
                         <p class="mb-0 small">Track your order status in real-time</p>
                     </div>
                 </div>
-                
-                <div class="mt-4">
-                    <p class="small">
-                        <i class="fas fa-info-circle me-1"></i>
-                        Use demo accounts to test the system instantly
-                    </p>
-                </div>
             </div>
 
             <div class="col-md-6 auth-right">
@@ -338,27 +331,6 @@
                                 <a href="#" id="forgotPassword" class="small">Forgot password?</a>
                             </div>
                         </form>
-
-                        <div class="auth-divider mt-4">
-                            <span class="small">Demo Accounts</span>
-                        </div>
-                        <div class="row g-2 demo-buttons mt-2">
-                            <div class="col-4">
-                                <button class="btn btn-outline-secondary w-100" onclick="setDemoAccount('customer')">
-                                    <i class="fas fa-user me-1"></i>Customer
-                                </button>
-                            </div>
-                            <div class="col-4">
-                                <button class="btn btn-outline-secondary w-100" onclick="setDemoAccount('chef')">
-                                    <i class="fas fa-utensils me-1"></i>Chef
-                                </button>
-                            </div>
-                            <div class="col-4">
-                                <button class="btn btn-outline-secondary w-100" onclick="setDemoAccount('admin')">
-                                    <i class="fas fa-cog me-1"></i>Admin
-                                </button>
-                            </div>
-                        </div>
                     </div>
 
                     <!-- Register Form -->
@@ -429,13 +401,6 @@
                 REGISTER: '/api/auth/register',
                 FORGOT_PASSWORD: '/api/auth/forgot-password'
             },
-            
-            // Demo accounts - Using direct credentials for testing
-            DEMO_ACCOUNTS: {
-                customer: { email: 'customer@demo.com', password: '123456', name: 'Demo Customer' },
-                chef: { email: 'chef@demo.com', password: '123456', name: 'Demo Chef' },
-                admin: { email: 'admin@demo.com', password: '123456', name: 'Demo Admin' }
-            }
         };
 
         // Toast notification helper
@@ -884,33 +849,6 @@
                 console.error('Connection check failed:', error);
                 return { online: false, error: error.message };
             }
-        }
-
-        // Set demo account
-        function setDemoAccount(role) {
-            if (!CONFIG || !CONFIG.DEMO_ACCOUNTS || !CONFIG.DEMO_ACCOUNTS[role]) {
-                Toast.show('Demo accounts not configured', 'error');
-                return;
-            }
-
-            const account = CONFIG.DEMO_ACCOUNTS[role];
-            document.getElementById('loginEmail').value = account.email;
-            document.getElementById('loginPassword').value = account.password;
-            
-            // Show login tab
-            const loginTab = new bootstrap.Tab(document.getElementById('login-tab'));
-            loginTab.show();
-            
-            Toast.show(`${account.name} account loaded. Ready to login!`, 'success');
-            
-            // Auto-focus login button
-            document.getElementById('loginBtn').focus();
-            
-            // Log demo account usage
-            console.log(`Demo account loaded for ${role}:`, { 
-                email: account.email,
-                name: account.name 
-            });
         }
 
         // Initialize form validations
