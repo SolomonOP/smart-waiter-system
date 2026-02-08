@@ -538,18 +538,18 @@ router.post('/tables/bulk', auth, isAdmin, [
     check('section', 'Section is required').optional().isIn(['main', 'terrace', 'private'])
 ], async (req, res) => {
     try {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
+        const validationErrors = validationResult(req);  // Renamed to validationErrors
+        if (!validationErrors.isEmpty()) {
             return res.status(400).json({
                 success: false,
-                errors: errors.array()
+                errors: validationErrors.array()
             });
         }
         
         const { startNumber, tableCount, capacity, section = 'main', locationPrefix = '' } = req.body;
         
         const createdTables = [];
-        const errors = [];
+        const errors = [];  // This is now the only declaration
         
         for (let i = 0; i < tableCount; i++) {
             try {
