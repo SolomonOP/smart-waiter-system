@@ -399,136 +399,108 @@
             100% { transform: rotate(360deg); }
         }
         
- /* Force button visibility - NO EXCUSES */
-.btn-complete-prep {
-    display: inline-block !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    position: relative !important;
-    z-index: 1000 !important;
-    background: linear-gradient(135deg, #9b59b6, #8e44ad) !important;
-    color: white !important;
-    border: none !important;
-    padding: 8px 16px !important;
-    font-size: 14px !important;
-    border-radius: 6px !important;
-    min-width: 140px !important;
-    height: 40px !important;
-    box-shadow: 0 4px 10px rgba(155, 89, 182, 0.3) !important;
-    cursor: pointer !important;
-    transition: all 0.3s ease !important;
-    margin: 0 !important;
-    line-height: normal !important;
-    text-align: center !important;
-    white-space: nowrap !important;
-}
+        .btn-complete-prep {
+            display: inline-block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            background: linear-gradient(135deg, #9b59b6, #8e44ad) !important;
+            color: white !important;
+            border: none !important;
+            padding: 8px 16px !important;
+            font-size: 14px !important;
+            border-radius: 6px !important;
+            min-width: 140px !important;
+            height: 40px !important;
+            box-shadow: 0 4px 10px rgba(155, 89, 182, 0.3) !important;
+            cursor: pointer !important;
+            transition: all 0.3s ease !important;
+            margin: 0 !important;
+            line-height: normal !important;
+            text-align: center !important;
+            white-space: nowrap !important;
+        }
 
-.btn-complete-prep:hover {
-    background: linear-gradient(135deg, #8e44ad, #732d91) !important;
-    transform: translateY(-2px) !important;
-    box-shadow: 0 6px 15px rgba(155, 89, 182, 0.4) !important;
-}
+        .btn-complete-prep:hover {
+            background: linear-gradient(135deg, #8e44ad, #732d91) !important;
+            transform: translateY(-2px) !important;
+            box-shadow: 0 6px 15px rgba(155, 89, 182, 0.4) !important;
+        }
 
-.btn-complete-prep i {
-    margin-right: 5px !important;
-}
+        .btn-complete-prep i {
+            margin-right: 5px !important;
+        }
 
-/* Emergency override - makes button impossible to hide */
-.btn-complete-prep[style*="display"] {
-    display: inline-block !important;
-}
+        .btn-download {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            font-size: 14px;
+            border-radius: 4px;
+            transition: all 0.3s;
+        }
 
-.btn-complete-prep[style*="visibility"] {
-    visibility: visible !important;
-}
+        .btn-download:hover {
+            background: linear-gradient(135deg, #2980b9, #21618c);
+            transform: scale(1.05);
+            box-shadow: 0 4px 8px rgba(52, 152, 219, 0.3);
+        }
 
-.btn-complete-prep[style*="opacity"] {
-    opacity: 1 !important;
-}
+        .btn-success {
+            background: linear-gradient(135deg, #27ae60, #219653);
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            font-size: 14px;
+            border-radius: 4px;
+            transition: all 0.3s;
+        }
 
-/* Make sure parent containers don't hide buttons */
-.order-card .d-flex:last-child,
-.order-card .d-flex.justify-content-between:last-child,
-.order-card .mt-auto > div:last-child {
-    display: flex !important;
-    align-items: center !important;
-    justify-content: flex-end !important;
-    min-width: 140px !important;
-    flex: 0 0 auto !important;
-}
+        .btn-success:hover {
+            background: linear-gradient(135deg, #219653, #1e8449);
+            transform: scale(1.05);
+            box-shadow: 0 4px 8px rgba(39, 174, 96, 0.3);
+        }
 
-.btn-download {
-    background: linear-gradient(135deg, #3498db, #2980b9);
-    color: white;
-    border: none;
-    padding: 6px 12px;
-    font-size: 14px;
-    border-radius: 4px;
-    transition: all 0.3s;
-}
+        .border-danger {
+            border-color: #e74c3c !important;
+            border-width: 2px !important;
+        }
 
-.btn-download:hover {
-    background: linear-gradient(135deg, #2980b9, #21618c);
-    transform: scale(1.05);
-    box-shadow: 0 4px 8px rgba(52, 152, 219, 0.3);
-}
+        .unavailable-item {
+            opacity: 0.8;
+            background-color: #f8f9fa;
+        }
 
-.btn-success {
-    background: linear-gradient(135deg, #27ae60, #219653);
-    color: white;
-    border: none;
-    padding: 6px 12px;
-    font-size: 14px;
-    border-radius: 4px;
-    transition: all 0.3s;
-}
+        .unavailable-item .card-title {
+            color: #6c757d !important;
+            text-decoration: line-through;
+        }
 
-.btn-success:hover {
-    background: linear-gradient(135deg, #219653, #1e8449);
-    transform: scale(1.05);
-    box-shadow: 0 4px 8px rgba(39, 174, 96, 0.3);
-}
+        .unavailable-item .card-text {
+            color: #6c757d !important;
+        }
 
-.border-danger {
-    border-color: #e74c3c !important;
-    border-width: 2px !important;
-}
+        .menu-section-header {
+            font-weight: 600;
+            padding: 10px 0;
+            margin: 20px 0 10px 0;
+            border-bottom: 2px solid;
+        }
 
-.unavailable-item {
-    opacity: 0.8;
-    background-color: #f8f9fa;
-}
+        .available-header {
+            color: #27ae60;
+            border-color: #27ae60;
+        }
 
-.unavailable-item .card-title {
-    color: #6c757d !important;
-    text-decoration: line-through;
-}
+        .unavailable-header {
+            color: #e74c3c;
+            border-color: #e74c3c;
+        }
 
-.unavailable-item .card-text {
-    color: #6c757d !important;
-}
-
-/* Menu section headers */
-.menu-section-header {
-    font-weight: 600;
-    padding: 10px 0;
-    margin: 20px 0 10px 0;
-    border-bottom: 2px solid;
-}
-
-.available-header {
-    color: #27ae60;
-    border-color: #27ae60;
-}
-
-.unavailable-header {
-    color: #e74c3c;
-    border-color: #e74c3c;
-}
-
-.text-muted {
-    opacity: 0.7;
-}
+        .text-muted {
+            opacity: 0.7;
+        }
 
         .empty-state {
             text-align: center;
@@ -584,135 +556,29 @@
             50% { opacity: 0.5; }
         }
 
-       /* FIX FOR ZERO-SIZE FLEX CONTAINER */
-.card-body {
-    min-height: 150px !important;
-    display: flex !important;
-    flex-direction: column !important;
-    justify-content: space-between !important;
-}
+        .card-body {
+            min-height: 150px !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: space-between !important;
+        }
 
-.d-flex.justify-content-between.align-items-center.mt-auto {
-    min-height: 50px !important;
-    width: 100% !important;
-    flex: 0 0 auto !important;
-    margin-top: auto !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: space-between !important;
-}
+        .d-flex.justify-content-between.align-items-center.mt-auto {
+            min-height: 50px !important;
+            width: 100% !important;
+            flex: 0 0 auto !important;
+            margin-top: auto !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+        }
 
-/* Make sure the button container has space */
-.d-flex.justify-content-between.align-items-center.mt-auto > div:last-child {
-    flex: 0 0 auto !important;
-    min-width: 120px !important;
-    white-space: nowrap !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: flex-end !important;
-    gap: 5px !important;
-}
-
-/* Ensure price doesn't collapse */
-.d-flex.justify-content-between.align-items-center.mt-auto h5.mb-0 {
-    flex: 1 !important;
-    min-width: 60px !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-    white-space: nowrap !important;
-}
-
-/* Button group fix for ready orders */
-.btn-group {
-    display: flex !important;
-    flex-wrap: nowrap !important;
-    white-space: nowrap !important;
-    gap: 5px !important;
-}
-
-/* Prevent flex collapse on card body content */
-.card-body > div:not(.d-flex.justify-content-between.align-items-center.mt-auto) {
-    flex: 0 0 auto !important;
-}
-
-/* Ensure button containers have proper layout */
-.card-body > .d-flex.justify-content-between.align-items-center.mt-auto {
-    min-height: 50px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: space-between !important;
-    width: 100% !important;
-    flex: 0 0 auto !important;
-    margin-top: auto !important;
-}
-
-/* Ensure action button container is visible */
-.card-body > .d-flex.justify-content-between.align-items-center.mt-auto > div:last-child {
-    display: flex !important;
-    align-items: center !important;
-    justify-content: flex-end !important;
-    flex: 0 0 auto !important;
-    min-width: 120px !important;
-}
-
-/* Force all buttons to be visible */
-.order-card button {
-    display: inline-block !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    position: relative !important;
-    z-index: 100 !important;
-    flex: 0 0 auto !important;
-}
-
-/* Card hover state to ensure visibility */
-.order-card:hover button {
-    opacity: 1 !important;
-}
-
-/* ULTIMATE BUTTON VISIBILITY FIX */
-.order-card .card-body {
-    display: flex !important;
-    flex-direction: column !important;
-    min-height: 300px !important;
-    position: relative !important;
-}
-
-.order-card .card-body .mt-auto {
-    margin-top: auto !important;
-    min-height: 60px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: space-between !important;
-    padding: 10px 0 !important;
-    border-top: 1px solid rgba(0,0,0,0.1) !important;
-    background: white !important;
-    position: sticky !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    z-index: 100 !important;
-}
-
-
-/* Order items scroll fix */
-.order-items {
-    max-height: 150px !important;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
-    margin-bottom: 1rem !important;
-}
-
-/* Emergency button visibility */
-.btn-complete-prep.force-visible {
-    display: inline-block !important;
-    min-width: 120px !important;
-    min-height: 32px !important;
-    background: #9b59b6 !important;
-    color: white !important;
-    border: 2px solid #8e44ad !important;
-    box-shadow: 0 0 10px rgba(155, 89, 182, 0.5) !important;
-}
+        .order-items {
+            max-height: 150px !important;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            margin-bottom: 1rem !important;
+        }
     </style>
 </head>
 <body>
@@ -1102,19 +968,8 @@
                 SERVICE_REQUESTS: '/api/chef/service-requests',
                 DASHBOARD_STATS: '/api/chef/dashboard-stats',
                 COMPLETE_PREP: '/api/chef/orders/:id/complete-prep',
-        DOWNLOAD_BILL: '/api/chef/orders/:id/bill',
-        FINAL_COMPLETE: '/api/chef/orders/:id/final-complete'
-            },
-            SOCKET_EVENTS: {
-                NEW_ORDER: 'new-order',
-                ORDER_UPDATE: 'order-status-update',
-                ORDER_READY_BROADCAST: 'order-ready-broadcast',
-        ORDER_READY_UPDATE: 'order-ready-update',
-        ORDER_REMOVED: 'order-removed',
-                SERVICE_REQUEST: 'new-service-request',
-                MENU_UPDATE: 'menu-item-updated',
-                DISCONNECT: 'disconnect',
-                RECONNECT: 'reconnect'
+                DOWNLOAD_BILL: '/api/chef/orders/:id/bill',
+                FINAL_COMPLETE: '/api/chef/orders/:id/final-complete'
             }
         };
 
@@ -1144,38 +999,28 @@
         };
 
         const API = {
-    get: async (url) => {
-        try {
-            const token = Auth.getToken();
-            const fullUrl = CONFIG.BACKEND_URL + url;
-            console.log('🔍 [API.get] Fetching from:', fullUrl);
-            
-            const response = await fetch(fullUrl, {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
+            get: async (url) => {
+                try {
+                    const token = Auth.getToken();
+                    const fullUrl = CONFIG.BACKEND_URL + url;
+                    
+                    const response = await fetch(fullUrl, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    
+                    return response.json();
+                } catch (error) {
+                    console.error('API GET Error:', error);
+                    throw error;
                 }
-            });
-            
-            console.log('🔍 [API.get] Response status:', response.status);
-            
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
-            
-            const data = await response.json();
-            console.log('🔍 [API.get] Response data:', {
-                success: data.success,
-                count: data.count,
-                ordersLength: data.orders?.length || 0
-            });
-            
-            return data;
-        } catch (error) {
-            console.error('❌ [API.get] Error:', error);
-            throw error;
-        }
-    },
+            },
             post: async (url, data) => {
                 try {
                     const token = Auth.getToken();
@@ -1349,96 +1194,69 @@
             }
         }
 
-        // In initSocket() function, update socket event listeners:
-function initSocket() {
-    try {
-        socket = io(CONFIG.BACKEND_URL, {
-            transports: ['websocket', 'polling'],
-            auth: {
-                token: Auth.getToken()
+        function initSocket() {
+            try {
+                socket = io(CONFIG.BACKEND_URL, {
+                    transports: ['websocket', 'polling'],
+                    auth: {
+                        token: Auth.getToken()
+                    }
+                });
+
+                socket.on('connect', () => {
+                    document.getElementById('liveIndicator').style.display = 'block';
+                    Toast.show('Connected to live updates', 'success');
+                    
+                    // Register as chef
+                    socket.emit('register', { 
+                        role: 'chef',
+                        userId: user?.id 
+                    });
+                });
+
+                socket.on('disconnect', () => {
+                    document.getElementById('liveIndicator').style.display = 'none';
+                    Toast.show('Disconnected from live updates', 'warning');
+                });
+
+                // Listen for new orders
+                socket.on('new-order', async (data) => {
+                    Toast.show(`New order from Table ${data.tableNumber}`, 'info');
+                    await loadDashboard();
+                    await loadOrders();
+                });
+
+                // Listen for order status updates
+                socket.on('order-status-update', async (data) => {
+                    Toast.show(`Order #${data.orderNumber} status updated to ${data.status}`, 'info');
+                    await loadDashboard();
+                    await loadOrders();
+                });
+
+                // Listen for order ready broadcast
+                socket.on('order-ready-broadcast', async (data) => {
+                    Toast.show(`Order #${data.orderNumber} from Table ${data.tableNumber} is ready for billing!`, 'warning');
+                    await loadDashboard();
+                    await loadOrders();
+                });
+
+                // Listen for service requests
+                socket.on('new-service-request', async (data) => {
+                    Toast.show(`New service request from Table ${data.tableNumber}`, 'warning');
+                    await loadDashboard();
+                    await loadServiceRequests();
+                });
+
+                // Listen for menu updates
+                socket.on('menu-item-updated', async (data) => {
+                    Toast.show(`Menu item "${data.name}" ${data.available ? 'enabled' : 'disabled'}`, 'info');
+                    await loadMenuItems();
+                });
+
+            } catch (error) {
+                console.error('Socket initialization error:', error);
             }
-        });
-
-        socket.on('connect', () => {
-            console.log('Socket connected');
-            document.getElementById('liveIndicator').style.display = 'block';
-            Toast.show('Connected to live updates', 'success');
-            
-            // Register as chef
-            socket.emit('register', { 
-                role: 'chef',
-                userId: user?.id 
-            });
-            
-            // Join chef dashboard
-            socket.emit('chef-join', {
-                chefName: user?.firstName + ' ' + user?.lastName
-            });
-        });
-
-        socket.on('disconnect', () => {
-            console.log('Socket disconnected');
-            document.getElementById('liveIndicator').style.display = 'none';
-            Toast.show('Disconnected from live updates', 'warning');
-        });
-
-        // Listen for new orders
-        socket.on(CONFIG.SOCKET_EVENTS.NEW_ORDER, async (data) => {
-            Toast.show(`New order from Table ${data.tableNumber}`, 'info');
-            await loadDashboard();
-            await loadOrders();
-        });
-
-        // Listen for order status updates
-        socket.on(CONFIG.SOCKET_EVENTS.ORDER_UPDATE, async (data) => {
-            console.log('Order update received:', data);
-            Toast.show(`Order #${data.orderNumber} status updated to ${data.status}`, 'info');
-            await loadDashboard();
-            await loadOrders();
-        });
-
-        // Listen for order ready broadcast (for all chefs)
-        socket.on(CONFIG.SOCKET_EVENTS.ORDER_READY_BROADCAST, async (data) => {
-            console.log('Order ready broadcast:', data);
-            Toast.show(`Order #${data.orderNumber} from Table ${data.tableNumber} is ready for billing!`, 'warning');
-            await loadDashboard();
-            await loadOrders();
-        });
-
-        // Listen for order ready update
-        socket.on(CONFIG.SOCKET_EVENTS.ORDER_READY_UPDATE, async (data) => {
-            console.log('Order ready update:', data);
-            Toast.show(`Order #${data.orderNumber} is ready for billing! Check ready orders.`, 'warning');
-            await loadDashboard();
-            await loadOrders();
-        });
-
-        // Listen for order removed
-        socket.on(CONFIG.SOCKET_EVENTS.ORDER_REMOVED, async (data) => {
-            console.log('Order removed:', data);
-            Toast.show('Order completed and removed from current orders', 'success');
-            await loadDashboard();
-            await loadOrders();
-        });
-
-        // Listen for service requests
-        socket.on(CONFIG.SOCKET_EVENTS.SERVICE_REQUEST, async (data) => {
-            Toast.show(`New service request from Table ${data.tableNumber}`, 'warning');
-            await loadDashboard();
-            await loadServiceRequests();
-        });
-
-        // Listen for menu updates
-        socket.on(CONFIG.SOCKET_EVENTS.MENU_UPDATE, async (data) => {
-            console.log('Menu update received:', data);
-            Toast.show(`Menu item "${data.name}" ${data.available ? 'enabled' : 'disabled'}`, 'info');
-            await loadMenuItems();
-        });
-
-    } catch (error) {
-        console.error('Socket initialization error:', error);
-    }
-}
+        }
 
         function setupEventListeners() {
             // Mobile menu toggle
@@ -1633,896 +1451,457 @@ function initSocket() {
         }
 
         async function loadOrders() {
-    try {
-        Loading.show();
-        console.log('🔍 [loadOrders] STARTED');
-        console.log('🔍 [loadOrders] Using endpoint:', CONFIG.API_ENDPOINTS.CHEF_ORDERS);
-        console.log('🔍 [loadOrders] Current orders length before fetch:', orders.length);
-        
-        const response = await API.get(CONFIG.API_ENDPOINTS.CHEF_ORDERS);
-        console.log('🔍 [loadOrders] API Response received:', {
-            success: response.success,
-            count: response.count,
-            ordersLength: response.orders?.length || 0
-        });
-        
-        if (response.success) {
-            orders = response.orders || [];
-            console.log('✅ [loadOrders] Orders array updated:', {
-                newLength: orders.length,
-                firstOrder: orders[0] ? {
-                    id: orders[0]._id,
-                    orderNumber: orders[0].orderNumber,
-                    status: orders[0].status
-                } : 'No orders'
-            });
-            
-            // Check if renderOrdersByStatus is called
-            console.log('🔍 [loadOrders] Calling renderOrdersByStatus...');
-            renderOrdersByStatus();
-        } else {
-            console.error('❌ [loadOrders] API returned success: false', response);
+            try {
+                Loading.show();
+                
+                const response = await API.get(CONFIG.API_ENDPOINTS.CHEF_ORDERS);
+                
+                if (response.success) {
+                    orders = response.orders || [];
+                    renderOrdersByStatus();
+                }
+                
+                Loading.hide();
+                
+            } catch (error) {
+                Loading.hide();
+                ErrorHandler.handle(error, 'loadOrders');
+            }
         }
-        
-        Loading.hide();
-        console.log('✅ [loadOrders] COMPLETED');
-        
-    } catch (error) {
-        Loading.hide();
-        console.error('❌ [loadOrders] Error:', error);
-        ErrorHandler.handle(error, 'loadOrders');
-    }
-}
-
-// After your loadOrders() function, add:
-window.testFix = function() {
-    console.log('🛠️ Testing fix...');
-    
-    // Manually fetch and set orders
-    fetch('https://smart-waiter-backend.onrender.com/api/chef/orders', {
-        headers: {
-            'Authorization': 'Bearer ' + localStorage.getItem('token')
-        }
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            orders = data.orders;
-            console.log('✅ Manually set orders:', orders.length);
-            console.log('First order status:', orders[0]?.status);
-            renderOrdersByStatus();
-        }
-    });
-};
-
-// Run it
-setTimeout(() => {
-    window.testFix();
-}, 1000);
 
         function renderOrdersByStatus() {
-    console.log('🚀 [renderOrdersByStatus] STARTED');
-    
-    const statusGroups = {
-        'pending': document.getElementById('pendingOrdersList'),
-        'preparing': document.getElementById('preparingOrdersList'),
-        'ready': document.getElementById('readyOrdersList'),
-        'completed': document.getElementById('completedOrdersList')
-    };
+            const statusGroups = {
+                'pending': document.getElementById('pendingOrdersList'),
+                'preparing': document.getElementById('preparingOrdersList'),
+                'ready': document.getElementById('readyOrdersList'),
+                'completed': document.getElementById('completedOrdersList')
+            };
 
-    // Clear all containers
-    Object.values(statusGroups).forEach(container => {
-        container.innerHTML = '';
-    });
+            // Clear all containers
+            Object.values(statusGroups).forEach(container => {
+                container.innerHTML = '';
+            });
 
-    if (!orders || orders.length === 0) {
-        console.log('📭 No orders to render');
-        Object.values(statusGroups).forEach(container => {
-            container.innerHTML = `
-                <div class="col-12">
-                    <div class="empty-state">
-                        <i class="fas fa-clipboard-list"></i>
-                        <h5>No orders</h5>
-                        <p>Orders will appear here as they come in</p>
-                    </div>
-                </div>
-            `;
-        });
-        return;
-    }
-
-    // Group orders by status
-    const groupedOrders = {
-        'pending': [],
-        'preparing': [],
-        'ready': [],
-        'completed': []
-    };
-
-    orders.forEach(order => {
-        const status = order.status || 'pending';
-        if (groupedOrders[status]) {
-            groupedOrders[status].push(order);
-        } else {
-            groupedOrders['pending'].push(order);
-        }
-    });
-
-    console.log('📊 Grouped orders:', groupedOrders);
-
-    // Render each group
-    Object.keys(groupedOrders).forEach(status => {
-        const container = statusGroups[status];
-        const ordersList = groupedOrders[status];
-
-        console.log(`🔄 Rendering ${status} orders:`, ordersList.length);
-
-        if (ordersList.length === 0) {
-            container.innerHTML = `
-                <div class="col-12">
-                    <div class="alert alert-light text-center">
-                        <i class="fas fa-info-circle me-2"></i>
-                        No ${status} orders
-                    </div>
-                </div>
-            `;
-            return;
-        }
-
-        let html = '';
-        ordersList.forEach((order) => {
-            console.log(`📝 Rendering order: ${order.orderNumber} (status: ${order.status})`);
-            
-            const statusColor = getStatusColor(order.status);
-            const customerEmail = order.customer?.email || order.customerEmail || 'No email';
-            
-            // Create action buttons based on status
-            let actionButtonHtml = '';
-
-            if (order.status === 'pending') {
-                actionButtonHtml = `
-                    <button class="btn btn-accept" onclick="acceptOrder('${order._id}')">
-                        <i class="fas fa-check me-1"></i>Accept
-                    </button>
-                `;
-            } else if (order.status === 'preparing') {
-                actionButtonHtml = `
-                    <button class="btn btn-complete-prep" onclick="completePreparation('${order._id}')">
-                        <i class="fas fa-check-double me-1"></i>Complete Prep
-                    </button>
-                `;
-            } else if (order.status === 'ready') {
-                actionButtonHtml = `
-                    <div class="btn-group">
-                        <button class="btn btn-download btn-sm" onclick="downloadBill('${order._id}')">
-                            <i class="fas fa-download me-1"></i>Bill
-                        </button>
-                        <button class="btn btn-success btn-sm" onclick="finalCompleteOrder('${order._id}')">
-                            <i class="fas fa-check-circle me-1"></i>Complete
-                        </button>
-                    </div>
-                `;
-            }
-            
-            html += `
-                <div class="col-md-6 col-lg-4 mb-4">
-                    <div class="card h-100 order-card order-${order.status}" data-order-id="${order._id}">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <h6 class="mb-0">Order #${order.orderNumber || 'N/A'}</h6>
-                            <span class="badge" style="background-color: ${statusColor}">
-                                ${order.status.toUpperCase()}
-                            </span>
+            if (!orders || orders.length === 0) {
+                Object.values(statusGroups).forEach(container => {
+                    container.innerHTML = `
+                        <div class="col-12">
+                            <div class="empty-state">
+                                <i class="fas fa-clipboard-list"></i>
+                                <h5>No orders</h5>
+                                <p>Orders will appear here as they come in</p>
+                            </div>
                         </div>
-                        <div class="card-body">
-                            <div class="mb-3">
-                                <small class="text-muted d-block">
-                                    <i class="fas fa-chair me-1"></i>Table ${order.tableNumber}
-                                </small>
-                                <small class="text-muted d-block">
-                                    <i class="fas fa-clock me-1"></i>${FormatUtils.formatTime(order.createdAt)}
-                                </small>
-                                <small class="text-muted d-block">
-                                    <i class="fas fa-user me-1"></i>${order.customerName}
-                                </small>
-                                <small class="text-muted d-block">
-                                    <i class="fas fa-envelope me-1"></i>${customerEmail}
-                                </small>
+                    `;
+                });
+                return;
+            }
+
+            // Group orders by status
+            const groupedOrders = {
+                'pending': [],
+                'preparing': [],
+                'ready': [],
+                'completed': []
+            };
+
+            orders.forEach(order => {
+                const status = order.status || 'pending';
+                if (groupedOrders[status]) {
+                    groupedOrders[status].push(order);
+                } else {
+                    groupedOrders['pending'].push(order);
+                }
+            });
+
+            // Render each group
+            Object.keys(groupedOrders).forEach(status => {
+                const container = statusGroups[status];
+                const ordersList = groupedOrders[status];
+
+                if (ordersList.length === 0) {
+                    container.innerHTML = `
+                        <div class="col-12">
+                            <div class="alert alert-light text-center">
+                                <i class="fas fa-info-circle me-2"></i>
+                                No ${status} orders
                             </div>
-                            
-                            <div class="order-items mb-3">
-                                <h6 class="small mb-2">Items:</h6>
-                                ${order.items && order.items.length > 0 ? 
-                                    order.items.map(item => `
-                                        <div class="d-flex justify-content-between align-items-center mb-1">
-                                            <span class="small">${item.quantity}x ${item.name}</span>
-                                            <span class="small text-muted">${FormatUtils.formatCurrency(item.price)}</span>
-                                        </div>
-                                    `).join('') : 
-                                    '<div class="text-muted">No items</div>'
-                                }
+                        </div>
+                    `;
+                    return;
+                }
+
+                let html = '';
+                ordersList.forEach((order) => {
+                    const statusColor = getStatusColor(order.status);
+                    const customerEmail = order.customer?.email || order.customerEmail || 'No email';
+                    
+                    // Create action buttons based on status
+                    let actionButtonHtml = '';
+
+                    if (order.status === 'pending') {
+                        actionButtonHtml = `
+                            <button class="btn btn-accept" onclick="acceptOrder('${order._id}')">
+                                <i class="fas fa-check me-1"></i>Accept
+                            </button>
+                        `;
+                    } else if (order.status === 'preparing') {
+                        actionButtonHtml = `
+                            <button class="btn btn-complete-prep" onclick="completePreparation('${order._id}')">
+                                <i class="fas fa-check-double me-1"></i>Complete Prep
+                            </button>
+                        `;
+                    } else if (order.status === 'ready') {
+                        actionButtonHtml = `
+                            <div class="btn-group">
+                                <button class="btn btn-download btn-sm" onclick="downloadBill('${order._id}')">
+                                    <i class="fas fa-download me-1"></i>Bill
+                                </button>
+                                <button class="btn btn-success btn-sm" onclick="finalCompleteOrder('${order._id}')">
+                                    <i class="fas fa-check-circle me-1"></i>Complete
+                                </button>
                             </div>
-                            
-                            ${order.specialInstructions ? `
-                                <div class="mb-3">
-                                    <h6 class="small mb-1">Instructions:</h6>
-                                    <p class="small text-muted mb-0">${order.specialInstructions}</p>
+                        `;
+                    }
+                    
+                    html += `
+                        <div class="col-md-6 col-lg-4 mb-4">
+                            <div class="card h-100 order-card order-${order.status}" data-order-id="${order._id}">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <h6 class="mb-0">Order #${order.orderNumber || 'N/A'}</h6>
+                                    <span class="badge" style="background-color: ${statusColor}">
+                                        ${order.status.toUpperCase()}
+                                    </span>
                                 </div>
-                            ` : ''}
-                            
-                            <!-- SIMPLE BUTTON SECTION -->
-                            <div class="mt-4 pt-3 border-top">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <h5 class="mb-0 text-primary">${FormatUtils.formatCurrency(order.totalAmount || 0)}</h5>
-                                    <div>
-                                        ${actionButtonHtml}
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <small class="text-muted d-block">
+                                            <i class="fas fa-chair me-1"></i>Table ${order.tableNumber}
+                                        </small>
+                                        <small class="text-muted d-block">
+                                            <i class="fas fa-clock me-1"></i>${FormatUtils.formatTime(order.createdAt)}
+                                        </small>
+                                        <small class="text-muted d-block">
+                                            <i class="fas fa-user me-1"></i>${order.customerName}
+                                        </small>
+                                        <small class="text-muted d-block">
+                                            <i class="fas fa-envelope me-1"></i>${customerEmail}
+                                        </small>
+                                    </div>
+                                    
+                                    <div class="order-items mb-3">
+                                        <h6 class="small mb-2">Items:</h6>
+                                        ${order.items && order.items.length > 0 ? 
+                                            order.items.map(item => `
+                                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                                    <span class="small">${item.quantity}x ${item.name}</span>
+                                                    <span class="small text-muted">${FormatUtils.formatCurrency(item.price)}</span>
+                                                </div>
+                                            `).join('') : 
+                                            '<div class="text-muted">No items</div>'
+                                        }
+                                    </div>
+                                    
+                                    ${order.specialInstructions ? `
+                                        <div class="mb-3">
+                                            <h6 class="small mb-1">Instructions:</h6>
+                                            <p class="small text-muted mb-0">${order.specialInstructions}</p>
+                                        </div>
+                                    ` : ''}
+                                    
+                                    <div class="mt-4 pt-3 border-top">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <h5 class="mb-0 text-primary">${FormatUtils.formatCurrency(order.totalAmount || 0)}</h5>
+                                            <div>
+                                                ${actionButtonHtml}
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
+                    `;
+                });
+
+                container.innerHTML = html;
+            });
+        }
+
+        async function acceptOrder(orderId) {
+            try {
+                Loading.show('Accepting order...');
+                
+                const response = await API.post(`${CONFIG.API_ENDPOINTS.CHEF_UPDATE_ORDER}/${orderId}/accept`, {});
+                
+                if (response.success) {
+                    Toast.show('Order accepted successfully!', 'success');
+                    
+                    // Also update the order status to 'preparing' in the frontend immediately
+                    const orderIndex = orders.findIndex(o => o._id === orderId);
+                    if (orderIndex !== -1) {
+                        orders[orderIndex].status = 'preparing';
+                    }
+                    
+                    await Promise.all([loadDashboard(), loadOrders()]);
+                }
+                
+                Loading.hide();
+                
+            } catch (error) {
+                Loading.hide();
+                ErrorHandler.handle(error, 'acceptOrder');
+            }
+        }
+
+        async function completePreparation(orderId) {
+            try {
+                // First check if we can find the order locally
+                const order = orders.find(o => o._id === orderId);
+                
+                // Show warning if order is not in correct status
+                if (order && (order.status !== 'preparing' && order.status !== 'confirmed')) {
+                    Toast.show(`Cannot complete order in ${order.status} status. Please accept it first.`, 'warning');
+                    return;
+                }
+                
+                Loading.show('Marking order as ready...');
+                
+                const response = await API.post(`/api/chef/orders/${orderId}/complete-prep`, {});
+                
+                if (response.success) {
+                    Toast.show('Order marked as ready for billing! All chefs notified.', 'success');
+                    await Promise.all([loadDashboard(), loadOrders()]);
+                }
+                
+                Loading.hide();
+                
+            } catch (error) {
+                Loading.hide();
+                ErrorHandler.handle(error, 'completePreparation');
+            }
+        }
+
+        async function downloadBill(orderId) {
+            try {
+                const token = Auth.getToken();
+                
+                // Create a temporary anchor element
+                const a = document.createElement('a');
+                a.href = `${CONFIG.BACKEND_URL}/api/chef/orders/${orderId}/bill`;
+                a.download = `receipt-${orderId}.pdf`;
+                
+                // Add authorization header using fetch
+                const response = await fetch(a.href, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to download bill');
+                }
+                
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                
+                // Create another anchor for download
+                const downloadLink = document.createElement('a');
+                downloadLink.href = url;
+                downloadLink.download = `receipt-${orderId}.pdf`;
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(downloadLink);
+                
+                Toast.show('Bill downloaded successfully!', 'success');
+                
+            } catch (error) {
+                console.error('Download bill error:', error);
+                Toast.show('Failed to download bill. Please try again.', 'error');
+            }
+        }
+
+        async function finalCompleteOrder(orderId) {
+            try {
+                if (!confirm('Are you sure you want to complete this order? This will send the bill to customer email and remove it from current orders.')) {
+                    return;
+                }
+                
+                Loading.show('Completing order...');
+                
+                const response = await API.post(`/api/chef/orders/${orderId}/final-complete`, {});
+                
+                if (response.success) {
+                    Toast.show('Order completed! Bill sent to customer email.', 'success');
+                    await Promise.all([loadDashboard(), loadOrders()]);
+                }
+                
+                Loading.hide();
+                
+            } catch (error) {
+                Loading.hide();
+                ErrorHandler.handle(error, 'finalCompleteOrder');
+            }
+        }
+
+        // Menu Management Functions
+        async function loadMenuItems() {
+            try {
+                Loading.show();
+                
+                // Load ALL items (available and unavailable)
+                const response = await API.get(CONFIG.API_ENDPOINTS.CHEF_MENU);
+                
+                if (response.success) {
+                    menuItems = response.menuItems || [];
+                    renderMenuItems(menuItems);
+                }
+                
+                Loading.hide();
+                
+            } catch (error) {
+                Loading.hide();
+                ErrorHandler.handle(error, 'loadMenuItems');
+            }
+        }
+
+        function renderMenuItems(items) {
+            const container = document.getElementById('menuItemsGrid');
+            container.innerHTML = '';
+            
+            if (!items || items.length === 0) {
+                container.innerHTML = `
+                    <div class="col-12">
+                        <div class="empty-state">
+                            <i class="fas fa-utensils"></i>
+                            <h5>No menu items</h5>
+                            <p>Add menu items from the admin panel</p>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Separate available and unavailable items
+            const availableItems = items.filter(item => item.available || item.isAvailable);
+            const unavailableItems = items.filter(item => !item.available && !item.isAvailable);
+            
+            let html = '';
+            
+            // Show available items first
+            if (availableItems.length > 0) {
+                html += `
+                    <div class="col-12">
+                        <h5 class="menu-section-header available-header">
+                            <i class="fas fa-check-circle me-2"></i>Available Items (${availableItems.length})
+                        </h5>
+                    </div>
+                `;
+                
+                availableItems.forEach(item => {
+                    html += renderMenuItemCard(item, true);
+                });
+            }
+            
+            // Show unavailable items in a separate section
+            if (unavailableItems.length > 0) {
+                html += `
+                    <div class="col-12 mt-5">
+                        <h5 class="menu-section-header unavailable-header">
+                            <i class="fas fa-times-circle me-2"></i>Unavailable Items (${unavailableItems.length})
+                        </h5>
+                    </div>
+                `;
+                
+                unavailableItems.forEach(item => {
+                    html += renderMenuItemCard(item, false);
+                });
+            }
+            
+            container.innerHTML = html;
+        }
+
+        function renderMenuItemCard(item, isAvailable) {
+            const availableStatus = item.available || item.isAvailable;
+            
+            return `
+                <div class="col-md-4 mb-4">
+                    <div class="card menu-item-card h-100 ${!availableStatus ? 'border-danger unavailable-item' : ''}">
+                        <div class="position-relative">
+                            ${item.image ? 
+                                `<img src="${item.image}" class="card-img-top" alt="${item.name}" style="height: 180px; object-fit: cover; ${!availableStatus ? 'filter: grayscale(50%) opacity(0.8)' : ''}">` : 
+                                `<div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 180px; ${!availableStatus ? 'opacity: 0.7' : ''}">
+                                    <i class="fas fa-utensils fa-3x ${!availableStatus ? 'text-muted' : 'text-muted'}"></i>
+                                </div>`
+                            }
+                            <span class="position-absolute top-0 end-0 m-2 badge ${availableStatus ? 'bg-success' : 'bg-danger'}">
+                                ${availableStatus ? 'Available' : 'Unavailable'}
+                            </span>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h5 class="card-title mb-0 ${!availableStatus ? 'text-muted' : ''}">${item.name}</h5>
+                                <span class="badge bg-primary">${FormatUtils.formatCategory(item.category)}</span>
+                            </div>
+                            <p class="card-text ${!availableStatus ? 'text-muted' : 'text-muted'} small mb-3">${item.description || 'No description available'}</p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h4 class="${!availableStatus ? 'text-muted' : 'text-primary'} mb-0">${FormatUtils.formatCurrency(item.price)}</h4>
+                                <div>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" 
+                                               id="toggle-${item._id}"
+                                               ${availableStatus ? 'checked' : ''}
+                                               onchange="updateMenuItemStatus('${item._id}', this.checked)">
+                                        <label class="form-check-label" for="toggle-${item._id}"></label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <small class="${!availableStatus ? 'text-muted' : 'text-muted'}">
+                                    <i class="fas fa-clock me-1"></i> ${item.preparationTime || 'N/A'} mins
+                                </small>
+                                <small class="${!availableStatus ? 'text-muted' : 'text-muted'} d-block mt-1">
+                                    <i class="fas fa-shopping-cart me-1"></i> Ordered ${item.orderCount || 0} times
+                                </small>
+                            </div>
+                        </div>
                     </div>
                 </div>
             `;
-        });
+        }
 
-        console.log(`✅ Generated HTML for ${status} tab (${ordersList.length} orders)`);
-        container.innerHTML = html;
-        
-        // Force button visibility for all buttons in this container
-        setTimeout(() => {
-            container.querySelectorAll('button').forEach(btn => {
-                btn.style.display = 'inline-block';
-                btn.style.visibility = 'visible';
-                btn.style.opacity = '1';
-                btn.style.position = 'relative';
-                btn.style.zIndex = '100';
-            });
-            
-            // Special handling for complete prep buttons
-            container.querySelectorAll('.btn-complete-prep').forEach(btn => {
-                btn.style.minWidth = '120px';
-                btn.style.minHeight = '32px';
-                btn.style.background = 'linear-gradient(135deg, #9b59b6, #8e44ad) !important';
-                btn.classList.add('force-visible');
-            });
-        }, 100);
-        
-        console.log(`🎨 Rendered ${status} tab to DOM`);
-
-        // FORCE BUTTON VISIBILITY
-        setTimeout(() => {
-            forceButtonVisibility(status);
-        }, 50);
-    });
-    
-    console.log('🏁 [renderOrdersByStatus] COMPLETED');
-}
-
-// Add this function and call it after renderOrdersByStatus
-function createEmergencyTestButton() {
-    console.log('🚨 Creating emergency test button...');
-    
-    // Create a RED emergency button at the top of the page
-    const emergencyBtn = document.createElement('button');
-    emergencyBtn.id = 'emergency-test-btn';
-    emergencyBtn.innerHTML = '🚨 EMERGENCY: TEST COMPLETE PREP BUTTONS';
-    emergencyBtn.style.cssText = `
-        position: fixed;
-        top: 10px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: red;
-        color: white;
-        border: none;
-        padding: 15px 30px;
-        border-radius: 8px;
-        font-size: 16px;
-        font-weight: bold;
-        cursor: pointer;
-        z-index: 99999;
-        box-shadow: 0 4px 20px rgba(255,0,0,0.5);
-    `;
-    emergencyBtn.onclick = () => {
-        // Find all preparing orders and show their buttons
-        const preparingContainer = document.getElementById('preparingOrdersList');
-        if (preparingContainer) {
-            const cards = preparingContainer.querySelectorAll('.order-card');
-            cards.forEach((card, index) => {
-                const orderId = card.dataset.orderId;
-                // Create a visible button
-                const testBtn = document.createElement('button');
-                testBtn.innerHTML = `TEST ${index + 1}`;
-                testBtn.style.cssText = `
-                    background: #9b59b6;
-                    color: white;
-                    border: none;
-                    padding: 10px 20px;
-                    border-radius: 5px;
-                    margin: 5px;
-                    font-weight: bold;
-                    cursor: pointer;
-                    display: block !important;
-                    visibility: visible !important;
-                    opacity: 1 !important;
-                `;
-                testBtn.onclick = (e) => {
-                    e.stopPropagation();
-                    console.log('Testing order:', orderId);
-                    completePreparation(orderId);
-                };
+        async function updateMenuItemStatus(itemId, isAvailable) {
+            try {
+                Loading.show('Updating menu item...');
                 
-                // Add to card
-                const cardBody = card.querySelector('.card-body');
-                if (cardBody) {
-                    // Remove existing button container
-                    const existingContainer = cardBody.querySelector('.mt-4');
-                    if (existingContainer) {
-                        existingContainer.remove();
+                const response = await API.put(
+                    `/api/chef/menu/${itemId}/availability`,
+                    { available: isAvailable }
+                );
+                
+                if (response.success) {
+                    Toast.show(`Menu item ${isAvailable ? 'enabled' : 'disabled'} successfully!`, 'success');
+                    
+                    // Update local menuItems array
+                    const itemIndex = menuItems.findIndex(item => item._id === itemId);
+                    if (itemIndex !== -1) {
+                        menuItems[itemIndex].available = isAvailable;
+                        // Also update isAvailable if it exists
+                        if (menuItems[itemIndex].isAvailable !== undefined) {
+                            menuItems[itemIndex].isAvailable = isAvailable;
+                        }
                     }
                     
-                    // Add new container
-                    const newContainer = document.createElement('div');
-                    newContainer.className = 'mt-4 pt-3 border-top';
-                    newContainer.innerHTML = `
-                        <div class="d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0 text-primary">TEST</h5>
-                            <div>
-                                ${testBtn.outerHTML}
-                            </div>
-                        </div>
-                    `;
-                    cardBody.appendChild(newContainer);
-                }
-            });
-            alert(`Added ${cards.length} test buttons to preparing orders!`);
-        }
-    };
-    
-    document.body.appendChild(emergencyBtn);
-}
-
-// Call this after your renderOrdersByStatus function
-setTimeout(() => {
-    createEmergencyTestButton();
-}, 2000);
-
-
-// Debug function to check button generation
-function debugButtonGeneration() {
-    console.log('🔍 DEBUG: Checking button generation...');
-    
-    // Check if we have preparing orders
-    const preparingOrders = orders.filter(o => o.status === 'preparing');
-    console.log(`Found ${preparingOrders.length} preparing orders`);
-    
-    // Check HTML generation for first preparing order
-    if (preparingOrders.length > 0) {
-        const order = preparingOrders[0];
-        console.log('First preparing order:', {
-            id: order._id,
-            orderNumber: order.orderNumber,
-            status: order.status
-        });
-        
-        // Manually create button HTML
-        const manualButtonHtml = `
-            <button class="btn btn-complete-prep" onclick="completePreparation('${order._id}')">
-                <i class="fas fa-check-double me-1"></i>Complete Prep
-            </button>
-        `;
-        
-        console.log('Manual button HTML:', manualButtonHtml);
-        
-        // Create a test button on the page
-        const testDiv = document.createElement('div');
-        testDiv.id = 'debug-test-button';
-        testDiv.innerHTML = `
-            <div style="position: fixed; bottom: 20px; left: 20px; z-index: 9999;">
-                <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.3);">
-                    <h5>DEBUG: Test Button</h5>
-                    ${manualButtonHtml}
-                </div>
-            </div>
-        `;
-        document.body.appendChild(testDiv);
-    }
-}
-
-// Run debug
-setTimeout(debugButtonGeneration, 1500);
-
-// NEW FUNCTION: Force button visibility
-function forceButtonVisibility(status) {
-    console.log(`🔧 Forcing button visibility for ${status} tab...`);
-    
-    const container = document.getElementById(status + 'OrdersList');
-    if (!container) return;
-    
-    // Find all Complete Prep buttons
-    const buttons = container.querySelectorAll('.btn-complete-prep');
-    console.log(`🔍 Found ${buttons.length} Complete Prep buttons`);
-    
-    buttons.forEach((btn, index) => {
-        console.log(`🔧 Fixing button ${index + 1}:`, {
-            display: btn.style.display,
-            visibility: btn.style.visibility,
-            opacity: btn.style.opacity,
-            parent: btn.parentElement.tagName
-        });
-        
-        // Remove any hiding styles
-        btn.style.display = 'inline-block';
-        btn.style.visibility = 'visible';
-        btn.style.opacity = '1';
-        btn.style.position = 'relative';
-        btn.style.zIndex = '1000';
-        
-        // Add glow effect to make it obvious
-        btn.style.boxShadow = '0 0 15px rgba(155, 89, 182, 0.7)';
-        btn.style.border = '2px solid #fff';
-        
-        // Ensure parent container is visible
-        let parent = btn.parentElement;
-        while (parent && parent !== document.body) {
-            parent.style.display = parent.style.display || 'flex';
-            parent.style.visibility = 'visible';
-            parent.style.opacity = '1';
-            parent = parent.parentElement;
-        }
-        
-        // Log fixed state
-        console.log(`✅ Button ${index + 1} fixed:`, {
-            display: btn.style.display,
-            visibility: btn.style.visibility,
-            opacity: btn.style.opacity
-        });
-    });
-    
-    // Also check for any other hidden buttons
-    const allButtons = container.querySelectorAll('button');
-    allButtons.forEach(btn => {
-        btn.style.display = btn.style.display || 'inline-block';
-        btn.style.visibility = 'visible';
-        btn.style.opacity = '1';
-    });
-    
-    console.log(`✅ Force visibility complete for ${status} tab`);
-}
-
-
-// Add this test function to check if buttons exist
-function testButtonExistence() {
-    console.log('🧪 Testing button existence...');
-    
-    const preparingContainer = document.getElementById('preparingOrdersList');
-    if (!preparingContainer) {
-        console.log('❌ Preparing container not found!');
-        return;
-    }
-    
-    const buttons = preparingContainer.querySelectorAll('.btn-complete-prep');
-    console.log(`Found ${buttons.length} Complete Prep buttons in preparing tab`);
-    
-    buttons.forEach((btn, index) => {
-        console.log(`Button ${index + 1}:`, {
-            exists: !!btn,
-            outerHTML: btn.outerHTML.substring(0, 100) + '...',
-            computedStyle: window.getComputedStyle(btn).display
-        });
-    });
-    
-    // Try to click the first button programmatically
-    if (buttons.length > 0) {
-        const firstButton = buttons[0];
-        console.log('🖱️ First button clickable?', firstButton.getAttribute('onclick'));
-        
-        // Create a test overlay to show button position
-        const rect = firstButton.getBoundingClientRect();
-        console.log('📐 Button position:', rect);
-        
-        // Create a visual indicator
-        const indicator = document.createElement('div');
-        indicator.style.position = 'fixed';
-        indicator.style.top = rect.top + 'px';
-        indicator.style.left = rect.left + 'px';
-        indicator.style.width = rect.width + 'px';
-        indicator.style.height = rect.height + 'px';
-        indicator.style.border = '3px solid red';
-        indicator.style.backgroundColor = 'rgba(255,0,0,0.2)';
-        indicator.style.zIndex = '9999';
-        indicator.style.pointerEvents = 'none';
-        indicator.textContent = 'BUTTON HERE';
-        indicator.style.color = 'white';
-        indicator.style.fontWeight = 'bold';
-        indicator.style.display = 'flex';
-        indicator.style.alignItems = 'center';
-        indicator.style.justifyContent = 'center';
-        document.body.appendChild(indicator);
-        
-        setTimeout(() => indicator.remove(), 3000);
-    }
-}
-
-// Call this after loading orders
-setTimeout(testButtonExistence, 1000);
-// Add these new functions to your JavaScript:
-
-// Update completePreparation() function:
-// Update the completePreparation() function around line 1310
-async function completePreparation(orderId) {
-    console.log('🔍 completePreparation called for order:', orderId);
-    console.log('Current orders array:', orders);
-    try {
-        // First check if we can find the order locally
-        const order = orders.find(o => o._id === orderId);
-        
-        // Show warning if order is not in correct status
-        if (order && (order.status !== 'preparing' && order.status !== 'confirmed')) {
-            Toast.show(`Cannot complete order in ${order.status} status. Please accept it first.`, 'warning');
-            return;
-        }
-        
-        Loading.show('Marking order as ready...');
-        
-        const response = await API.post(`/api/chef/orders/${orderId}/complete-prep`, {});
-        
-        if (response.success) {
-            Toast.show('Order marked as ready for billing! All chefs notified.', 'success');
-            await Promise.all([loadDashboard(), loadOrders()]);
-        }
-        
-        Loading.hide();
-        
-    } catch (error) {
-        Loading.hide();
-        ErrorHandler.handle(error, 'completePreparation');
-    }
-}
-
-// Update downloadBill() function:
-async function downloadBill(orderId) {
-    try {
-        const token = Auth.getToken();
-        
-        // Create a temporary anchor element
-        const a = document.createElement('a');
-        a.href = `${CONFIG.BACKEND_URL}/api/chef/orders/${orderId}/bill`;
-        a.download = `receipt-${orderId}.pdf`;
-        
-        // Add authorization header using fetch
-        const response = await fetch(a.href, {
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
-        
-        if (!response.ok) {
-            throw new Error('Failed to download bill');
-        }
-        
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        
-        // Create another anchor for download
-        const downloadLink = document.createElement('a');
-        downloadLink.href = url;
-        downloadLink.download = `receipt-${orderId}.pdf`;
-        document.body.appendChild(downloadLink);
-        downloadLink.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(downloadLink);
-        
-        Toast.show('Bill downloaded successfully!', 'success');
-        
-    } catch (error) {
-        console.error('Download bill error:', error);
-        Toast.show('Failed to download bill. Please try again.', 'error');
-    }
-}
-
-function testOrderGrouping() {
-    console.log('🧪 Testing order grouping...');
-    orders.forEach((order, index) => {
-        console.log(`Order ${index}: #${order.orderNumber}, Status: ${order.status}`);
-    });
-    
-    // Manually check for preparing orders
-    const preparingOrders = orders.filter(o => o.status === 'preparing');
-    console.log(`Found ${preparingOrders.length} preparing orders:`, preparingOrders);
-}
-
-// Update finalCompleteOrder() function:
-async function finalCompleteOrder(orderId) {
-    try {
-        if (!confirm('Are you sure you want to complete this order? This will send the bill to customer email and remove it from current orders.')) {
-            return;
-        }
-        
-        Loading.show('Completing order...');
-        
-        const response = await API.post(`/api/chef/orders/${orderId}/final-complete`, {});
-        
-        if (response.success) {
-            Toast.show('Order completed! Bill sent to customer email.', 'success');
-            await Promise.all([loadDashboard(), loadOrders()]);
-        }
-        
-        Loading.hide();
-        
-    } catch (error) {
-        Loading.hide();
-        ErrorHandler.handle(error, 'finalCompleteOrder');
-    }
-}
-
-
-        // In the acceptOrder() function, update the response handling:
-async function acceptOrder(orderId) {
-    try {
-        Loading.show('Accepting order...');
-        
-        const response = await API.post(`${CONFIG.API_ENDPOINTS.CHEF_UPDATE_ORDER}/${orderId}/accept`, {});
-        
-        if (response.success) {
-            Toast.show('Order accepted successfully!', 'success');
-            
-            // Also update the order status to 'preparing' in the frontend immediately
-            const orderIndex = orders.findIndex(o => o._id === orderId);
-            if (orderIndex !== -1) {
-                orders[orderIndex].status = 'preparing';
-            }
-            
-            await Promise.all([loadDashboard(), loadOrders()]);
-        }
-        
-        Loading.hide();
-        
-    } catch (error) {
-        Loading.hide();
-        ErrorHandler.handle(error, 'acceptOrder');
-    }
-}
-
-        async function markAsReady(orderId) {
-            try {
-                Loading.show('Marking order as ready...');
-                
-                const response = await API.post(`${CONFIG.API_ENDPOINTS.CHEF_UPDATE_ORDER}/${orderId}/ready`, {});
-                
-                if (response.success) {
-                    Toast.show('Order marked as ready!', 'success');
-                    await Promise.all([loadDashboard(), loadOrders()]);
+                    // Re-render menu items
+                    renderMenuItems(menuItems);
                 }
                 
                 Loading.hide();
-                
             } catch (error) {
                 Loading.hide();
-                ErrorHandler.handle(error, 'markAsReady');
+                ErrorHandler.handle(error, 'updateMenuItemStatus');
             }
         }
-
-        async function completeOrder(orderId) {
-            try {
-                Loading.show('Completing order...');
-                
-                const response = await API.post(`${CONFIG.API_ENDPOINTS.CHEF_UPDATE_ORDER}/${orderId}/complete`, {});
-                
-                if (response.success) {
-                    Toast.show('Order completed successfully!', 'success');
-                    await Promise.all([loadDashboard(), loadOrders()]);
-                }
-                
-                Loading.hide();
-                
-            } catch (error) {
-                Loading.hide();
-                ErrorHandler.handle(error, 'completeOrder');
-            }
-        }
-
-        // In your chef dashboard HTML, update loadMenuItems():
-async function loadMenuItems() {
-    try {
-        Loading.show();
-        
-        // Load ALL items (available and unavailable)
-        const response = await API.get(CONFIG.API_ENDPOINTS.CHEF_MENU);
-        
-        if (response.success) {
-            menuItems = response.menuItems || [];
-            renderMenuItems(menuItems);
-        }
-        
-        Loading.hide();
-        
-    } catch (error) {
-        Loading.hide();
-        ErrorHandler.handle(error, 'loadMenuItems');
-    }
-}
-
-        function renderMenuItems(items) {
-    const container = document.getElementById('menuItemsGrid');
-    container.innerHTML = '';
-    
-    if (!items || items.length === 0) {
-        container.innerHTML = `
-            <div class="col-12">
-                <div class="empty-state">
-                    <i class="fas fa-utensils"></i>
-                    <h5>No menu items</h5>
-                    <p>Add menu items from the admin panel</p>
-                </div>
-            </div>
-        `;
-        return;
-    }
-    
-    // Separate available and unavailable items
-    const availableItems = items.filter(item => item.available || item.isAvailable);
-    const unavailableItems = items.filter(item => !item.available && !item.isAvailable);
-    
-    let html = '';
-    
-    // Show available items first
-    if (availableItems.length > 0) {
-        html += `
-            <div class="col-12">
-                <h5 class="menu-section-header available-header">
-                    <i class="fas fa-check-circle me-2"></i>Available Items (${availableItems.length})
-                </h5>
-            </div>
-        `;
-        
-        availableItems.forEach(item => {
-            html += renderMenuItemCard(item, true);
-        });
-    }
-    
-    // Show unavailable items in a separate section
-    if (unavailableItems.length > 0) {
-        html += `
-            <div class="col-12 mt-5">
-                <h5 class="menu-section-header unavailable-header">
-                    <i class="fas fa-times-circle me-2"></i>Unavailable Items (${unavailableItems.length})
-                </h5>
-            </div>
-        `;
-        
-        unavailableItems.forEach(item => {
-            html += renderMenuItemCard(item, false);
-        });
-    }
-    
-    container.innerHTML = html;
-}
-
-function renderMenuItemCard(item, isAvailable) {
-    const availableStatus = item.available || item.isAvailable;
-    
-    return `
-        <div class="col-md-4 mb-4">
-            <div class="card menu-item-card h-100 ${!availableStatus ? 'border-danger unavailable-item' : ''}">
-                <div class="position-relative">
-                    ${item.image ? 
-                        `<img src="${item.image}" class="card-img-top" alt="${item.name}" style="height: 180px; object-fit: cover; ${!availableStatus ? 'filter: grayscale(50%) opacity(0.8)' : ''}">` : 
-                        `<div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 180px; ${!availableStatus ? 'opacity: 0.7' : ''}">
-                            <i class="fas fa-utensils fa-3x ${!availableStatus ? 'text-muted' : 'text-muted'}"></i>
-                        </div>`
-                    }
-                    <span class="position-absolute top-0 end-0 m-2 badge ${availableStatus ? 'bg-success' : 'bg-danger'}">
-                        ${availableStatus ? 'Available' : 'Unavailable'}
-                    </span>
-                </div>
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <h5 class="card-title mb-0 ${!availableStatus ? 'text-muted' : ''}">${item.name}</h5>
-                        <span class="badge bg-primary">${FormatUtils.formatCategory(item.category)}</span>
-                    </div>
-                    <p class="card-text ${!availableStatus ? 'text-muted' : 'text-muted'} small mb-3">${item.description || 'No description available'}</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h4 class="${!availableStatus ? 'text-muted' : 'text-primary'} mb-0">${FormatUtils.formatCurrency(item.price)}</h4>
-                        <div>
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" 
-                                       id="toggle-${item._id}"
-                                       ${availableStatus ? 'checked' : ''}
-                                       onchange="updateMenuItemStatus('${item._id}', this.checked)">
-                                <label class="form-check-label" for="toggle-${item._id}"></label>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="mt-3">
-                        <small class="${!availableStatus ? 'text-muted' : 'text-muted'}">
-                            <i class="fas fa-clock me-1"></i> ${item.preparationTime || 'N/A'} mins
-                        </small>
-                        <small class="${!availableStatus ? 'text-muted' : 'text-muted'} d-block mt-1">
-                            <i class="fas fa-shopping-cart me-1"></i> Ordered ${item.orderCount || 0} times
-                        </small>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-}
-
-        // In updateMenuItemStatus() function, handle both field names:
-async function updateMenuItemStatus(itemId, isAvailable) {
-    try {
-        Loading.show('Updating menu item...');
-        
-        const response = await API.put(
-            `/api/chef/menu/${itemId}/availability`,
-            { available: isAvailable }
-        );
-        
-        if (response.success) {
-            Toast.show(`Menu item ${isAvailable ? 'enabled' : 'disabled'} successfully!`, 'success');
-            
-            // Update local menuItems array
-            const itemIndex = menuItems.findIndex(item => item._id === itemId);
-            if (itemIndex !== -1) {
-                menuItems[itemIndex].available = isAvailable;
-                // Also update isAvailable if it exists
-                if (menuItems[itemIndex].isAvailable !== undefined) {
-                    menuItems[itemIndex].isAvailable = isAvailable;
-                }
-            }
-            
-            // Re-render menu items
-            renderMenuItems(menuItems);
-        }
-        
-        Loading.hide();
-    } catch (error) {
-        Loading.hide();
-        ErrorHandler.handle(error, 'updateMenuItemStatus');
-    }
-}
-
-        function renderMenuItemCard(item) {
-    return `
-        <div class="col-md-4 mb-4">
-            <div class="card menu-item-card h-100 ${!item.available ? 'border-danger border-2' : ''}">
-                <div class="position-relative">
-                    ${item.image ? 
-                        `<img src="${item.image}" class="card-img-top" alt="${item.name}" style="height: 180px; object-fit: cover;">` : 
-                        `<div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 180px;">
-                            <i class="fas fa-utensils fa-3x text-muted"></i>
-                        </div>`
-                    }
-                    <span class="position-absolute top-0 end-0 m-2 badge ${item.available ? 'bg-success' : 'bg-danger'}">
-                        ${item.available ? 'Available' : 'Unavailable'}
-                    </span>
-                </div>
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <h5 class="card-title mb-0 ${!item.available ? 'text-muted' : ''}">${item.name}</h5>
-                        <span class="badge bg-primary">${FormatUtils.formatCategory(item.category)}</span>
-                    </div>
-                    <p class="card-text ${!item.available ? 'text-muted' : 'text-muted'} small mb-3">${item.description || 'No description available'}</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h4 class="text-primary mb-0">${FormatUtils.formatCurrency(item.price)}</h4>
-                        <div>
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" 
-                                       id="toggle-${item._id}"
-                                       ${item.available ? 'checked' : ''}
-                                       onchange="updateMenuItemStatus('${item._id}', this.checked)">
-                                <label class="form-check-label" for="toggle-${item._id}"></label>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="mt-3">
-                        <small class="text-muted">
-                            <i class="fas fa-clock me-1"></i> ${item.preparationTime || 'N/A'} mins
-                        </small>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-}
 
         function searchMenuItems() {
             const searchTerm = document.getElementById('menuSearch').value.toLowerCase();
@@ -2543,34 +1922,34 @@ async function updateMenuItemStatus(itemId, isAvailable) {
         }
 
         function filterMenu(filterType) {
-    let filteredItems = [];
-    
-    switch(filterType) {
-        case 'available':
-            filteredItems = menuItems.filter(item => item.available);
-            break;
-        case 'unavailable':
-            filteredItems = menuItems.filter(item => !item.available);
-            break;
-        default:
-            filteredItems = menuItems;
-    }
-    
-    document.getElementById('menuItemsGrid').innerHTML = '';
-    if (filteredItems.length === 0) {
-        document.getElementById('menuItemsGrid').innerHTML = `
-            <div class="col-12">
-                <div class="empty-state">
-                    <i class="fas fa-utensils"></i>
-                    <h5>No menu items found</h5>
-                    <p>Try a different filter</p>
-                </div>
-            </div>
-        `;
-    } else {
-        renderMenuItems(filteredItems);
-    }
-}
+            let filteredItems = [];
+            
+            switch(filterType) {
+                case 'available':
+                    filteredItems = menuItems.filter(item => item.available);
+                    break;
+                case 'unavailable':
+                    filteredItems = menuItems.filter(item => !item.available);
+                    break;
+                default:
+                    filteredItems = menuItems;
+            }
+            
+            document.getElementById('menuItemsGrid').innerHTML = '';
+            if (filteredItems.length === 0) {
+                document.getElementById('menuItemsGrid').innerHTML = `
+                    <div class="col-12">
+                        <div class="empty-state">
+                            <i class="fas fa-utensils"></i>
+                            <h5>No menu items found</h5>
+                            <p>Try a different filter</p>
+                        </div>
+                    </div>
+                `;
+            } else {
+                renderMenuItems(filteredItems);
+            }
+        }
 
         function filterByCategory(category) {
             const buttons = document.querySelectorAll('.btn-outline-primary');
@@ -2919,8 +2298,6 @@ async function updateMenuItemStatus(itemId, isAvailable) {
                     customerName: customerName
                 };
                 
-                console.log('Submitting order:', orderData);
-                
                 const response = await API.post(CONFIG.API_ENDPOINTS.CHEF_CREATE_ORDER, orderData);
                 
                 if (response.success) {
@@ -3022,8 +2399,9 @@ async function updateMenuItemStatus(itemId, isAvailable) {
         // Make functions available globally
         window.showSection = showSection;
         window.acceptOrder = acceptOrder;
-        window.markAsReady = markAsReady;
-        window.completeOrder = completeOrder;
+        window.completePreparation = completePreparation;
+        window.downloadBill = downloadBill;
+        window.finalCompleteOrder = finalCompleteOrder;
         window.updateMenuItemStatus = updateMenuItemStatus;
         window.searchMenuItems = searchMenuItems;
         window.filterMenu = filterMenu;
@@ -3039,54 +2417,6 @@ async function updateMenuItemStatus(itemId, isAvailable) {
         window.loadOrders = loadOrders;
         window.loadMenuItems = loadMenuItems;
         window.loadServiceRequests = loadServiceRequests;
-        // At the bottom of your chef dashboard JavaScript, add:
-window.completePreparation = completePreparation;
-window.downloadBill = downloadBill;
-window.finalCompleteOrder = finalCompleteOrder;
-
-// Force button visibility function
-window.forceButtonVisibility = function() {
-    console.log('🔧 Forcing button visibility...');
-    
-    // Force all button containers to have proper layout
-    document.querySelectorAll('.d-flex.justify-content-between.align-items-center.mt-auto').forEach(container => {
-        // Force container to have height
-        container.style.minHeight = '50px';
-        container.style.display = 'flex';
-        container.style.alignItems = 'center';
-        container.style.justifyContent = 'space-between';
-        
-        // Ensure button container is visible
-        const buttonContainer = container.querySelector('div:last-child');
-        if (buttonContainer) {
-            buttonContainer.style.display = 'flex';
-            buttonContainer.style.flexWrap = 'nowrap';
-            buttonContainer.style.gap = '5px';
-            buttonContainer.style.alignItems = 'center';
-            
-            // Force all buttons to be visible
-            buttonContainer.querySelectorAll('button').forEach(btn => {
-                btn.style.display = 'inline-block';
-                btn.style.visibility = 'visible';
-                btn.style.opacity = '1';
-                btn.style.position = 'relative';
-                btn.style.zIndex = '100';
-            });
-        }
-    });
-    
-    // Force all complete prep buttons to be visible
-    document.querySelectorAll('.btn-complete-prep').forEach(btn => {
-        btn.style.display = 'inline-block';
-        btn.style.visibility = 'visible';
-        btn.style.opacity = '1';
-        btn.style.minWidth = '120px';
-        btn.style.minHeight = '32px';
-        btn.classList.add('force-visible');
-    });
-    
-    console.log('✅ Button visibility forced');
-};
     </script>
 </body>
 </html>
