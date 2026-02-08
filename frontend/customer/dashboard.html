@@ -969,34 +969,67 @@
             }
         }
          
-        // Update your loadTables function:
-async function loadTables() {
+        async function loadTables() {
     try {
         const data = await API.get(CONFIG.API_ENDPOINTS.TABLES);
-        console.log('Tables API response:', data); // Add this for debugging
         
-        // Make sure data.tables exists
-        if (!data.tables || !Array.isArray(data.tables)) {
-            throw new Error('Invalid tables data received');
+        if (!data || !data.success || !Array.isArray(data.tables)) {
+            console.error('Invalid API response:', data);
+            throw new Error('Invalid response from server');
         }
         
-        activeTables = data.tables
-            .filter(table => table.status === 'available')
-            .map(table => table.tableNumber);
+        console.log('Raw tables data:', data.tables);
         
-        console.log('Active tables:', activeTables); // Debug log
+        // Try different ways to get the table number
+        activeTables = data.tables
+            .filter(table => {
+                // Debug the table object
+                console.log('Table object:', table);
+                console.log('Table keys:', Object.keys(table));
+                
+                // Check if table is available
+                const isAvailable = table.status === 'available';
+                console.log(`Table ${table.tableNumber || table.number || 'unknown'} available?`, isAvailable);
+                
+                return isAvailable;
+            })
+            .map(table => {
+                // Try different property names
+                const tableNum = table.tableNumber || table.number || table.tableNo || table.id;
+                console.log('Extracted table number:', tableNum, 'from:', table);
+                return tableNum;
+            });
+        
+        console.log('Final active tables:', activeTables);
         
         if (activeTables.length > 0) {
             currentTable = activeTables[0];
+            console.log('Current table set to:', currentTable);
             generateTableButtons();
+            
+            // Load menu for this table
+            await loadMenu();
+            
         } else {
-            // Show a helpful message if no tables are available
-            Toast.show('No tables are currently available. Please contact staff.', 'warning');
-            throw new Error('No available tables found');
+            // Create a fallback table (for development)
+            console.log('No tables found, using fallback table 1');
+            activeTables = [1];
+            currentTable = 1;
+            generateTableButtons();
+            
+            Toast.show('Using demo table 1', 'info');
         }
+        
     } catch (error) {
         console.error('Error loading tables:', error);
-        throw new Error('Unable to load tables. Please contact staff.');
+        
+        // Create fallback tables for development
+        console.log('Creating fallback tables due to error');
+        activeTables = [1, 2, 3, 4, 5];
+        currentTable = 1;
+        generateTableButtons();
+        
+        Toast.show('Using demo tables (1-5)', 'warning');
     }
 }
         

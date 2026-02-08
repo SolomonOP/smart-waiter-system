@@ -670,21 +670,22 @@ router.get('/tables', auth, async (req, res) => {
     }
 });
 
-// @route   GET /api/customer/tables
-// @desc    Get available tables
-// @access  Private (Customer)
 router.get('/tables', auth, async (req, res) => {
     try {
-        const tables = await Table.find({ 
-            status: 'available',
-            isActive: true 
-        })
-        .sort({ tableNumber: 1 })
-        .select('tableNumber capacity location section');
+        // Temporarily remove the filter for debugging
+        const tables = await Table.find({})  // Get ALL tables
+            .sort({ tableNumber: 1 })
+            .select('tableNumber capacity location section status isActive');
+        
+        console.log('Tables found:', tables.length);
+        tables.forEach(table => {
+            console.log(`Table ${table.tableNumber}: status=${table.status}, active=${table.isActive}`);
+        });
         
         res.json({
             success: true,
-            tables
+            count: tables.length,
+            tables: tables
         });
         
     } catch (error) {
