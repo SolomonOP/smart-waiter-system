@@ -1600,9 +1600,13 @@ function initSocket() {
     ` : ''}
     ${order.status === 'preparing' ? `
         <button class="btn btn-complete-prep btn-sm" onclick="completePreparation('${order._id}')">
-            <i class="fas fa-check-double me-1"></i>Complete Prep
-        </button>
+    <i class="fas fa-check-double me-1"></i>Complete Prep (${order.status})
+</button>
     ` : ''}
+    <!-- Temporary debug button -->
+    <button class="btn btn-warning btn-sm" onclick="console.log('Debug order:', ${JSON.stringify({id: order._id, status: order.status, orderNumber: order.orderNumber})})">
+        Debug
+    </button>
                                     ${order.status === 'ready' ? `
                                         <div class="btn-group">
                                             <button class="btn btn-download btn-sm" onclick="downloadBill('${order._id}')">
@@ -1630,6 +1634,8 @@ function initSocket() {
 // Update completePreparation() function:
 // Update the completePreparation() function around line 1310
 async function completePreparation(orderId) {
+    console.log('🔍 completePreparation called for order:', orderId);
+    console.log('Current orders array:', orders);
     try {
         // First check if we can find the order locally
         const order = orders.find(o => o._id === orderId);
