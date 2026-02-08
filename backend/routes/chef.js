@@ -331,12 +331,12 @@ router.post('/orders/:id/complete-prep', auth, isChef, async (req, res) => {
             });
         }
         
-        if (order.status !== 'preparing') {
-            return res.status(400).json({
-                success: false,
-                message: `Order cannot be completed in ${order.status} status`
-            });
-        }
+        if (order.status !== 'preparing' && order.status !== 'confirmed') {
+    return res.status(400).json({
+        success: false,
+        message: `Order cannot be completed in ${order.status} status`
+    });
+}
         
         // Check if chef is assigned to this order
         if (order.assignedChef && order.assignedChef.toString() !== req.user.id) {

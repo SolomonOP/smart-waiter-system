@@ -1583,11 +1583,11 @@ function initSocket() {
                                             <i class="fas fa-check me-1"></i>Accept
                                         </button>
                                     ` : ''}
-                                    ${order.status === 'preparing' ? `
-                                        <button class="btn btn-complete-prep btn-sm" onclick="completePreparation('${order._id}')">
-                                            <i class="fas fa-check-double me-1"></i>Complete Prep
-                                        </button>
-                                    ` : ''}
+                                    ${(order.status === 'preparing' || order.status === 'confirmed') ? `
+    <button class="btn btn-complete-prep btn-sm" onclick="completePreparation('${order._id}')">
+        <i class="fas fa-check-double me-1"></i>Complete Prep
+    </button>
+` : ''}
                                     ${order.status === 'ready' ? `
                                         <div class="btn-group">
                                             <button class="btn btn-download btn-sm" onclick="downloadBill('${order._id}')">
@@ -1613,8 +1613,18 @@ function initSocket() {
 // Add these new functions to your JavaScript:
 
 // Update completePreparation() function:
+// Update the completePreparation() function around line 1310
 async function completePreparation(orderId) {
     try {
+        // First check if we can find the order locally
+        const order = orders.find(o => o._id === orderId);
+        
+        // Show warning if order is not in correct status
+        if (order && (order.status !== 'preparing' && order.status !== 'confirmed')) {
+            Toast.show(`Cannot complete order in ${order.status} status. Please accept it first.`, 'warning');
+            return;
+        }
+        
         Loading.show('Marking order as ready...');
         
         const response = await API.post(`/api/chef/orders/${orderId}/complete-prep`, {});
@@ -1698,24 +1708,32 @@ async function finalCompleteOrder(orderId) {
 }
 
 
-        async function acceptOrder(orderId) {
-            try {
-                Loading.show('Accepting order...');
-                
-                const response = await API.post(`${CONFIG.API_ENDPOINTS.CHEF_UPDATE_ORDER}/${orderId}/accept`, {});
-                
-                if (response.success) {
-                    Toast.show('Order accepted successfully!', 'success');
-                    await Promise.all([loadDashboard(), loadOrders()]);
-                }
-                
-                Loading.hide();
-                
-            } catch (error) {
-                Loading.hide();
-                ErrorHandler.handle(error, 'acceptOrder');
+        // In the acceptOrder() function, update the response handling:
+async function acceptOrder(orderId) {
+    try {
+        Loading.show('Accepting order...');
+        
+        const response = await API.post(`${CONFIG.API_ENDPOINTS.CHEF_UPDATE_ORDER}/${orderId}/accept`, {});
+        
+        if (response.success) {
+            Toast.show('Order accepted successfully!', 'success');
+            
+            // Also update the order status to 'preparing' in the frontend immediately
+            const orderIndex = orders.findIndex(o => o._id === orderId);
+            if (orderIndex !== -1) {
+                orders[orderIndex].status = 'preparing';
             }
+            
+            await Promise.all([loadDashboard(), loadOrders()]);
         }
+        
+        Loading.hide();
+        
+    } catch (error) {
+        Loading.hide();
+        ErrorHandler.handle(error, 'acceptOrder');
+    }
+}
 
         async function markAsReady(orderId) {
             try {
