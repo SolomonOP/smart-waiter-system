@@ -384,23 +384,22 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
     <script>
-        // Configuration
+        // Configuration - Fixed endpoints
         const CONFIG = {
             BACKEND_URL: 'https://smart-waiter-backend.onrender.com',
             
             // Test endpoints
             TEST_ENDPOINTS: {
                 HEALTH: '/health',
-                TEST: '/api/test',
-                TEST_LOGIN: '/api/test/login'
+                TEST: '/api/test'
             },
             
-            // API endpoints
+            // API endpoints - Try common patterns
             API_ENDPOINTS: {
-                LOGIN: '/api/auth/login',
-                REGISTER: '/api/auth/register',
-                FORGOT_PASSWORD: '/api/auth/forgot-password'
-            },
+                LOGIN: '/api/users/login',
+                REGISTER: '/api/users/register',
+                FORGOT_PASSWORD: '/api/users/forgot-password'
+            }
         };
 
         // Toast notification helper
@@ -477,10 +476,43 @@
             }
         }
 
-        // Enhanced API Helper with detailed error reporting
+        // Enhanced API Helper with better endpoint detection
         class APIHelper {
             constructor() {
                 this.baseUrl = CONFIG.BACKEND_URL;
+                this.endpointsCache = {};
+            }
+
+            async discoverEndpoints() {
+                console.log('Discovering available endpoints...');
+                
+                // Try different endpoint patterns
+                const endpointPatterns = [
+                    '/api/auth/login',
+                    '/api/users/login',
+                    '/auth/login',
+                    '/users/login',
+                    '/api/login',
+                    '/login'
+                ];
+                
+                for (const pattern of endpointPatterns) {
+                    try {
+                        const testResponse = await fetch(`${this.baseUrl}${pattern}`, {
+                            method: 'OPTIONS',
+                            mode: 'cors'
+                        });
+                        
+                        if (testResponse.ok) {
+                            console.log(`Found endpoint pattern: ${pattern}`);
+                            return pattern.replace('/login', '');
+                        }
+                    } catch (error) {
+                        // Continue to next pattern
+                    }
+                }
+                
+                return null;
             }
 
             async request(method, endpoint, data = null, token = null) {
@@ -497,38 +529,47 @@
                 const options = {
                     method,
                     headers,
-                    mode: 'cors',
-                    credentials: 'omit' // Changed from 'include' to 'omit' to avoid cookie issues
+                    mode: 'cors'
                 };
 
                 if (data && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
                     options.body = JSON.stringify(data);
                 }
 
-                console.log(`API Request: ${method} ${url}`, options);
+                console.log(`API Request: ${method} ${url}`, data ? { ...options, body: '***' } : options);
 
                 try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 10000);
+                    options.signal = controller.signal;
+
                     const response = await fetch(url, options);
+                    clearTimeout(timeoutId);
                     
                     console.log(`API Response: ${response.status} ${response.statusText}`);
                     
                     if (!response.ok) {
                         let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+                        let errorData = null;
                         
                         try {
-                            const errorData = await response.json();
+                            errorData = await response.json();
                             console.error('Error response data:', errorData);
                             errorMessage = errorData.message || errorData.error || errorMessage;
                             
-                            // Handle specific status codes
+                            // Handle specific status codes with better messages
                             if (response.status === 500) {
-                                errorMessage = 'Server error. Please try again later or contact support.';
+                                if (errorData.error && errorData.error.includes('connect')) {
+                                    errorMessage = 'Database connection error. Server may be starting up.';
+                                } else {
+                                    errorMessage = 'Server error. Please try again later.';
+                                }
                             } else if (response.status === 404) {
-                                errorMessage = 'Endpoint not found. The server may be undergoing maintenance.';
+                                errorMessage = 'Endpoint not found. Please contact support.';
                             } else if (response.status === 401) {
-                                errorMessage = 'Invalid credentials. Please check your email and password.';
+                                errorMessage = 'Invalid email or password.';
                             } else if (response.status === 400) {
-                                errorMessage = 'Invalid request. Please check your input data.';
+                                errorMessage = errorData.errors ? Object.values(errorData.errors).join(', ') : 'Invalid request data.';
                             }
                         } catch (parseError) {
                             console.error('Failed to parse error response:', parseError);
@@ -544,18 +585,19 @@
                         return responseData;
                     } catch (jsonError) {
                         console.error('Failed to parse JSON response:', jsonError);
-                        throw new Error('Invalid server response format');
+                        // If it's not JSON but response was ok, return status
+                        return { success: true, status: response.status };
                     }
                 } catch (error) {
                     console.error(`API ${method} error for ${endpoint}:`, error);
                     
                     // Check if it's a connection issue
                     if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
-                        throw new Error('Unable to connect to server. Please check: \n1. Your internet connection\n2. If the server is running\n3. CORS settings');
+                        throw new Error('Unable to connect to server. Please check your internet connection and try again.');
                     }
                     
                     if (error.name === 'AbortError') {
-                        throw new Error('Request timeout. Server may be slow or unresponsive.');
+                        throw new Error('Request timeout. Server may be slow to respond.');
                     }
                     
                     throw error;
@@ -583,7 +625,8 @@
                     console.log('Checking backend health...');
                     const response = await fetch(`${this.baseUrl}${CONFIG.TEST_ENDPOINTS.HEALTH}`, {
                         method: 'GET',
-                        mode: 'cors'
+                        mode: 'cors',
+                        signal: AbortSignal.timeout(5000)
                     });
                     
                     const isHealthy = response.ok;
@@ -603,27 +646,37 @@
                 }
             }
             
-            async testConnection() {
+            async testEndpoints() {
+                console.log('Testing API endpoints...');
+                const results = {};
+                
+                // Test login endpoint
                 try {
-                    console.log('Testing connection to all endpoints...');
-                    
-                    // Test basic connection
-                    const health = await this.checkBackendHealth();
-                    console.log('Health check result:', health);
-                    
-                    // Test if backend is reachable at all
-                    try {
-                        const pingResponse = await fetch(this.baseUrl, { mode: 'cors' });
-                        console.log('Basic ping:', pingResponse.status);
-                    } catch (pingError) {
-                        console.error('Basic ping failed:', pingError);
-                    }
-                    
-                    return health;
+                    const testResponse = await fetch(`${this.baseUrl}${CONFIG.API_ENDPOINTS.LOGIN}`, {
+                        method: 'OPTIONS',
+                        mode: 'cors'
+                    });
+                    results.login = testResponse.ok;
+                    console.log(`Login endpoint (${CONFIG.API_ENDPOINTS.LOGIN}): ${testResponse.ok ? 'OK' : 'Not found'}`);
                 } catch (error) {
-                    console.error('Connection test failed:', error);
-                    return { online: false, error: error.message };
+                    results.login = false;
+                    console.log(`Login endpoint test failed:`, error.message);
                 }
+                
+                // Test register endpoint
+                try {
+                    const testResponse = await fetch(`${this.baseUrl}${CONFIG.API_ENDPOINTS.REGISTER}`, {
+                        method: 'OPTIONS',
+                        mode: 'cors'
+                    });
+                    results.register = testResponse.ok;
+                    console.log(`Register endpoint (${CONFIG.API_ENDPOINTS.REGISTER}): ${testResponse.ok ? 'OK' : 'Not found'}`);
+                } catch (error) {
+                    results.register = false;
+                    console.log(`Register endpoint test failed:`, error.message);
+                }
+                
+                return results;
             }
         }
 
@@ -634,6 +687,7 @@
                 this.backendOnline = false;
                 this.apiHelper = new APIHelper();
                 this.listeners = [];
+                this.endpointsAvailable = { login: false, register: false };
                 
                 this.init();
             }
@@ -645,6 +699,9 @@
                 const health = await this.apiHelper.checkBackendHealth();
                 this.backendOnline = health.online;
                 
+                // Test endpoints
+                this.endpointsAvailable = await this.apiHelper.testEndpoints();
+                
                 // Notify listeners
                 this.notifyStatusChange();
                 
@@ -652,6 +709,7 @@
                 console.log('Initial connection status:', {
                     deviceOnline: this.isOnline,
                     backendOnline: this.backendOnline,
+                    endpoints: this.endpointsAvailable,
                     backendUrl: CONFIG.BACKEND_URL
                 });
             }
@@ -686,9 +744,15 @@
                     console.log('Checking backend connection...');
                     const health = await this.apiHelper.checkBackendHealth();
                     this.backendOnline = health.online;
+                    
+                    // Re-test endpoints if backend is online
+                    if (this.backendOnline) {
+                        this.endpointsAvailable = await this.apiHelper.testEndpoints();
+                    }
+                    
                     this.notifyStatusChange();
                     
-                    console.log('Backend connection result:', health);
+                    console.log('Backend connection result:', health, 'Endpoints:', this.endpointsAvailable);
                     
                     if (health.online) {
                         Toast.show('Connected to server', 'success');
@@ -714,6 +778,7 @@
                 const status = {
                     deviceOnline: this.isOnline,
                     backendOnline: this.backendOnline,
+                    endpointsAvailable: this.endpointsAvailable,
                     timestamp: new Date().toISOString()
                 };
                 
@@ -724,7 +789,8 @@
             getStatus() {
                 return {
                     deviceOnline: this.isOnline,
-                    backendOnline: this.backendOnline
+                    backendOnline: this.backendOnline,
+                    endpointsAvailable: this.endpointsAvailable
                 };
             }
         }
@@ -765,9 +831,6 @@
                 document.getElementById('rememberMe').checked = true;
             }
             
-            // Check backend connection with detailed logging
-            await checkConnection();
-            
             // Set up connection listener
             connectionManager.addListener(handleConnectionChange);
             
@@ -786,8 +849,25 @@
         function handleConnectionChange(status) {
             console.log('Connection status changed:', status);
             
+            let statusMessage = '';
             if (status.deviceOnline && status.backendOnline) {
-                updateConnectionStatus('online', 'Connected to server');
+                // Check if endpoints are available
+                if (status.endpointsAvailable.login && status.endpointsAvailable.register) {
+                    statusMessage = 'Connected to server';
+                    updateConnectionStatus('online', statusMessage);
+                } else if (status.endpointsAvailable.login && !status.endpointsAvailable.register) {
+                    statusMessage = 'Login only (Register offline)';
+                    updateConnectionStatus('online', statusMessage);
+                    Toast.show('Registration is currently unavailable', 'warning');
+                } else if (!status.endpointsAvailable.login && status.endpointsAvailable.register) {
+                    statusMessage = 'Register only (Login offline)';
+                    updateConnectionStatus('online', statusMessage);
+                    Toast.show('Login is currently unavailable', 'warning');
+                } else {
+                    statusMessage = 'Server online, but auth endpoints down';
+                    updateConnectionStatus('offline', statusMessage);
+                    Toast.show('Authentication services are unavailable', 'error');
+                }
             } else if (status.deviceOnline && !status.backendOnline) {
                 updateConnectionStatus('offline', 'Server offline');
             } else if (!status.deviceOnline) {
@@ -804,50 +884,42 @@
             indicator.className = 'status-indicator status-' + status;
             text.textContent = message;
             
-            // Update login button state
-            updateLoginButtonState();
+            // Update button states
+            updateButtonStates();
         }
 
-        // Update login button based on connection
-        function updateLoginButtonState() {
+        // Update button states based on connection and endpoint availability
+        function updateButtonStates() {
             const loginBtn = document.getElementById('loginBtn');
             const registerBtn = document.getElementById('registerBtn');
+            const status = connectionManager ? connectionManager.getStatus() : null;
             
             if (connectionStatus === 'offline') {
                 loginBtn.disabled = true;
                 loginBtn.querySelector('.btn-text').textContent = 'Server Offline';
                 registerBtn.disabled = true;
                 registerBtn.querySelector('.btn-text').textContent = 'Server Offline';
+            } else if (status && status.endpointsAvailable) {
+                // Enable/disable based on endpoint availability
+                loginBtn.disabled = !status.endpointsAvailable.login || isSubmitting;
+                registerBtn.disabled = !status.endpointsAvailable.register || isSubmitting;
+                
+                if (!status.endpointsAvailable.login) {
+                    loginBtn.querySelector('.btn-text').textContent = 'Login Unavailable';
+                } else {
+                    loginBtn.querySelector('.btn-text').textContent = 'Login';
+                }
+                
+                if (!status.endpointsAvailable.register) {
+                    registerBtn.querySelector('.btn-text').textContent = 'Register Unavailable';
+                } else {
+                    registerBtn.querySelector('.btn-text').textContent = 'Register';
+                }
             } else {
                 loginBtn.disabled = isSubmitting;
                 loginBtn.querySelector('.btn-text').textContent = 'Login';
                 registerBtn.disabled = isSubmitting;
                 registerBtn.querySelector('.btn-text').textContent = 'Register';
-            }
-        }
-
-        // Check connection
-        async function checkConnection() {
-            try {
-                console.log('Starting connection check...');
-                
-                if (window.connectionManager) {
-                    console.log('Using connection manager...');
-                    const result = await window.connectionManager.checkBackendConnection();
-                    console.log('Connection check result:', result);
-                    return result;
-                }
-                
-                console.log('No connection manager, direct check...');
-                // Direct check
-                const api = new APIHelper();
-                const result = await api.testConnection();
-                console.log('Direct connection check result:', result);
-                return result;
-                
-            } catch (error) {
-                console.error('Connection check failed:', error);
-                return { online: false, error: error.message };
             }
         }
 
@@ -943,6 +1015,13 @@
                     return;
                 }
                 
+                // Check if login endpoint is available
+                const status = connectionManager ? connectionManager.getStatus() : null;
+                if (status && status.endpointsAvailable && !status.endpointsAvailable.login) {
+                    Toast.show('Login service is currently unavailable. Please try again later.', 'error');
+                    return;
+                }
+                
                 const email = document.getElementById('loginEmail').value.trim().toLowerCase();
                 const password = document.getElementById('loginPassword').value;
                 const rememberMe = document.getElementById('rememberMe').checked;
@@ -954,55 +1033,69 @@
                 isSubmitting = true;
                 btnText.textContent = 'Logging in...';
                 spinner.classList.remove('d-none');
-                updateLoginButtonState();
+                updateButtonStates();
                 
                 try {
                     Loading.show('Authenticating...');
                     
-                    // Show user what's happening
                     console.log('Attempting login with:', { email, rememberMe });
                     
-                    // Test connection before attempting login
-                    console.log('Testing connection before login...');
-                    const connectionTest = await API.checkBackendHealth();
-                    if (!connectionTest.online) {
-                        throw new Error(`Server is not responding (Status: ${connectionTest.status || 'Unknown'})`);
-                    }
+                    // Try different endpoint patterns if needed
+                    let loginSuccessful = false;
+                    let loginData = null;
                     
-                    // Attempt login
-                    console.log('Sending login request...');
-                    const data = await API.post(CONFIG.API_ENDPOINTS.LOGIN, { 
-                        email, 
-                        password,
-                        rememberMe 
-                    });
-                    
-                    console.log('Login successful:', data);
-                    
-                    // Store user data
-                    localStorage.setItem('token', data.token);
-                    localStorage.setItem('user', JSON.stringify(data.user));
-                    
-                    if (rememberMe) {
-                        localStorage.setItem('rememberedEmail', email);
-                    } else {
-                        localStorage.removeItem('rememberedEmail');
-                    }
-                    
-                    Toast.show(`Welcome back, ${data.user.firstName || data.user.name}!`, 'success');
-                    
-                    // Redirect based on role
-                    setTimeout(() => {
-                        const role = data.user.role || 'customer';
-                        const redirects = {
-                            'customer': '../customer/dashboard.html',
-                            'chef': '../chef/dashboard.html',
-                            'admin': '../admin/dashboard.html',
-                            'waiter': '../waiter/dashboard.html'
-                        };
+                    // Try the configured endpoint first
+                    try {
+                        loginData = await API.post(CONFIG.API_ENDPOINTS.LOGIN, { 
+                            email, 
+                            password
+                        });
+                        loginSuccessful = true;
+                    } catch (firstError) {
+                        console.log('First login attempt failed:', firstError.message);
                         
-                        window.location.href = redirects[role] || '../customer/dashboard.html';
-                    }, 1500);
+                        // Try alternative endpoint pattern
+                        try {
+                            loginData = await API.post('/api/auth/login', { 
+                                email, 
+                                password
+                            });
+                            loginSuccessful = true;
+                        } catch (secondError) {
+                            console.log('Second login attempt failed:', secondError.message);
+                            throw firstError; // Throw the original error
+                        }
+                    }
+                    
+                    if (loginSuccessful) {
+                        console.log('Login successful:', loginData);
+                        
+                        // Store user data
+                        localStorage.setItem('token', loginData.token || loginData.accessToken);
+                        localStorage.setItem('user', JSON.stringify(loginData.user || loginData));
+                        
+                        if (rememberMe) {
+                            localStorage.setItem('rememberedEmail', email);
+                        } else {
+                            localStorage.removeItem('rememberedEmail');
+                        }
+                        
+                        Toast.show(`Welcome back, ${loginData.user?.firstName || loginData.user?.name || 'User'}!`, 'success');
+                        
+                        // Redirect based on role
+                        setTimeout(() => {
+                            const role = (loginData.user?.role || loginData.role || 'customer').toLowerCase();
+                            const redirects = {
+                                'customer': '../customer/dashboard.html',
+                                'chef': '../chef/dashboard.html',
+                                'admin': '../admin/dashboard.html',
+                                'waiter': '../waiter/dashboard.html',
+                                'user': '../customer/dashboard.html'
+                            };
+                            
+                            window.location.href = redirects[role] || '../customer/dashboard.html';
+                        }, 1500);
+                    }
                     
                 } catch (error) {
                     console.error('Login error:', error);
@@ -1011,14 +1104,13 @@
                     let errorMessage = error.message;
                     
                     if (errorMessage.includes('Failed to fetch') || errorMessage.includes('network')) {
-                        errorMessage = 'Unable to connect to server. Please check:\n\n1. Your internet connection\n2. If the server is running\n3. Try again in a few minutes';
-                        updateConnectionStatus('offline', 'Connection failed');
-                    } else if (errorMessage.includes('500') || errorMessage.includes('Server error')) {
-                        errorMessage = 'Server error. The backend may be experiencing issues.\n\nPlease try:\n1. Waiting a few minutes\n2. Contacting support\n3. Using demo accounts for testing';
-                    } else if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
+                        errorMessage = 'Unable to connect to server. Please check your internet connection.';
+                    } else if (errorMessage.includes('500')) {
+                        errorMessage = 'Server error. This might be due to:\n1. Database connection issues\n2. Server maintenance\n3. Temporary outage\n\nPlease try again in a few minutes.';
+                    } else if (errorMessage.includes('401') || errorMessage.includes('Invalid')) {
                         errorMessage = 'Invalid email or password. Please try again.';
                     } else if (errorMessage.includes('404')) {
-                        errorMessage = 'Account not found. Please check your email or register.';
+                        errorMessage = 'Login service not found. Please contact support.';
                     }
                     
                     // Show error in form
@@ -1032,7 +1124,7 @@
                     isSubmitting = false;
                     btnText.textContent = 'Login';
                     spinner.classList.add('d-none');
-                    updateLoginButtonState();
+                    updateButtonStates();
                     Loading.hide();
                 }
             });
@@ -1048,6 +1140,13 @@
                 // Check connection first
                 if (connectionStatus === 'offline') {
                     Toast.show('Cannot register while offline. Please check your connection.', 'error');
+                    return;
+                }
+                
+                // Check if register endpoint is available
+                const status = connectionManager ? connectionManager.getStatus() : null;
+                if (status && status.endpointsAvailable && !status.endpointsAvailable.register) {
+                    Toast.show('Registration service is currently unavailable. Please try again later.', 'error');
                     return;
                 }
                 
@@ -1081,46 +1180,75 @@
                 isSubmitting = true;
                 btnText.textContent = 'Creating account...';
                 spinner.classList.remove('d-none');
-                updateLoginButtonState();
+                updateButtonStates();
                 
                 try {
                     Loading.show('Creating your account...');
                     
-                    const data = await API.post(CONFIG.API_ENDPOINTS.REGISTER, {
-                        firstName,
-                        lastName,
-                        email,
-                        phone,
-                        password,
-                        confirmPassword,
-                        role: 'customer' // Default role
-                    });
+                    // Try different endpoint patterns
+                    let registerSuccessful = false;
+                    let registerData = null;
                     
-                    console.log('Registration successful:', data);
-                    
-                    // Auto login after registration
-                    localStorage.setItem('token', data.token);
-                    localStorage.setItem('user', JSON.stringify(data.user));
-                    
-                    Toast.show(`Welcome ${data.user.firstName}! Account created successfully.`, 'success');
-                    
-                    // Switch to login tab with credentials filled
-                    setTimeout(() => {
-                        const loginTab = new bootstrap.Tab(document.getElementById('login-tab'));
-                        loginTab.show();
+                    try {
+                        registerData = await API.post(CONFIG.API_ENDPOINTS.REGISTER, {
+                            firstName,
+                            lastName,
+                            email,
+                            phone,
+                            password,
+                            role: 'customer'
+                        });
+                        registerSuccessful = true;
+                    } catch (firstError) {
+                        console.log('First register attempt failed:', firstError.message);
                         
-                        document.getElementById('loginEmail').value = email;
-                        document.getElementById('loginPassword').value = password;
+                        try {
+                            registerData = await API.post('/api/auth/register', {
+                                firstName,
+                                lastName,
+                                email,
+                                phone,
+                                password,
+                                role: 'customer'
+                            });
+                            registerSuccessful = true;
+                        } catch (secondError) {
+                            console.log('Second register attempt failed:', secondError.message);
+                            throw firstError;
+                        }
+                    }
+                    
+                    if (registerSuccessful) {
+                        console.log('Registration successful:', registerData);
                         
-                        // Reset register form
-                        document.getElementById('registerForm').reset();
-                        document.getElementById('passwordStrength').style.display = 'none';
-                        
-                        // Auto-submit login form
-                        setTimeout(() => {
-                            document.getElementById('loginForm').dispatchEvent(new Event('submit'));
-                        }, 500);
-                    }, 2000);
+                        // Auto login after registration
+                        if (registerData.token || registerData.accessToken) {
+                            localStorage.setItem('token', registerData.token || registerData.accessToken);
+                            localStorage.setItem('user', JSON.stringify(registerData.user || registerData));
+                            
+                            Toast.show(`Welcome ${firstName}! Account created successfully.`, 'success');
+                            
+                            // Redirect to customer dashboard
+                            setTimeout(() => {
+                                window.location.href = '../customer/dashboard.html';
+                            }, 1500);
+                        } else {
+                            // If no auto-login, show success and switch to login tab
+                            Toast.show(`Welcome ${firstName}! Account created. Please login.`, 'success');
+                            
+                            setTimeout(() => {
+                                const loginTab = new bootstrap.Tab(document.getElementById('login-tab'));
+                                loginTab.show();
+                                
+                                document.getElementById('loginEmail').value = email;
+                                document.getElementById('loginPassword').value = password;
+                                
+                                // Reset register form
+                                document.getElementById('registerForm').reset();
+                                document.getElementById('passwordStrength').style.display = 'none';
+                            }, 2000);
+                        }
+                    }
                     
                 } catch (error) {
                     console.error('Registration error:', error);
@@ -1129,12 +1257,14 @@
                     
                     if (errorMessage.includes('Failed to fetch') || errorMessage.includes('network')) {
                         errorMessage = 'Unable to connect to server. Please check your internet connection.';
-                    } else if (errorMessage.includes('409') || errorMessage.includes('Conflict')) {
+                    } else if (errorMessage.includes('409') || errorMessage.includes('Conflict') || errorMessage.includes('already')) {
                         errorMessage = 'Email already registered. Please login instead.';
                     } else if (errorMessage.includes('400')) {
                         errorMessage = 'Invalid registration data. Please check all fields.';
                     } else if (errorMessage.includes('500')) {
                         errorMessage = 'Server error during registration. Please try again later.';
+                    } else if (errorMessage.includes('404')) {
+                        errorMessage = 'Registration service not found. Please contact support.';
                     }
                     
                     Toast.show(errorMessage, 'error');
@@ -1142,7 +1272,7 @@
                     isSubmitting = false;
                     btnText.textContent = 'Register';
                     spinner.classList.add('d-none');
-                    updateLoginButtonState();
+                    updateButtonStates();
                     Loading.hide();
                 }
             });
@@ -1167,7 +1297,12 @@
                 try {
                     Loading.show('Sending reset link...');
                     
-                    await API.post(CONFIG.API_ENDPOINTS.FORGOT_PASSWORD, { email });
+                    // Try different endpoint patterns
+                    try {
+                        await API.post(CONFIG.API_ENDPOINTS.FORGOT_PASSWORD, { email });
+                    } catch (firstError) {
+                        await API.post('/api/auth/forgot-password', { email });
+                    }
                     
                     Toast.show('If this email exists, you will receive a password reset link shortly.', 'success');
                 } catch (error) {
