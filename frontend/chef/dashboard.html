@@ -399,25 +399,62 @@
             100% { transform: rotate(360deg); }
         }
         
-        /* Complete Prep button specific styling */
+ /* Force button visibility - NO EXCUSES */
 .btn-complete-prep {
-    background: linear-gradient(135deg, #9b59b6, #8e44ad) !important;
-    color: white !important;
-    border: none !important;
-    padding: 6px 12px !important;
-    font-size: 14px !important;
-    border-radius: 4px !important;
-    min-width: 120px !important;
-    min-height: 32px !important;
     display: inline-block !important;
     visibility: visible !important;
     opacity: 1 !important;
+    position: relative !important;
+    z-index: 1000 !important;
+    background: linear-gradient(135deg, #9b59b6, #8e44ad) !important;
+    color: white !important;
+    border: none !important;
+    padding: 8px 16px !important;
+    font-size: 14px !important;
+    border-radius: 6px !important;
+    min-width: 140px !important;
+    height: 40px !important;
+    box-shadow: 0 4px 10px rgba(155, 89, 182, 0.3) !important;
+    cursor: pointer !important;
+    transition: all 0.3s ease !important;
+    margin: 0 !important;
+    line-height: normal !important;
+    text-align: center !important;
+    white-space: nowrap !important;
 }
 
 .btn-complete-prep:hover {
     background: linear-gradient(135deg, #8e44ad, #732d91) !important;
-    transform: scale(1.05);
-    box-shadow: 0 4px 8px rgba(155, 89, 182, 0.3);
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 15px rgba(155, 89, 182, 0.4) !important;
+}
+
+.btn-complete-prep i {
+    margin-right: 5px !important;
+}
+
+/* Emergency override - makes button impossible to hide */
+.btn-complete-prep[style*="display"] {
+    display: inline-block !important;
+}
+
+.btn-complete-prep[style*="visibility"] {
+    visibility: visible !important;
+}
+
+.btn-complete-prep[style*="opacity"] {
+    opacity: 1 !important;
+}
+
+/* Make sure parent containers don't hide buttons */
+.order-card .d-flex:last-child,
+.order-card .d-flex.justify-content-between:last-child,
+.order-card .mt-auto > div:last-child {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    min-width: 140px !important;
+    flex: 0 0 auto !important;
 }
 
 .btn-download {
@@ -633,13 +670,30 @@
     opacity: 1 !important;
 }
 
-/* Card layout fixes */
+/* ULTIMATE BUTTON VISIBILITY FIX */
 .order-card .card-body {
-    padding: 1rem !important;
-    flex: 1 !important;
     display: flex !important;
     flex-direction: column !important;
+    min-height: 300px !important;
+    position: relative !important;
 }
+
+.order-card .card-body .mt-auto {
+    margin-top: auto !important;
+    min-height: 60px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 10px 0 !important;
+    border-top: 1px solid rgba(0,0,0,0.1) !important;
+    background: white !important;
+    position: sticky !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 100 !important;
+}
+
 
 /* Order items scroll fix */
 .order-items {
@@ -1830,11 +1884,131 @@ setTimeout(() => {
         }, 100);
         
         console.log(`🎨 Rendered ${status} tab to DOM`);
+
+        // FORCE BUTTON VISIBILITY
+    setTimeout(() => {
+        forceButtonVisibility(status);
+    }, 50);
     });
     
     console.log('🏁 [renderOrdersByStatus] COMPLETED');
 }
 
+
+// NEW FUNCTION: Force button visibility
+function forceButtonVisibility(status) {
+    console.log(`🔧 Forcing button visibility for ${status} tab...`);
+    
+    const container = document.getElementById(status + 'OrdersList');
+    if (!container) return;
+    
+    // Find all Complete Prep buttons
+    const buttons = container.querySelectorAll('.btn-complete-prep');
+    console.log(`🔍 Found ${buttons.length} Complete Prep buttons`);
+    
+    buttons.forEach((btn, index) => {
+        console.log(`🔧 Fixing button ${index + 1}:`, {
+            display: btn.style.display,
+            visibility: btn.style.visibility,
+            opacity: btn.style.opacity,
+            parent: btn.parentElement.tagName
+        });
+        
+        // Remove any hiding styles
+        btn.style.display = 'inline-block';
+        btn.style.visibility = 'visible';
+        btn.style.opacity = '1';
+        btn.style.position = 'relative';
+        btn.style.zIndex = '1000';
+        
+        // Add glow effect to make it obvious
+        btn.style.boxShadow = '0 0 15px rgba(155, 89, 182, 0.7)';
+        btn.style.border = '2px solid #fff';
+        
+        // Ensure parent container is visible
+        let parent = btn.parentElement;
+        while (parent && parent !== document.body) {
+            parent.style.display = parent.style.display || 'flex';
+            parent.style.visibility = 'visible';
+            parent.style.opacity = '1';
+            parent = parent.parentElement;
+        }
+        
+        // Log fixed state
+        console.log(`✅ Button ${index + 1} fixed:`, {
+            display: btn.style.display,
+            visibility: btn.style.visibility,
+            opacity: btn.style.opacity
+        });
+    });
+    
+    // Also check for any other hidden buttons
+    const allButtons = container.querySelectorAll('button');
+    allButtons.forEach(btn => {
+        btn.style.display = btn.style.display || 'inline-block';
+        btn.style.visibility = 'visible';
+        btn.style.opacity = '1';
+    });
+    
+    console.log(`✅ Force visibility complete for ${status} tab`);
+}
+
+
+// Add this test function to check if buttons exist
+function testButtonExistence() {
+    console.log('🧪 Testing button existence...');
+    
+    const preparingContainer = document.getElementById('preparingOrdersList');
+    if (!preparingContainer) {
+        console.log('❌ Preparing container not found!');
+        return;
+    }
+    
+    const buttons = preparingContainer.querySelectorAll('.btn-complete-prep');
+    console.log(`Found ${buttons.length} Complete Prep buttons in preparing tab`);
+    
+    buttons.forEach((btn, index) => {
+        console.log(`Button ${index + 1}:`, {
+            exists: !!btn,
+            outerHTML: btn.outerHTML.substring(0, 100) + '...',
+            computedStyle: window.getComputedStyle(btn).display
+        });
+    });
+    
+    // Try to click the first button programmatically
+    if (buttons.length > 0) {
+        const firstButton = buttons[0];
+        console.log('🖱️ First button clickable?', firstButton.getAttribute('onclick'));
+        
+        // Create a test overlay to show button position
+        const rect = firstButton.getBoundingClientRect();
+        console.log('📐 Button position:', rect);
+        
+        // Create a visual indicator
+        const indicator = document.createElement('div');
+        indicator.style.position = 'fixed';
+        indicator.style.top = rect.top + 'px';
+        indicator.style.left = rect.left + 'px';
+        indicator.style.width = rect.width + 'px';
+        indicator.style.height = rect.height + 'px';
+        indicator.style.border = '3px solid red';
+        indicator.style.backgroundColor = 'rgba(255,0,0,0.2)';
+        indicator.style.zIndex = '9999';
+        indicator.style.pointerEvents = 'none';
+        indicator.textContent = 'BUTTON HERE';
+        indicator.style.color = 'white';
+        indicator.style.fontWeight = 'bold';
+        indicator.style.display = 'flex';
+        indicator.style.alignItems = 'center';
+        indicator.style.justifyContent = 'center';
+        document.body.appendChild(indicator);
+        
+        setTimeout(() => indicator.remove(), 3000);
+    }
+}
+
+// Call this after loading orders
+setTimeout(testButtonExistence, 1000);
 // Add these new functions to your JavaScript:
 
 // Update completePreparation() function:
