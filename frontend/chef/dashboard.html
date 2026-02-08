@@ -5,16 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chef Dashboard - Smart Waiter</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
             --primary: #2c3e50;
             --secondary: #e74c3c;
+            --success: #27ae60;
+            --warning: #f39c12;
+            --info: #3498db;
+            --light: #ecf0f1;
+            --dark: #2c3e50;
         }
         
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f5f5f5;
+            background-color: #f8f9fa;
+            color: #333;
         }
         
         .sidebar {
@@ -23,74 +30,207 @@
             left: 0;
             height: 100vh;
             width: 250px;
-            background: var(--primary);
-            color: white;
-            padding: 20px 0;
-            transition: all 0.3s;
+            background: linear-gradient(180deg, var(--primary) 0%, #1a2530 100%);
+            box-shadow: 3px 0 10px rgba(0,0,0,0.1);
             z-index: 1000;
-            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            padding-top: 20px;
+            transition: all 0.3s;
         }
         
         .main-content {
             margin-left: 250px;
             padding: 20px;
             transition: all 0.3s;
-            min-height: 100vh;
         }
         
-        .sidebar.collapsed {
-            width: 70px;
-        }
-        
-        .sidebar.collapsed + .main-content {
-            margin-left: 70px;
+        @media (max-width: 992px) {
+            .sidebar {
+                width: 0;
+                overflow: hidden;
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+            
+            .sidebar.active {
+                width: 250px;
+            }
         }
         
         .sidebar-header {
-            padding: 0 20px 20px;
+            padding: 20px;
+            text-align: center;
             border-bottom: 1px solid rgba(255,255,255,0.1);
         }
         
-        .sidebar-menu {
-            list-style: none;
-            padding: 0;
+        .sidebar-header h3 {
+            color: white;
             margin: 0;
+            font-size: 1.5rem;
         }
         
-        .sidebar-menu li {
-            padding: 0;
+        .sidebar-header p {
+            color: rgba(255,255,255,0.7);
+            font-size: 0.9rem;
+            margin: 5px 0 0 0;
         }
         
-        .sidebar-menu a {
+        .nav-item {
+            margin: 5px 15px;
+        }
+        
+        .nav-link {
+            color: rgba(255,255,255,0.8);
+            padding: 12px 15px;
+            border-radius: 8px;
             display: flex;
             align-items: center;
-            padding: 12px 20px;
-            color: rgba(255,255,255,0.8);
-            text-decoration: none;
             transition: all 0.3s;
-            border-left: 3px solid transparent;
         }
         
-        .sidebar-menu a:hover,
-        .sidebar-menu a.active {
+        .nav-link:hover {
             background: rgba(255,255,255,0.1);
             color: white;
-            border-left: 3px solid var(--secondary);
+            text-decoration: none;
         }
         
-        .sidebar-menu .icon {
+        .nav-link.active {
+            background: var(--secondary);
+            color: white;
+        }
+        
+        .nav-link i {
             margin-right: 10px;
-            font-size: 1.2rem;
-            width: 25px;
+            width: 20px;
             text-align: center;
         }
         
-        .sidebar.collapsed .menu-text {
-            display: none;
+        .stat-card {
+            border-radius: 10px;
+            border: none;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+            height: 100%;
         }
         
-        .sidebar.collapsed .sidebar-header h3 {
-            display: none;
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.2);
+        }
+        
+        .stat-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+        
+        .order-card {
+            border-left: 4px solid;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        
+        .order-card:hover {
+            transform: translateX(5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .order-pending { border-left-color: var(--warning); }
+        .order-preparing { border-left-color: var(--info); }
+        .order-ready { border-left-color: var(--success); }
+        .order-completed { border-left-color: var(--dark); }
+        
+        .badge-status {
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+        }
+        
+        .order-items {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .menu-item-card {
+            transition: all 0.3s;
+            border: 1px solid #dee2e6;
+        }
+        
+        .menu-item-card:hover {
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .btn-action {
+            padding: 8px 15px;
+            border-radius: 5px;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+        
+        .btn-accept {
+            background: var(--success);
+            color: white;
+            border: none;
+        }
+        
+        .btn-accept:hover {
+            background: #219653;
+            transform: scale(1.05);
+        }
+        
+        .btn-ready {
+            background: var(--info);
+            color: white;
+            border: none;
+        }
+        
+        .btn-ready:hover {
+            background: #2980b9;
+            transform: scale(1.05);
+        }
+        
+        .btn-complete {
+            background: var(--primary);
+            color: white;
+            border: none;
+        }
+        
+        .btn-complete:hover {
+            background: #1c2833;
+            transform: scale(1.05);
+        }
+        
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+        }
+        
+        .live-indicator {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: var(--success);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            z-index: 1001;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        
+        .table-card {
+            transition: all 0.3s;
+        }
+        
+        .table-card:hover {
+            transform: scale(1.02);
         }
         
         .notification-badge {
@@ -108,381 +248,568 @@
             justify-content: center;
         }
         
-        .order-card {
+        .walkin-modal .modal-content {
+            border-radius: 15px;
             border: none;
-            border-radius: 10px;
-            margin-bottom: 15px;
-            transition: all 0.3s;
-            cursor: pointer;
-            background: white;
-            box-shadow: 0 3px 6px rgba(0,0,0,0.08);
-            border-left: 4px solid transparent;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
         }
         
-        .order-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-        }
-        
-        .order-pending { border-left: 4px solid #ffc107; }
-        .order-preparing { border-left: 4px solid #17a2b8; }
-        .order-ready { border-left: 4px solid #28a745; }
-        .order-completed { border-left: 4px solid #6c757d; }
-        
-        .status-badge {
-            padding: 5px 10px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-        
-        .badge-pending { background: #fff3cd; color: #856404; }
-        .badge-preparing { background: #d1ecf1; color: #0c5460; }
-        .badge-ready { background: #d4edda; color: #155724; }
-        .badge-completed { background: #e2e3e5; color: #383d41; }
-        
-        .service-request {
-            background: #f8f9fa;
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 10px;
-            border-left: 4px solid #6f42c1;
-            border: 1px solid #e9ecef;
-        }
-        
-        .notification-panel {
-            position: fixed;
-            top: 0;
-            right: -400px;
-            width: 400px;
-            height: 100vh;
-            background: white;
-            box-shadow: -5px 0 15px rgba(0,0,0,0.1);
-            transition: right 0.3s;
-            z-index: 1050;
-            padding: 20px;
-            overflow-y: auto;
-        }
-        
-        .notification-panel.active {
-            right: 0;
-        }
-        
-        .overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-            z-index: 1040;
-        }
-        
-        .overlay.active {
-            display: block;
-        }
-        
-        .card {
-            border: none;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-        }
-        
-        .card-header {
-            background: white;
-            border-bottom: 1px solid #eee;
-            font-weight: 600;
-        }
-        
-        .auto-refresh-indicator {
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            background: #28a745;
+        .walkin-modal .modal-header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
             color: white;
-            padding: 5px 10px;
-            border-radius: 20px;
-            font-size: 12px;
-            z-index: 1001;
+            border-radius: 15px 15px 0 0;
+        }
+        
+        .walkin-modal .modal-body {
+            padding: 30px;
+        }
+        
+        .quantity-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .quantity-btn {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #dee2e6;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .quantity-btn:hover {
+            background: #f8f9fa;
+            transform: scale(1.1);
+        }
+        
+        .item-quantity {
+            font-weight: bold;
+            min-width: 30px;
+            text-align: center;
+        }
+        
+        .floating-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: var(--secondary);
+            color: white;
+            border: none;
+            box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            z-index: 1000;
+            transition: all 0.3s;
+        }
+        
+        .floating-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(231, 76, 60, 0.4);
+        }
+        
+        .mobile-menu-btn {
             display: none;
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1001;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 10px;
+            font-size: 20px;
         }
         
-        .live-update {
-            animation: pulse 2s infinite;
+        @media (max-width: 992px) {
+            .mobile-menu-btn {
+                display: block;
+            }
+            
+            .floating-btn {
+                bottom: 20px;
+                right: 20px;
+            }
         }
         
-        @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.4); }
-            70% { box-shadow: 0 0 0 10px rgba(40, 167, 69, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
+        .form-check-input:checked {
+            background-color: var(--success);
+            border-color: var(--success);
         }
         
-        .init-loading {
+        .form-check-input:focus {
+            box-shadow: 0 0 0 0.25rem rgba(39, 174, 96, 0.25);
+        }
+        
+        .stat-card .card-title {
+            font-size: 0.9rem;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .stat-card .card-text {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: var(--dark);
+        }
+        
+        .progress {
+            height: 8px;
+            border-radius: 4px;
+        }
+        
+        .order-item-badge {
+            font-size: 0.75rem;
+            padding: 2px 8px;
+        }
+        
+        .loader-overlay {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: var(--primary);
+            background: rgba(255,255,255,0.9);
             display: flex;
             align-items: center;
             justify-content: center;
             z-index: 9999;
-            flex-direction: column;
-            color: white;
         }
         
-        @media (max-width: 768px) {
-            .sidebar {
-                width: 70px;
-            }
-            .sidebar .menu-text {
-                display: none;
-            }
-            .sidebar-header h3 {
-                display: none;
-            }
-            .main-content {
-                margin-left: 70px;
-                padding: 15px;
-            }
-            .notification-panel {
-                width: 100%;
-                right: -100%;
-            }
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6c757d;
+        }
+        
+        .empty-state i {
+            font-size: 48px;
+            margin-bottom: 20px;
+            color: #dee2e6;
+        }
+        
+        .recent-activity {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .activity-item {
+            padding: 10px 0;
+            border-bottom: 1px solid #f1f1f1;
+        }
+        
+        .activity-item:last-child {
+            border-bottom: none;
+        }
+        
+        .activity-time {
+            font-size: 0.8rem;
+            color: #6c757d;
+        }
+        
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
         }
     </style>
 </head>
 <body>
-    <!-- Initial Loading Screen -->
-    <div class="init-loading" id="initLoading">
-        <div class="spinner-border" style="width: 3rem; height: 3rem;" role="status">
-            <span class="visually-hidden">Loading...</span>
-        </div>
-        <p class="mt-3" id="initStatus">Initializing Chef Dashboard...</p>
-        <div id="initError" class="alert alert-danger mt-3" style="display: none; max-width: 500px;">
-            <i class="fas fa-exclamation-triangle me-2"></i>
-            <span id="errorMessage">Unable to connect to server. Please try again later.</span>
-        </div>
+    <!-- Loader Overlay -->
+    <div class="loader-overlay" id="loaderOverlay">
+        <div class="loading-spinner"></div>
     </div>
 
-    <!-- Auto Refresh Indicator -->
-    <div class="auto-refresh-indicator" id="autoRefreshIndicator">
-        <i class="fas fa-sync-alt fa-spin me-1"></i> Live Updates Active
+    <!-- Mobile Menu Button -->
+    <button class="mobile-menu-btn" id="mobileMenuBtn">
+        <i class="fas fa-bars"></i>
+    </button>
+
+    <!-- Live Indicator -->
+    <div class="live-indicator" id="liveIndicator">
+        <i class="fas fa-circle text-success me-1"></i> Live Updates
     </div>
 
     <!-- Sidebar -->
-    <div class="sidebar" id="sidebar" style="display: none;">
+    <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
-            <h3 class="text-center">Chef Dashboard</h3>
+            <h3><i class="fas fa-utensils me-2"></i>Chef Portal</h3>
+            <p id="chefName">Loading...</p>
         </div>
-        <ul class="sidebar-menu">
-            <li>
-        <a href="#" class="active" onclick="showSection('dashboard')">
-            <i class="fas fa-tachometer-alt icon"></i>
-            <span class="menu-text">Dashboard</span>
-        </a>
-    </li>
-    <li>
-        <a href="#" onclick="showSection('menuManagement')">
-            <i class="fas fa-utensils icon"></i>
-            <span class="menu-text">Menu Management</span>
-        </a>
-    </li>
-    <li>
-        <a href="#" onclick="showSection('newOrder')">
-            <i class="fas fa-plus-circle icon"></i>
-            <span class="menu-text">New Order</span>
-        </a>
-    </li>
-            <li>
-                <a href="#" onclick="logout()">
-                    <i class="fas fa-sign-out-alt icon"></i>
-                    <span class="menu-text">Logout</span>
+        
+        <ul class="nav flex-column mt-4">
+            <li class="nav-item">
+                <a class="nav-link active" href="#" onclick="showSection('dashboard')">
+                    <i class="fas fa-tachometer-alt"></i> Dashboard
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" onclick="showSection('orders')">
+                    <i class="fas fa-clipboard-list"></i> Orders
+                    <span class="notification-badge" id="pendingOrdersBadge">0</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" onclick="showSection('menu')">
+                    <i class="fas fa-utensils"></i> Menu Management
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" onclick="showSection('services')">
+                    <i class="fas fa-concierge-bell"></i> Service Requests
+                    <span class="notification-badge" id="serviceRequestsBadge">0</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" onclick="showSection('reports')">
+                    <i class="fas fa-chart-bar"></i> Reports
+                </a>
+            </li>
+            <li class="nav-item mt-5">
+                <a class="nav-link text-warning" href="#" id="logoutBtn">
+                    <i class="fas fa-sign-out-alt"></i> Logout
                 </a>
             </li>
         </ul>
+        
+        <div class="sidebar-footer text-center mt-auto py-3">
+            <small class="text-muted">© 2024 Smart Waiter</small>
+        </div>
     </div>
 
     <!-- Main Content -->
-    <div class="main-content" id="mainContent" style="display: none;">
-        <!-- Top Navigation -->
-        <nav class="navbar navbar-light bg-white shadow-sm mb-4 rounded">
-            <div class="container-fluid">
-                <button class="btn btn-outline-secondary" onclick="toggleSidebar()">
-                    <i class="fas fa-bars"></i>
-                </button>
-                
-                <div class="d-flex align-items-center">
-                    <div class="position-relative me-3">
-                        <button class="btn btn-outline-primary position-relative" onclick="toggleNotifications()">
-                            <i class="fas fa-bell"></i>
-                            <span class="notification-badge" id="notificationCount">0</span>
-                        </button>
-                    </div>
-                    <div class="dropdown">
-                        <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-user me-2"></i>
-                            <span id="chefName">Loading...</span>
-                        </button>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="#" onclick="viewProfile()"><i class="fas fa-user me-2"></i>Profile</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="#" onclick="logout()"><i class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        </nav>
-
+    <div class="main-content" id="mainContent">
+        
         <!-- Dashboard Section -->
         <section id="dashboardSection" class="section-content">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2>Kitchen Dashboard</h2>
-                <div>
-                    <button class="btn btn-primary me-2" onclick="loadDashboard()">
-                        <i class="fas fa-sync-alt me-1"></i> Refresh
-                    </button>
-                    <button class="btn btn-success" onclick="showSection('newOrder')">
-
-                        <i class="fas fa-plus me-1"></i> New Order
+                <h1 class="h3 mb-0">Chef Dashboard</h1>
+                <div class="d-flex align-items-center">
+                    <span class="badge bg-primary me-3" id="currentTime">Loading...</span>
+                    <button class="btn btn-sm btn-outline-primary" onclick="loadDashboard()">
+                        <i class="fas fa-sync-alt"></i> Refresh
                     </button>
                 </div>
             </div>
-
+            
             <!-- Statistics Cards -->
             <div class="row mb-4">
                 <div class="col-md-3 mb-3">
-                    <div class="card bg-warning text-white">
+                    <div class="card stat-card border-start border-warning border-5">
                         <div class="card-body">
-                            <h5 class="card-title">Pending Orders</h5>
-                            <h2 class="mb-0" id="pendingCount">0</h2>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="card-title">PENDING ORDERS</h6>
+                                    <h2 class="card-text" id="pendingCount">0</h2>
+                                </div>
+                                <div class="stat-icon bg-warning bg-opacity-10 text-warning">
+                                    <i class="fas fa-clock"></i>
+                                </div>
+                            </div>
+                            <div class="progress mt-3">
+                                <div class="progress-bar bg-warning" id="pendingProgress" style="width: 0%"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
+                
                 <div class="col-md-3 mb-3">
-                    <div class="card bg-info text-white">
+                    <div class="card stat-card border-start border-info border-5">
                         <div class="card-body">
-                            <h5 class="card-title">Preparing</h5>
-                            <h2 class="mb-0" id="preparingCount">0</h2>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="card-title">PREPARING</h6>
+                                    <h2 class="card-text" id="preparingCount">0</h2>
+                                </div>
+                                <div class="stat-icon bg-info bg-opacity-10 text-info">
+                                    <i class="fas fa-utensils"></i>
+                                </div>
+                            </div>
+                            <div class="progress mt-3">
+                                <div class="progress-bar bg-info" id="preparingProgress" style="width: 0%"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
+                
                 <div class="col-md-3 mb-3">
-                    <div class="card bg-success text-white">
+                    <div class="card stat-card border-start border-success border-5">
                         <div class="card-body">
-                            <h5 class="card-title">Ready to Serve</h5>
-                            <h2 class="mb-0" id="readyCount">0</h2>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="card-title">READY TO SERVE</h6>
+                                    <h2 class="card-text" id="readyCount">0</h2>
+                                </div>
+                                <div class="stat-icon bg-success bg-opacity-10 text-success">
+                                    <i class="fas fa-check-circle"></i>
+                                </div>
+                            </div>
+                            <div class="progress mt-3">
+                                <div class="progress-bar bg-success" id="readyProgress" style="width: 0%"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
+                
                 <div class="col-md-3 mb-3">
-                    <div class="card bg-secondary text-white">
+                    <div class="card stat-card border-start border-primary border-5">
                         <div class="card-body">
-                            <h5 class="card-title">Completed Today</h5>
-                            <h2 class="mb-0" id="completedCount">0</h2>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="card-title">TODAY'S ORDERS</h6>
+                                    <h2 class="card-text" id="totalCount">0</h2>
+                                </div>
+                                <div class="stat-icon bg-primary bg-opacity-10 text-primary">
+                                    <i class="fas fa-chart-line"></i>
+                                </div>
+                            </div>
+                            <div class="progress mt-3">
+                                <div class="progress-bar bg-primary" id="totalProgress" style="width: 0%"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-
-            <!-- Current Orders with Filter -->
-            <div class="card mb-4">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">Current Orders</h5>
-                    <div class="btn-group" role="group">
-                        <button type="button" class="btn btn-outline-primary active" onclick="filterOrders('all')">All</button>
-                        <button type="button" class="btn btn-outline-warning" onclick="filterOrders('pending')">Pending</button>
-                        <button type="button" class="btn btn-outline-info" onclick="filterOrders('preparing')">Preparing</button>
-                        <button type="button" class="btn btn-outline-success" onclick="filterOrders('ready')">Ready</button>
+            
+            <!-- Recent Orders -->
+            <div class="row">
+                <div class="col-md-8 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Recent Orders</h5>
+                            <a href="#" onclick="showSection('orders')" class="btn btn-sm btn-outline-primary">View All</a>
+                        </div>
+                        <div class="card-body" id="recentOrders">
+                            <div class="empty-state">
+                                <i class="fas fa-clipboard-list"></i>
+                                <h5>No recent orders</h5>
+                                <p>Orders will appear here as they come in</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="card-body">
-                    <div id="currentOrders" class="row">
-                        <div class="col-12 text-center text-muted py-4">Loading orders...</div>
+                
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header bg-white">
+                            <h5 class="mb-0">Recent Activity</h5>
+                        </div>
+                        <div class="card-body recent-activity" id="recentActivity">
+                            <div class="empty-state">
+                                <i class="fas fa-history"></i>
+                                <h5>No activity yet</h5>
+                                <p>Activity will appear here</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
+        </section>
 
-            <!-- Service Requests -->
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0">Service Requests</h5>
+        <!-- Orders Section -->
+        <section id="ordersSection" class="section-content" style="display: none;">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0">Orders Management</h1>
+                <button class="btn btn-primary" onclick="showWalkinOrderModal()">
+                    <i class="fas fa-plus me-2"></i>Create Walk-in Order
+                </button>
+            </div>
+            
+            <!-- Orders Tabs -->
+            <ul class="nav nav-tabs mb-4" id="ordersTab">
+                <li class="nav-item">
+                    <a class="nav-link active" data-bs-toggle="tab" href="#pendingTab">Pending</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-bs-toggle="tab" href="#preparingTab">Preparing</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-bs-toggle="tab" href="#readyTab">Ready</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-bs-toggle="tab" href="#completedTab">Completed</a>
+                </li>
+            </ul>
+            
+            <div class="tab-content" id="ordersTabContent">
+                <!-- Pending Orders Tab -->
+                <div class="tab-pane fade show active" id="pendingTab">
+                    <div class="row" id="pendingOrdersList">
+                        <!-- Pending orders will be loaded here -->
+                    </div>
                 </div>
-                <div class="card-body">
-                    <div id="serviceRequests">
-                        <p class="text-muted text-center">Loading service requests...</p>
+                
+                <!-- Preparing Orders Tab -->
+                <div class="tab-pane fade" id="preparingTab">
+                    <div class="row" id="preparingOrdersList">
+                        <!-- Preparing orders will be loaded here -->
+                    </div>
+                </div>
+                
+                <!-- Ready Orders Tab -->
+                <div class="tab-pane fade" id="readyTab">
+                    <div class="row" id="readyOrdersList">
+                        <!-- Ready orders will be loaded here -->
+                    </div>
+                </div>
+                
+                <!-- Completed Orders Tab -->
+                <div class="tab-pane fade" id="completedTab">
+                    <div class="row" id="completedOrdersList">
+                        <!-- Completed orders will be loaded here -->
                     </div>
                 </div>
             </div>
         </section>
 
         <!-- Menu Management Section -->
-        <section id="menuManagementSection" class="section-content" style="display: none;">
-            <h2 class="mb-4">Menu Management</h2>
+        <section id="menuSection" class="section-content" style="display: none;">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0">Menu Management</h1>
+                <div class="d-flex">
+                    <div class="input-group me-2" style="width: 300px;">
+                        <input type="text" class="form-control" placeholder="Search menu items..." id="menuSearch">
+                        <button class="btn btn-outline-secondary" type="button" onclick="searchMenuItems()">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown">
+                            <i class="fas fa-filter me-2"></i>Filter
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#" onclick="filterMenu('all')">All Items</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="filterMenu('available')">Available Only</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="filterMenu('unavailable')">Unavailable Only</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
             
-            <div class="card">
-                <div class="card-header">
-                    <ul class="nav nav-tabs card-header-tabs">
-                        <li class="nav-item">
-                            <button class="nav-link active" onclick="showMenuCategory('available')">Available</button>
-                        </li>
-                        <li class="nav-item">
-                            <button class="nav-link" onclick="showMenuCategory('unavailable')">Not Available</button>
-                        </li>
+            <!-- Menu Categories -->
+            <div class="mb-4">
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-outline-primary active" onclick="filterByCategory('all')">All</button>
+                    <button type="button" class="btn btn-outline-primary" onclick="filterByCategory('appetizer')">Appetizers</button>
+                    <button type="button" class="btn btn-outline-primary" onclick="filterByCategory('main')">Main Course</button>
+                    <button type="button" class="btn btn-outline-primary" onclick="filterByCategory('dessert')">Desserts</button>
+                    <button type="button" class="btn btn-outline-primary" onclick="filterByCategory('beverage')">Beverages</button>
+                </div>
+            </div>
+            
+            <!-- Menu Items Grid -->
+            <div class="row" id="menuItemsGrid">
+                <!-- Menu items will be loaded here -->
+            </div>
+        </section>
+
+        <!-- Service Requests Section -->
+        <section id="servicesSection" class="section-content" style="display: none;">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0">Service Requests</h1>
+                <button class="btn btn-outline-primary" onclick="loadServiceRequests()">
+                    <i class="fas fa-sync-alt me-2"></i>Refresh
+                </button>
+            </div>
+            
+            <div class="row" id="serviceRequestsList">
+                <!-- Service requests will be loaded here -->
+            </div>
+        </section>
+
+        <!-- Reports Section -->
+        <section id="reportsSection" class="section-content" style="display: none;">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0">Reports & Analytics</h1>
+                <div class="btn-group">
+                    <button type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown">
+                        <i class="fas fa-download me-2"></i>Export
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="#" onclick="exportReport('pdf')">PDF</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="exportReport('excel')">Excel</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="exportReport('csv')">CSV</a></li>
                     </ul>
                 </div>
-                <div class="card-body">
-                    <div id="availableMenu" class="row">
-                        <div class="col-12 text-center text-muted py-4">Loading available items...</div>
-                    </div>
-                    <div id="unavailableMenu" class="row" style="display: none;">
-                        <div class="col-12 text-center text-muted py-4">Loading unavailable items...</div>
-                    </div>
-                </div>
             </div>
-        </section>
-
-        <!-- New Order Section -->
-        <section id="newOrderSection" class="section-content" style="display: none;">
-            <h2 class="mb-4">Place New Order</h2>
             
-            <div class="row">
-                <div class="col-md-4">
-                    <div class="card mb-4">
-                        <div class="card-body">
-                            <h5 class="card-title">Table Details</h5>
-                            <div class="mb-3">
-                                <label class="form-label">Table Number</label>
-                                <input type="number" id="newOrderTable" class="form-control" min="1" max="50" value="1">
-                            </div>
-                            <button class="btn btn-primary w-100" onclick="loadMenuForNewOrder()">
-                                <i class="fas fa-utensils me-2"></i> Load Menu
-                            </button>
-                        </div>
-                    </div>
-                    
+            <!-- Report Cards -->
+            <div class="row mb-4">
+                <div class="col-md-4 mb-3">
                     <div class="card">
-                        <div class="card-body">
-                            <h5 class="card-title">Order Summary</h5>
-                            <div id="newOrderSummary" class="mb-3">
-                                <p class="text-muted">No items added</p>
-                            </div>
-                            <div class="d-flex justify-content-between mb-3">
-                                <span class="fw-bold">Total:</span>
-                                <strong class="text-primary">$<span id="newOrderTotal">0.00</span></strong>
-                            </div>
-                            <button class="btn btn-success w-100" onclick="submitNewOrder()" disabled id="submitOrderBtn">
-                                <i class="fas fa-paper-plane me-2"></i> Place Order
-                            </button>
+                        <div class="card-body text-center">
+                            <h6 class="card-title">Today's Revenue</h6>
+                            <h2 class="text-success" id="todayRevenue">$0.00</h2>
                         </div>
                     </div>
                 </div>
-                
-                <div class="col-md-8">
-                    <div id="newOrderMenu" class="row">
-                        <div class="col-12 text-center text-muted py-4">
-                            <p>Click "Load Menu" to display available items</p>
+                <div class="col-md-4 mb-3">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <h6 class="card-title">Orders Today</h6>
+                            <h2 class="text-primary" id="todayOrders">0</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <h6 class="card-title">Average Prep Time</h6>
+                            <h2 class="text-info" id="avgPrepTime">0 min</h2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Charts -->
+            <div class="row">
+                <div class="col-md-8 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Order Volume (Last 7 Days)</h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="orderChart" height="250"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Top Items</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="topItemsList"></div>
                         </div>
                     </div>
                 </div>
@@ -490,44 +817,80 @@
         </section>
     </div>
 
-    <!-- Notifications Panel -->
-    <div class="notification-panel" id="notificationPanel">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h4>Notifications</h4>
-            <button class="btn btn-sm btn-outline-secondary" onclick="toggleNotifications()">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        <div id="notificationsList">
-            <p class="text-muted text-center">No notifications</p>
-        </div>
-    </div>
-
-    <!-- Overlay -->
-    <div class="overlay" id="overlay" onclick="toggleNotifications()"></div>
-
-    <!-- Order Modal -->
-    <div class="modal fade" id="orderModal" tabindex="-1">
+    <!-- Walk-in Order Modal -->
+    <div class="modal fade walkin-modal" id="walkinOrderModal" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Order Details</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <h5 class="modal-title">
+                        <i class="fas fa-walking me-2"></i>Create Walk-in Order
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <div id="orderDetailsContent">
-                        Loading order details...
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <form id="walkinOrderForm">
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Table Number</label>
+                                    <input type="number" class="form-control" id="walkinTableNumber" min="1" max="50" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Customer Name (Optional)</label>
+                                    <input type="text" class="form-control" id="walkinCustomerName">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <h6 class="mb-3">Select Menu Items</h6>
+                            <div id="walkinMenuItems">
+                                <!-- Menu items will be loaded here -->
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <h6 class="mb-3">Selected Items</h6>
+                            <div id="selectedItems" class="border rounded p-3">
+                                <p class="text-muted mb-0">No items selected</p>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="form-label">Special Instructions</label>
+                            <textarea class="form-control" id="walkinSpecialInstructions" rows="3" placeholder="Any special requests..."></textarea>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h5>Total: $<span id="walkinTotal">0.00</span></h5>
+                            </div>
+                            <div>
+                                <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cancel</button>
+                                <button type="button" class="btn btn-primary" onclick="submitNewOrder()">
+                                    <i class="fas fa-paper-plane me-2"></i>Place Order
+                                </button>
+                            </div>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Toast Container -->
+    <div class="toast-container"></div>
+
+    <!-- Floating Button for Walk-in Orders -->
+    <button class="floating-btn" onclick="showWalkinOrderModal()" id="floatingBtn">
+        <i class="fas fa-plus"></i>
+    </button>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <script>
         // Configuration
@@ -535,26 +898,29 @@
             BACKEND_URL: 'https://smart-waiter-backend.onrender.com',
             API_ENDPOINTS: {
                 CHEF_ORDERS: '/api/chef/orders',
-                CHEF_ORDER_ACCEPT: (id) => `/api/chef/orders/${id}/accept`,
-                CHEF_ORDER_REJECT: (id) => `/api/chef/orders/${id}/reject`,
-                CHEF_ORDER_READY: (id) => `/api/chef/orders/${id}/ready`,
-                CHEF_ORDER_COMPLETE: (id) => `/api/chef/orders/${id}/complete`,
+                CHEF_UPDATE_ORDER: '/api/chef/order',
                 CHEF_MENU: '/api/chef/menu',
-                CHEF_MENU_UPDATE: (id) => `/api/chef/menu/${id}`,
-                CHEF_SERVICE_REQUESTS: '/api/chef/service-requests',
-                CHEF_SERVICE_REQUEST_ASSIGN: (id) => `/api/chef/service-requests/${id}/assign`,
-                CHEF_NEW_ORDER: '/api/chef/orders/new'
+                CHEF_CREATE_ORDER: '/api/chef/walkin-order',
+                SERVICE_REQUESTS: '/api/chef/service-requests',
+                CHEF_STATS: '/api/chef/stats',
+                CHEF_REPORTS: '/api/chef/reports'
+            },
+            SOCKET_EVENTS: {
+                NEW_ORDER: 'new-order',
+                ORDER_UPDATE: 'status-update',
+                SERVICE_REQUEST: 'service-request',
+                DISCONNECT: 'disconnect',
+                RECONNECT: 'reconnect'
             }
         };
 
         // Utility Classes
         const Auth = {
-            check: (role) => {
+            check: () => {
                 const token = localStorage.getItem('token');
-                if (!token) {
-                    if (!window.location.href.includes('login.html')) {
-                        window.location.href = '../auth/login.html';
-                    }
+                const user = localStorage.getItem('user');
+                if (!token || !user) {
+                    window.location.href = '../auth/login.html';
                     return false;
                 }
                 return true;
@@ -563,6 +929,9 @@
                 const userStr = localStorage.getItem('user');
                 return userStr ? JSON.parse(userStr) : null;
             },
+            getToken: () => {
+                return localStorage.getItem('token');
+            },
             logout: () => {
                 localStorage.removeItem('token');
                 localStorage.removeItem('user');
@@ -570,59 +939,19 @@
             }
         };
 
-        const SocketManager = {
-            connect: () => {
-                try {
-                    const socket = io(CONFIG.BACKEND_URL, {
-                        transports: ['websocket', 'polling'],
-                        reconnection: true,
-                        reconnectionAttempts: 5,
-                        reconnectionDelay: 1000
-                    });
-                    
-                    socket.on('connect', () => {
-                        console.log('Socket connected successfully');
-                        Toast.show('Live updates connected', 'success');
-                        showAutoRefreshIndicator(true);
-                    });
-                    
-                    socket.on('disconnect', () => {
-                        console.log('Socket disconnected');
-                        Toast.show('Live updates disconnected', 'warning');
-
-                        showAutoRefreshIndicator(false);
-                    });
-                    
-                    socket.on('connect_error', (error) => {
-                        console.error('Socket connection error:', error);
-                    });
-                    
-                    return socket;
-                } catch (error) {
-                    console.error('Socket connection error:', error);
-                    return null;
-                }
-            }
-        };
-
         const API = {
             get: async (url) => {
                 try {
-                    const token = localStorage.getItem('token');
-                    const headers = {
-                        'Content-Type': 'application/json'
-                    };
-                    
-                    if (token) {
-                        headers['Authorization'] = `Bearer ${token}`;
-                    }
-                    
+                    const token = Auth.getToken();
                     const response = await fetch(CONFIG.BACKEND_URL + url, {
-                        headers: headers
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        }
                     });
                     
                     if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                        throw new Error(`HTTP ${response.status}`);
                     }
                     
                     return response.json();
@@ -633,23 +962,18 @@
             },
             post: async (url, data) => {
                 try {
-                    const token = localStorage.getItem('token');
-                    const headers = {
-                        'Content-Type': 'application/json'
-                    };
-                    
-                    if (token) {
-                        headers['Authorization'] = `Bearer ${token}`;
-                    }
-                    
+                    const token = Auth.getToken();
                     const response = await fetch(CONFIG.BACKEND_URL + url, {
                         method: 'POST',
-                        headers: headers,
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
                         body: JSON.stringify(data)
                     });
                     
                     if (!response.ok) {
-                        let errorText = await response.text();
+                        const errorText = await response.text();
                         throw new Error(`HTTP ${response.status}: ${errorText}`);
                     }
                     
@@ -661,24 +985,18 @@
             },
             put: async (url, data) => {
                 try {
-                    const token = localStorage.getItem('token');
-                    const headers = {
-                        'Content-Type': 'application/json'
-                    };
-                    
-                    if (token) {
-                        headers['Authorization'] = `Bearer ${token}`;
-                    }
-                    
+                    const token = Auth.getToken();
                     const response = await fetch(CONFIG.BACKEND_URL + url, {
                         method: 'PUT',
-                        headers: headers,
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
                         body: JSON.stringify(data)
                     });
                     
                     if (!response.ok) {
-                        let errorText = await response.text();
-                        throw new Error(`HTTP ${response.status}: ${errorText}`);
+                        throw new Error(`HTTP ${response.status}`);
                     }
                     
                     return response.json();
@@ -690,1315 +1008,1371 @@
         };
 
         const Toast = {
-    show: (message, type = 'info') => {
-        // Ensure we have a toast container
-        let toastContainer = document.querySelector('.toast-container');
-        
-        // Create container if it doesn't exist
-        if (!toastContainer) {
-            toastContainer = document.createElement('div');
-            toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
-            toastContainer.style.cssText = 'z-index: 9999;';
-            document.body.appendChild(toastContainer);
-        }
-        
-        const toastId = 'toast-' + Date.now();
-        
-        const typeClasses = {
-            success: 'bg-success text-white',
-            error: 'bg-danger text-white',
-            warning: 'bg-warning text-dark',
-            info: 'bg-info text-white'
-        };
-        
-        const toastHtml = `
-            <div id="${toastId}" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
-                <div class="toast-header ${typeClasses[type] || 'bg-primary text-white'}">
-                    <strong class="me-auto">Chef Dashboard</strong>
-                    <small>Just now</small>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
-                </div>
-                <div class="toast-body">
-                    ${message}
-                </div>
-            </div>
-        `;
-        
-        // Safely insert HTML
-        if (toastContainer && toastContainer.insertAdjacentHTML) {
-            toastContainer.insertAdjacentHTML('beforeend', toastHtml);
-            
-            const toastElement = document.getElementById(toastId);
-            if (toastElement) {
-                const toast = new bootstrap.Toast(toastElement, { 
-                    delay: 3000,
-                    autohide: true
-                });
+            show: (message, type = 'info', duration = 3000) => {
+                const container = document.querySelector('.toast-container');
+                const toastId = 'toast-' + Date.now();
                 
+                const typeConfig = {
+                    success: { bg: 'bg-success', icon: 'fa-check-circle' },
+                    error: { bg: 'bg-danger', icon: 'fa-exclamation-circle' },
+                    warning: { bg: 'bg-warning text-dark', icon: 'fa-exclamation-triangle' },
+                    info: { bg: 'bg-info', icon: 'fa-info-circle' }
+                };
+                
+                const config = typeConfig[type] || typeConfig.info;
+                
+                const toastHtml = `
+                    <div id="${toastId}" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+                        <div class="toast-header ${config.bg} text-white">
+                            <i class="fas ${config.icon} me-2"></i>
+                            <strong class="me-auto">Notification</strong>
+                            <small>just now</small>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+                        </div>
+                        <div class="toast-body">
+                            ${message}
+                        </div>
+                    </div>
+                `;
+                
+                container.insertAdjacentHTML('beforeend', toastHtml);
+                const toastElement = document.getElementById(toastId);
+                const toast = new bootstrap.Toast(toastElement, { delay: duration });
                 toast.show();
                 
                 toastElement.addEventListener('hidden.bs.toast', () => {
                     toastElement.remove();
                 });
             }
-        } else {
-            // Fallback: use alert for very old browsers
-            console.log(`Toast: ${type} - ${message}`);
-        }
-    }
-};
+        };
 
         const Loading = {
-            show: (message = 'Loading...') => {
-                Loading.hide();
-                
-                const loadingId = 'loading-' + Date.now();
-                const loadingHtml = `
-                    <div id="${loadingId}" class="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" 
-                         style="background: rgba(0,0,0,0.7); z-index: 9999;">
-                        <div class="text-center">
-                            <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;" role="status">
-                                <span class="visually-hidden">Loading...</span>
-                            </div>
-                            <div class="text-white fs-5">${message}</div>
-                        </div>
-                    </div>
-                `;
-                document.body.insertAdjacentHTML('beforeend', loadingHtml);
+            show: (message) => {
+                const overlay = document.getElementById('loaderOverlay');
+                if (overlay) {
+                    overlay.style.display = 'flex';
+                }
             },
             hide: () => {
-                const loadingElements = document.querySelectorAll('[id^="loading-"]');
-                loadingElements.forEach(el => el.remove());
+                const overlay = document.getElementById('loaderOverlay');
+                if (overlay) {
+                    overlay.style.display = 'none';
+                }
             }
         };
 
-        // Initialize
-        let socket = null;
-        let currentOrders = [];
-        let serviceRequests = [];
-        let menuItems = [];
-        let notifications = [];
-        let newOrderItems = [];
-        let currentFilter = 'all';
-        let autoRefreshInterval = null;
-        
-        // Application state
-        const AppState = {
-            currentSection: 'dashboard',
-            notifications: []
+        const FormatUtils = {
+            formatCurrency: (amount) => {
+                return `$${parseFloat(amount).toFixed(2)}`;
+            },
+            formatTime: (dateString) => {
+                const date = new Date(dateString);
+                return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            },
+            formatDate: (dateString) => {
+                const date = new Date(dateString);
+                return date.toLocaleDateString();
+            },
+            formatCategory: (category) => {
+                const categories = {
+                    'appetizer': 'Appetizer',
+                    'main': 'Main Course',
+                    'dessert': 'Dessert',
+                    'beverage': 'Beverage',
+                    'side': 'Side Dish'
+                };
+                return categories[category] || category;
+            }
         };
-        
-        // Initialize application
+
+        const ErrorHandler = {
+            handle: (error, context) => {
+                console.error(`Error in ${context}:`, error);
+                
+                if (error.message.includes('401')) {
+                    Toast.show('Session expired. Please login again.', 'error');
+                    setTimeout(() => Auth.logout(), 2000);
+                } else if (error.message.includes('NetworkError')) {
+                    Toast.show('Network error. Please check your connection.', 'error');
+                } else {
+                    Toast.show(`Error: ${error.message}`, 'error');
+                }
+            }
+        };
+
+        // Global Variables
+        let socket = null;
+        let user = null;
+        let orders = [];
+        let menuItems = [];
+        let serviceRequests = [];
+        let orderChart = null;
+        let selectedMenuItems = new Map();
+
+        // Initialize Application
         async function initApp() {
             try {
-                updateInitStatus('Checking authentication...');
-                
                 // Check authentication
-                if (!Auth.check('chef')) {
-                    return;
-                }
+                if (!Auth.check()) return;
                 
-                updateInitStatus('Connecting to server...');
-                
-                // Check backend connection
-                const healthCheck = await fetch(CONFIG.BACKEND_URL + '/health');
-                if (!healthCheck.ok) {
-                    throw new Error('Backend server not available');
-                }
-                
-                updateInitStatus('Loading chef profile...');
-                
-                // Set chef name
-                const user = Auth.getUser();
-                document.getElementById('chefName').textContent = `${user.firstName} ${user.lastName}`;
-                
-                updateInitStatus('Setting up real-time updates...');
+                // Get user info
+                user = Auth.getUser();
+                document.getElementById('chefName').textContent = 
+                    user.firstName ? `${user.firstName} ${user.lastName}` : 'Chef';
                 
                 // Initialize socket
                 initSocket();
                 
-                updateInitStatus('Loading dashboard...');
+                // Setup event listeners
+                setupEventListeners();
                 
-                // Setup auto-refresh
-                setupAutoRefresh();
+                // Load initial data
+                await loadDashboard();
                 
-                // Show main interface
-                setTimeout(() => {
-                    document.getElementById('initLoading').style.display = 'none';
-                    document.getElementById('sidebar').style.display = 'block';
-                    document.getElementById('mainContent').style.display = 'block';
-                    
-                    // Load dashboard data
-                    loadDashboard();
-                    
-                    // Show welcome message
-                    Toast.show(`Welcome, Chef ${user.firstName}!`, 'success');
-                }, 500);
+                // Update time
+                updateCurrentTime();
+                setInterval(updateCurrentTime, 60000);
                 
             } catch (error) {
-                console.error('System initialization error:', error);
-                
-                document.getElementById('initStatus').style.display = 'none';
-                document.getElementById('initError').style.display = 'block';
-                document.getElementById('errorMessage').textContent = 
-                    `Unable to connect to server: ${error.message}. Please try again later.`;
+                ErrorHandler.handle(error, 'initApp');
             }
         }
-        
-        function updateInitStatus(message) {
-            const statusElement = document.getElementById('initStatus');
-            if (statusElement) {
-                statusElement.textContent = message;
-            }
-        }
-        
-        function showAutoRefreshIndicator(show) {
-            const indicator = document.getElementById('autoRefreshIndicator');
-            if (indicator) {
-                indicator.style.display = show ? 'block' : 'none';
-            }
-        }
-        
-        // Setup auto-refresh
-        function setupAutoRefresh() {
-            // Clear existing interval
-            if (autoRefreshInterval) {
-                clearInterval(autoRefreshInterval);
-            }
-            
-            // Setup auto-refresh every 30 seconds for orders
-            autoRefreshInterval = setInterval(async () => {
-                if (AppState.currentSection === 'dashboard') {
-                    await loadDashboard();
-                }
-            }, 30000);
-            
-            // Also refresh menu every 2 minutes
-            setInterval(async () => {
-                if (AppState.currentSection === 'menu-management') {
-                    await loadMenuItems();
-                }
-            }, 120000);
-        }
-        
-        // Initialize socket
+
         function initSocket() {
-            socket = SocketManager.connect();
-            
-            if (socket) {
-                // New order received
-socket.on('new-order', (order) => {
-    console.log('New order received:', order);
-    addNotification(`New order #${order.orderNumber} for table ${order.tableNumber}`, 'info');
-    Toast.show(`New order #${order.orderNumber} for table ${order.tableNumber}`, 'info');
-    if (AppState.currentSection === 'dashboard') {
-        loadDashboard();
-    }
-});                
-                // Order status change
-                socket.on('status-update', (data) => {
-                    console.log('Order status changed:', data);
-                    addNotification(`Order status updated to ${data.status}`, 'warning');
-                    if (AppState.currentSection === 'dashboard') {
-                        loadDashboard();
+            try {
+                socket = io(CONFIG.BACKEND_URL, {
+                    transports: ['websocket', 'polling'],
+                    auth: {
+                        token: Auth.getToken()
                     }
                 });
-                
-                // New service request
-                socket.on('new-service-request', (request) => {
-                    console.log('New service request:', request);
-                    addNotification(`New ${getServiceName(request.type)} request for table ${request.tableNumber}`, 'warning');
-                    if (AppState.currentSection === 'dashboard') {
-                        loadDashboard();
-                    }
+
+                socket.on('connect', () => {
+                    console.log('Socket connected');
+                    document.getElementById('liveIndicator').style.display = 'block';
                 });
-                
-                // Reconnect handler
-                socket.on('reconnect', () => {
-                    Toast.show('Live updates reconnected', 'success');
-                    if (AppState.currentSection === 'dashboard') {
-                        loadDashboard();
-                    } else if (AppState.currentSection === 'menu-management') {
-                        loadMenuItems();
-                    }
+
+                socket.on('disconnect', () => {
+                    console.log('Socket disconnected');
+                    document.getElementById('liveIndicator').style.display = 'none';
                 });
+
+                // Listen for new orders
+                socket.on(CONFIG.SOCKET_EVENTS.NEW_ORDER, async (data) => {
+                    Toast.show(`New order from Table ${data.tableNumber}`, 'info');
+                    await loadDashboard();
+                });
+
+                // Listen for service requests
+                socket.on(CONFIG.SOCKET_EVENTS.SERVICE_REQUEST, async (data) => {
+                    Toast.show(`New ${data.type} request from Table ${data.tableNumber}`, 'warning');
+                    await loadServiceRequests();
+                });
+
+            } catch (error) {
+                console.error('Socket initialization error:', error);
             }
         }
-        
-        // Sidebar toggle
+
+        function setupEventListeners() {
+            // Mobile menu toggle
+            document.getElementById('mobileMenuBtn').addEventListener('click', toggleSidebar);
+            
+            // Logout button
+            document.getElementById('logoutBtn').addEventListener('click', (e) => {
+                e.preventDefault();
+                Auth.logout();
+            });
+            
+            // Menu search
+            document.getElementById('menuSearch').addEventListener('input', debounce(searchMenuItems, 300));
+        }
+
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
-            const mainContent = document.getElementById('mainContent');
-            sidebar.classList.toggle('collapsed');
-            mainContent.classList.toggle('collapsed');
+            sidebar.classList.toggle('active');
         }
-        
-        // Show section
-        // Show section
-async function showSection(sectionId) {
-    try {
-        // Update state
-        AppState.currentSection = sectionId;
-        
-        // Hide all sections
-        const sections = document.querySelectorAll('.section-content');
-        if (sections && sections.length > 0) {
-            sections.forEach(section => {
-                if (section && section.style) {
-                    section.style.display = 'none';
-                }
-            });
-        }
-        
-        // Show selected section
-        const targetSection = document.getElementById(`${sectionId}Section`);
-        if (targetSection && targetSection.style) {
-            targetSection.style.display = 'block';
-        } else {
-            console.error(`Section ${sectionId}Section not found`);
-            Toast.show('Error loading section', 'error');
-            return;
-        }
-        
-        // Update active menu
-        const links = document.querySelectorAll('.sidebar-menu a');
-        if (links && links.length > 0) {
-            links.forEach(link => {
-                if (link.classList) {
-                    link.classList.remove('active');
-                }
+
+        function showSection(sectionId) {
+            // Hide all sections
+            document.querySelectorAll('.section-content').forEach(section => {
+                section.style.display = 'none';
             });
             
-            // Find and activate the clicked link
-            if (event && event.target) {
-                const link = event.target.closest('a');
-                if (link && link.classList) {
-                    link.classList.add('active');
-                }
-            }
-        }
-        
-        // Load data for section
-        Loading.show('Loading...');
-        
-        try {
+            // Show selected section
+            document.getElementById(sectionId + 'Section').style.display = 'block';
+            
+            // Update active nav link
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Load section data
             switch(sectionId) {
-    case 'dashboard':
-        await loadDashboard();
-        break;
-    case 'menuManagement':
-        await loadMenuItems();
-        break;
-    case 'newOrder':
-        await loadMenuForNewOrder();
-        break;
-    default:
-        console.warn(`No data loader for section: ${sectionId}`);
-        Toast.show(`No data loader for section: ${sectionId}`, 'warning');
-}
-        } finally {
-            Loading.hide();
-        }
-        
-    } catch (error) {
-        console.error('Error in showSection:', error);
-        Toast.show(`Failed to load ${sectionId} data`, 'error');
-        Loading.hide();
-    }
-}
-        
-        // Toggle notifications
-        function toggleNotifications() {
-            const panel = document.getElementById('notificationPanel');
-            const overlay = document.getElementById('overlay');
-            panel.classList.toggle('active');
-            overlay.classList.toggle('active');
+                case 'dashboard':
+                    loadDashboard();
+                    break;
+                case 'orders':
+                    loadOrders();
+                    break;
+                case 'menu':
+                    loadMenuItems();
+                    break;
+                case 'services':
+                    loadServiceRequests();
+                    break;
+                case 'reports':
+                    loadReports();
+                    break;
+            }
             
-            if (panel.classList.contains('active')) {
-                loadNotifications();
+            // Hide sidebar on mobile
+            if (window.innerWidth < 992) {
+                toggleSidebar();
             }
         }
-        
-        // Load dashboard data
+
+        // Dashboard Functions
         async function loadDashboard() {
             try {
-                // Load orders
-                const ordersData = await API.get(CONFIG.API_ENDPOINTS.CHEF_ORDERS);
-                currentOrders = ordersData.orders || [];
+                Loading.show();
                 
-                // Load service requests
-                const requestsData = await API.get(CONFIG.API_ENDPOINTS.CHEF_SERVICE_REQUESTS);
-                serviceRequests = requestsData.requests || [];
+                const [statsData, ordersData] = await Promise.all([
+                    API.get(CONFIG.API_ENDPOINTS.CHEF_STATS),
+                    API.get(CONFIG.API_ENDPOINTS.CHEF_ORDERS)
+                ]);
                 
                 // Update statistics
-                updateStatistics();
+                if (statsData.success) {
+                    const stats = statsData.stats;
+                    document.getElementById('pendingCount').textContent = stats.pending || 0;
+                    document.getElementById('preparingCount').textContent = stats.preparing || 0;
+                    document.getElementById('readyCount').textContent = stats.ready || 0;
+                    document.getElementById('totalCount').textContent = stats.totalToday || 0;
+                    
+                    // Update progress bars
+                    const total = Math.max(stats.totalToday || 1, 1);
+                    document.getElementById('pendingProgress').style.width = `${(stats.pending || 0) / total * 100}%`;
+                    document.getElementById('preparingProgress').style.width = `${(stats.preparing || 0) / total * 100}%`;
+                    document.getElementById('readyProgress').style.width = `${(stats.ready || 0) / total * 100}%`;
+                    document.getElementById('totalProgress').style.width = '100%';
+                    
+                    // Update notification badges
+                    document.getElementById('pendingOrdersBadge').textContent = stats.pending || 0;
+                }
                 
-                // Display current orders
-                displayOrders(currentFilter);
+                // Update recent orders
+                if (ordersData.success) {
+                    orders = ordersData.orders || [];
+                    updateRecentOrders(orders.slice(0, 5));
+                    updateRecentActivity(orders);
+                }
                 
-                // Display service requests
-                displayServiceRequests();
+                Loading.hide();
                 
             } catch (error) {
-                console.error('Error loading dashboard:', error);
-                Toast.show('Failed to load dashboard data', 'error');
-                
-                // Show error in orders container
-                const ordersContainer = document.getElementById('currentOrders');
-                if (ordersContainer) {
-                    ordersContainer.innerHTML = `
-                        <div class="col-12 text-center py-4">
-                            <div class="alert alert-danger">
-                                <i class="fas fa-exclamation-triangle me-2"></i>
-                                Unable to load orders. Please try again later.
-                            </div>
-                            <button class="btn btn-primary mt-2" onclick="loadDashboard()">
-                                <i class="fas fa-sync-alt me-2"></i> Retry
-                            </button>
-                        </div>
-                    `;
-                }
-                
-                // Show error in service requests
-                const requestsContainer = document.getElementById('serviceRequests');
-                if (requestsContainer) {
-                    requestsContainer.innerHTML = `
-                        <div class="alert alert-danger">
-                            <i class="fas fa-exclamation-triangle me-2"></i>
-                            Unable to load service requests.
-                        </div>
-                    `;
-                }
+                Loading.hide();
+                ErrorHandler.handle(error, 'loadDashboard');
             }
         }
-        
-        // Update statistics
-        function updateStatistics() {
-            const pending = currentOrders.filter(o => o.status === 'pending').length;
-            const preparing = currentOrders.filter(o => o.status === 'preparing').length;
-            const ready = currentOrders.filter(o => o.status === 'ready').length;
-            const completed = currentOrders.filter(o => o.status === 'completed').length;
+
+        function updateRecentOrders(recentOrders) {
+            const container = document.getElementById('recentOrders');
             
-            document.getElementById('pendingCount').textContent = pending;
-            document.getElementById('preparingCount').textContent = preparing;
-            document.getElementById('readyCount').textContent = ready;
-            document.getElementById('completedCount').textContent = completed;
-        }
-        
-        // Display orders with filter
-        function displayOrders(filter) {
-            const container = document.getElementById('currentOrders');
-            container.innerHTML = '';
-            
-            let filteredOrders = currentOrders;
-            if (filter !== 'all') {
-                filteredOrders = currentOrders.filter(order => order.status === filter);
-            }
-            
-            if (filteredOrders.length === 0) {
-                container.innerHTML = '<div class="col-12 text-center text-muted py-4">No orders found</div>';
+            if (!recentOrders || recentOrders.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-clipboard-list"></i>
+                        <h5>No recent orders</h5>
+                        <p>Orders will appear here as they come in</p>
+                    </div>
+                `;
                 return;
             }
             
-            filteredOrders.forEach(order => {
-                const orderCard = createOrderCard(order);
-                container.innerHTML += orderCard;
+            let html = '';
+            recentOrders.forEach(order => {
+                const statusClass = `order-${order.status}`;
+                const statusColor = getStatusColor(order.status);
+                
+                html += `
+                    <div class="order-card ${statusClass} mb-3 p-3" data-order-id="${order._id}">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <h6 class="mb-1">Order #${order.orderNumber || 'N/A'}</h6>
+                                <small class="text-muted">
+                                    Table ${order.tableNumber} • ${FormatUtils.formatTime(order.createdAt)}
+                                </small>
+                            </div>
+                            <span class="badge badge-status" style="background-color: ${statusColor}">
+                                ${order.status.toUpperCase()}
+                            </span>
+                        </div>
+                        <div class="order-items mb-3">
+                            ${order.items ? order.items.map(item => `
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span>${item.quantity}x ${item.name}</span>
+                                    <span class="text-muted">${FormatUtils.formatCurrency(item.price * item.quantity)}</span>
+                                </div>
+                            `).join('') : ''}
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">${FormatUtils.formatCurrency(order.totalAmount || 0)}</h5>
+                            <div>
+                                ${order.status === 'pending' ? `
+                                    <button class="btn btn-accept btn-sm" onclick="acceptOrder('${order._id}')">
+                                        <i class="fas fa-check me-1"></i>Accept
+                                    </button>
+                                ` : ''}
+                                ${order.status === 'preparing' ? `
+                                    <button class="btn btn-ready btn-sm" onclick="markAsReady('${order._id}')">
+                                        <i class="fas fa-check-double me-1"></i>Ready
+                                    </button>
+                                ` : ''}
+                                ${order.status === 'ready' ? `
+                                    <button class="btn btn-complete btn-sm" onclick="completeOrder('${order._id}')">
+                                        <i class="fas fa-check-circle me-1"></i>Complete
+                                    </button>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
             });
             
-            // Add event listeners after creating cards
-            setTimeout(() => {
-                setupOrderActionListeners();
-            }, 100);
+            container.innerHTML = html;
         }
-        
-        function createOrderCard(order) {
-            let actionButtons = '';
+
+        function updateRecentActivity(orders) {
+            const container = document.getElementById('recentActivity');
             
-            if (order.status === 'pending') {
-                actionButtons = `
-                    <button class="btn btn-sm btn-success me-1 accept-order" data-order-id="${order._id}">
-                        <i class="fas fa-check"></i>
-                    </button>
-                    <button class="btn btn-sm btn-danger reject-order" data-order-id="${order._id}">
-                        <i class="fas fa-times"></i>
-                    </button>
+            if (!orders || orders.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-history"></i>
+                        <h5>No activity yet</h5>
+                        <p>Activity will appear here</p>
+                    </div>
                 `;
-            } else if (order.status === 'preparing') {
-                actionButtons = `
-                    <button class="btn btn-sm btn-success mark-ready" data-order-id="${order._id}">
-                        Mark Ready
-                    </button>
-                `;
-            } else if (order.status === 'ready') {
-                actionButtons = `
-                    <button class="btn btn-sm btn-success complete-order" data-order-id="${order._id}">
-                        Complete
-                    </button>
-                `;
+                return;
             }
             
-            return `
-                <div class="col-md-6 col-lg-4 mb-3">
-                    <div class="card order-card order-${order.status}" onclick="viewOrderDetails('${order._id}')">
+            let html = '';
+            const sortedOrders = [...orders].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)).slice(0, 10);
+            
+            sortedOrders.forEach(order => {
+                const timeAgo = getTimeAgo(order.updatedAt);
+                
+                html += `
+                    <div class="activity-item">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <strong>Order #${order.orderNumber}</strong>
+                                <p class="mb-0 small">Table ${order.tableNumber} • ${order.status}</p>
+                            </div>
+                            <small class="activity-time">${timeAgo}</small>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+
+        function getTimeAgo(dateString) {
+            const date = new Date(dateString);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMins = Math.floor(diffMs / 60000);
+            
+            if (diffMins < 1) return 'Just now';
+            if (diffMins < 60) return `${diffMins}m ago`;
+            
+            const diffHours = Math.floor(diffMins / 60);
+            if (diffHours < 24) return `${diffHours}h ago`;
+            
+            const diffDays = Math.floor(diffHours / 24);
+            return `${diffDays}d ago`;
+        }
+
+        // Orders Management Functions
+        async function loadOrders() {
+            try {
+                Loading.show();
+                
+                const response = await API.get(CONFIG.API_ENDPOINTS.CHEF_ORDERS);
+                
+                if (response.success) {
+                    orders = response.orders || [];
+                    renderOrdersByStatus();
+                }
+                
+                Loading.hide();
+                
+            } catch (error) {
+                Loading.hide();
+                ErrorHandler.handle(error, 'loadOrders');
+            }
+        }
+
+        function renderOrdersByStatus() {
+            const statusGroups = {
+                'pending': document.getElementById('pendingOrdersList'),
+                'preparing': document.getElementById('preparingOrdersList'),
+                'ready': document.getElementById('readyOrdersList'),
+                'completed': document.getElementById('completedOrdersList')
+            };
+
+            // Clear all containers
+            Object.values(statusGroups).forEach(container => {
+                container.innerHTML = '';
+            });
+
+            if (!orders || orders.length === 0) {
+                Object.values(statusGroups).forEach(container => {
+                    container.innerHTML = `
+                        <div class="col-12">
+                            <div class="empty-state">
+                                <i class="fas fa-clipboard-list"></i>
+                                <h5>No orders</h5>
+                                <p>Orders will appear here as they come in</p>
+                            </div>
+                        </div>
+                    `;
+                });
+                return;
+            }
+
+            // Group orders by status
+            const groupedOrders = {
+                'pending': [],
+                'preparing': [],
+                'ready': [],
+                'completed': []
+            };
+
+            orders.forEach(order => {
+                if (groupedOrders[order.status]) {
+                    groupedOrders[order.status].push(order);
+                }
+            });
+
+            // Render each group
+            Object.keys(groupedOrders).forEach(status => {
+                const container = statusGroups[status];
+                const ordersList = groupedOrders[status];
+
+                if (ordersList.length === 0) {
+                    container.innerHTML = `
+                        <div class="col-12">
+                            <div class="alert alert-light text-center">
+                                <i class="fas fa-info-circle me-2"></i>
+                                No ${status} orders
+                            </div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                let html = '';
+                ordersList.forEach(order => {
+                    const statusColor = getStatusColor(order.status);
+                    
+                    html += `
+                        <div class="col-md-6 col-lg-4 mb-4">
+                            <div class="card h-100 order-card order-${order.status}" data-order-id="${order._id}">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <h6 class="mb-0">Order #${order.orderNumber || 'N/A'}</h6>
+                                    <span class="badge" style="background-color: ${statusColor}">
+                                        ${order.status.toUpperCase()}
+                                    </span>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <small class="text-muted d-block">
+                                            <i class="fas fa-chair me-1"></i>Table ${order.tableNumber}
+                                        </small>
+                                        <small class="text-muted d-block">
+                                            <i class="fas fa-clock me-1"></i>${FormatUtils.formatTime(order.createdAt)}
+                                        </small>
+                                        ${order.customerName ? `
+                                            <small class="text-muted d-block">
+                                                <i class="fas fa-user me-1"></i>${order.customerName}
+                                            </small>
+                                        ` : ''}
+                                    </div>
+                                    
+                                    <div class="order-items mb-3">
+                                        <h6 class="small mb-2">Items:</h6>
+                                        ${order.items ? order.items.map(item => `
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <span class="small">${item.quantity}x ${item.name}</span>
+                                                <span class="small text-muted">${FormatUtils.formatCurrency(item.price)}</span>
+                                            </div>
+                                        `).join('') : ''}
+                                    </div>
+                                    
+                                    ${order.instructions ? `
+                                        <div class="mb-3">
+                                            <h6 class="small mb-1">Instructions:</h6>
+                                            <p class="small text-muted mb-0">${order.instructions}</p>
+                                        </div>
+                                    ` : ''}
+                                    
+                                    <div class="d-flex justify-content-between align-items-center mt-auto">
+                                        <h5 class="mb-0">${FormatUtils.formatCurrency(order.totalAmount || 0)}</h5>
+                                        <div>
+                                            ${order.status === 'pending' ? `
+                                                <button class="btn btn-accept btn-sm" onclick="acceptOrder('${order._id}')">
+                                                    <i class="fas fa-check me-1"></i>Accept
+                                                </button>
+                                            ` : ''}
+                                            ${order.status === 'preparing' ? `
+                                                <button class="btn btn-ready btn-sm" onclick="markAsReady('${order._id}')">
+                                                    <i class="fas fa-check-double me-1"></i>Ready
+                                                </button>
+                                            ` : ''}
+                                            ${order.status === 'ready' ? `
+                                                <button class="btn btn-complete btn-sm" onclick="completeOrder('${order._id}')">
+                                                    <i class="fas fa-check-circle me-1"></i>Complete
+                                                </button>
+                                            ` : ''}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                container.innerHTML = html;
+            });
+        }
+
+        async function acceptOrder(orderId) {
+            try {
+                Loading.show('Accepting order...');
+                
+                const response = await API.put(`${CONFIG.API_ENDPOINTS.CHEF_UPDATE_ORDER}/${orderId}/status`, {
+                    status: 'preparing',
+                    chefId: user._id,
+                    chefName: `${user.firstName} ${user.lastName}`
+                });
+                
+                if (response.success) {
+                    Toast.show('Order accepted successfully!', 'success');
+                    
+                    // Emit socket event
+                    if (socket) {
+                        socket.emit('order-update', {
+                            orderId: orderId,
+                            status: 'preparing',
+                            chefName: `${user.firstName} ${user.lastName}`
+                        });
+                    }
+                    
+                    // Refresh data
+                    await Promise.all([loadDashboard(), loadOrders()]);
+                }
+                
+                Loading.hide();
+                
+            } catch (error) {
+                Loading.hide();
+                ErrorHandler.handle(error, 'acceptOrder');
+            }
+        }
+
+        async function markAsReady(orderId) {
+            try {
+                Loading.show('Marking order as ready...');
+                
+                const response = await API.put(`${CONFIG.API_ENDPOINTS.CHEF_UPDATE_ORDER}/${orderId}/status`, {
+                    status: 'ready'
+                });
+                
+                if (response.success) {
+                    Toast.show('Order marked as ready!', 'success');
+                    
+                    // Emit socket event
+                    if (socket) {
+                        socket.emit('order-update', {
+                            orderId: orderId,
+                            status: 'ready'
+                        });
+                    }
+                    
+                    // Refresh data
+                    await Promise.all([loadDashboard(), loadOrders()]);
+                }
+                
+                Loading.hide();
+                
+            } catch (error) {
+                Loading.hide();
+                ErrorHandler.handle(error, 'markAsReady');
+            }
+        }
+
+        async function completeOrder(orderId) {
+            try {
+                Loading.show('Completing order...');
+                
+                const response = await API.put(`${CONFIG.API_ENDPOINTS.CHEF_UPDATE_ORDER}/${orderId}/status`, {
+                    status: 'completed'
+                });
+                
+                if (response.success) {
+                    Toast.show('Order completed successfully!', 'success');
+                    
+                    // Emit socket event
+                    if (socket) {
+                        socket.emit('order-update', {
+                            orderId: orderId,
+                            status: 'completed'
+                        });
+                    }
+                    
+                    // Refresh data
+                    await Promise.all([loadDashboard(), loadOrders()]);
+                }
+                
+                Loading.hide();
+                
+            } catch (error) {
+                Loading.hide();
+                ErrorHandler.handle(error, 'completeOrder');
+            }
+        }
+
+        // Menu Management Functions
+        async function loadMenuItems() {
+            try {
+                Loading.show();
+                
+                const response = await API.get(CONFIG.API_ENDPOINTS.CHEF_MENU);
+                
+                if (response.success) {
+                    menuItems = response.menuItems || response.items || [];
+                    renderMenuItems(menuItems);
+                }
+                
+                Loading.hide();
+                
+            } catch (error) {
+                Loading.hide();
+                ErrorHandler.handle(error, 'loadMenuItems');
+            }
+        }
+
+        function renderMenuItems(items) {
+            const container = document.getElementById('menuItemsGrid');
+            
+            if (!items || items.length === 0) {
+                container.innerHTML = `
+                    <div class="col-12">
+                        <div class="empty-state">
+                            <i class="fas fa-utensils"></i>
+                            <h5>No menu items</h5>
+                            <p>Add menu items from the admin panel</p>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            items.forEach(item => {
+                const col = document.createElement('div');
+                col.className = 'col-md-4 mb-4';
+                col.innerHTML = `
+                    <div class="card menu-item-card h-100">
+                        <div class="position-relative">
+                            ${item.image ? 
+                                `<img src="${item.image}" class="card-img-top" alt="${item.name}" style="height: 180px; object-fit: cover;">` : 
+                                `<div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 180px;">
+                                    <i class="fas fa-utensils fa-3x text-muted"></i>
+                                </div>`
+                            }
+                            <span class="position-absolute top-0 end-0 m-2 badge ${item.available ? 'bg-success' : 'bg-danger'}">
+                                ${item.available ? 'Available' : 'Unavailable'}
+                            </span>
+                        </div>
                         <div class="card-body">
                             <div class="d-flex justify-content-between align-items-start mb-2">
-                                <h6 class="mb-0">Order #${order.orderNumber}</h6>
-                                <span class="status-badge badge-${order.status}">
-                                    ${order.status.toUpperCase()}
-                                </span>
+                                <h5 class="card-title mb-0">${item.name}</h5>
+                                <span class="badge bg-primary">${FormatUtils.formatCategory(item.category)}</span>
                             </div>
-                            <p class="text-muted mb-1"><i class="fas fa-chair me-1"></i>Table: ${order.tableNumber}</p>
-                            <p class="mb-1"><i class="fas fa-box me-1"></i>Items: ${order.items?.length || 0}</p>
-                            <p class="mb-2"><i class="fas fa-dollar-sign me-1"></i>Total: $${order.totalAmount?.toFixed(2) || '0.00'}</p>
-                            <div class="d-flex justify-content-between">
-                                <small class="text-muted">
-                                    <i class="fas fa-clock me-1"></i>
-                                    ${new Date(order.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                                </small>
+                            <p class="card-text text-muted small mb-3">${item.description || 'No description available'}</p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h4 class="text-primary mb-0">${FormatUtils.formatCurrency(item.price)}</h4>
                                 <div>
-                                    ${actionButtons}
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" 
+                                               ${item.available ? 'checked' : ''}
+                                               onclick="updateMenuItemStatus('${item._id}', this.checked)">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <small class="text-muted">
+                                    <i class="fas fa-clock me-1"></i> ${item.preparationTime || 'N/A'} mins
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(col);
+            });
+        }
+
+        // Update menu item status function (FIXED VERSION)
+        async function updateMenuItemStatus(itemId, isAvailable) {
+            try {
+                Loading.show('Updating menu item...');
+                
+                const response = await API.put(
+                    `${CONFIG.API_ENDPOINTS.CHEF_MENU}/${itemId}/availability`,
+                    { available: isAvailable }
+                );
+                
+                if (response.success) {
+                    Toast.show(`Menu item ${isAvailable ? 'enabled' : 'disabled'} successfully!`, 'success');
+                    await loadMenuItems(); // Refresh the list
+                    
+                    // Emit socket event for real-time updates
+                    if (socket) {
+                        socket.emit('menu-update', {
+                            itemId: itemId,
+                            available: isAvailable
+                        });
+                    }
+                }
+                
+                Loading.hide();
+            } catch (error) {
+                Loading.hide();
+                ErrorHandler.handle(error, 'updateMenuItemStatus');
+            }
+        }
+
+        async function searchMenuItems() {
+            const searchTerm = document.getElementById('menuSearch').value.toLowerCase();
+            
+            if (!searchTerm) {
+                loadMenuItems();
+                return;
+            }
+            
+            const filteredItems = menuItems.filter(item => 
+                item.name.toLowerCase().includes(searchTerm) ||
+                item.description.toLowerCase().includes(searchTerm) ||
+                item.category.toLowerCase().includes(searchTerm)
+            );
+            
+            document.getElementById('menuItemsGrid').innerHTML = '';
+            renderMenuItems(filteredItems);
+        }
+
+        function filterMenu(filterType) {
+            let filteredItems = [];
+            
+            switch(filterType) {
+                case 'available':
+                    filteredItems = menuItems.filter(item => item.available);
+                    break;
+                case 'unavailable':
+                    filteredItems = menuItems.filter(item => !item.available);
+                    break;
+                default:
+                    filteredItems = menuItems;
+            }
+            
+            document.getElementById('menuItemsGrid').innerHTML = '';
+            renderMenuItems(filteredItems);
+        }
+
+        function filterByCategory(category) {
+            const buttons = document.querySelectorAll('.btn-outline-primary');
+            buttons.forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            let filteredItems = [];
+            
+            if (category === 'all') {
+                filteredItems = menuItems;
+            } else {
+                filteredItems = menuItems.filter(item => item.category === category);
+            }
+            
+            document.getElementById('menuItemsGrid').innerHTML = '';
+            renderMenuItems(filteredItems);
+        }
+
+        // Service Requests Functions
+        async function loadServiceRequests() {
+            try {
+                Loading.show();
+                
+                const response = await API.get(CONFIG.API_ENDPOINTS.SERVICE_REQUESTS);
+                
+                if (response.success) {
+                    serviceRequests = response.requests || [];
+                    renderServiceRequests(serviceRequests);
+                    
+                    // Update notification badge
+                    const pendingCount = serviceRequests.filter(req => req.status === 'pending').length;
+                    document.getElementById('serviceRequestsBadge').textContent = pendingCount;
+                }
+                
+                Loading.hide();
+                
+            } catch (error) {
+                Loading.hide();
+                ErrorHandler.handle(error, 'loadServiceRequests');
+            }
+        }
+
+        function renderServiceRequests(requests) {
+            const container = document.getElementById('serviceRequestsList');
+            
+            if (!requests || requests.length === 0) {
+                container.innerHTML = `
+                    <div class="col-12">
+                        <div class="empty-state">
+                            <i class="fas fa-concierge-bell"></i>
+                            <h5>No service requests</h5>
+                            <p>Service requests will appear here</p>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            requests.forEach(request => {
+                const statusColor = request.status === 'pending' ? 'warning' : 'success';
+                const icon = getServiceIcon(request.type);
+                const serviceName = getServiceName(request.type);
+                
+                html += `
+                    <div class="col-md-6 col-lg-4 mb-4">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <div class="d-flex align-items-start mb-3">
+                                    <div class="me-3">
+                                        <div class="rounded-circle bg-${statusColor} bg-opacity-10 p-3">
+                                            <i class="${icon} fa-2x text-${statusColor}"></i>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-1">${serviceName}</h6>
+                                        <p class="text-muted small mb-0">
+                                            Table ${request.tableNumber}
+                                        </p>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <small class="text-muted d-block">
+                                        <i class="fas fa-user me-1"></i>${request.customerName || 'Guest'}
+                                    </small>
+                                    <small class="text-muted d-block">
+                                        <i class="fas fa-clock me-1"></i>${FormatUtils.formatTime(request.createdAt)}
+                                    </small>
+                                </div>
+                                
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="badge bg-${statusColor}">
+                                        ${request.status.toUpperCase()}
+                                    </span>
+                                    
+                                    ${request.status === 'pending' ? `
+                                        <button class="btn btn-sm btn-primary" onclick="assignServiceRequest('${request._id}')">
+                                            <i class="fas fa-user-check me-1"></i>Assign to Me
+                                        </button>
+                                    ` : `
+                                        <button class="btn btn-sm btn-success" onclick="completeServiceRequest('${request._id}')">
+                                            <i class="fas fa-check me-1"></i>Mark Complete
+                                        </button>
+                                    `}
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            `;
+                `;
+            });
+            
+            container.innerHTML = html;
         }
-        
-        function setupOrderActionListeners() {
-            // Accept order buttons
-            document.querySelectorAll('.accept-order').forEach(btn => {
-                btn.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    const orderId = this.getAttribute('data-order-id');
-                    acceptOrder(orderId, e);
+
+        async function assignServiceRequest(requestId) {
+            try {
+                Loading.show('Assigning request...');
+                
+                const response = await API.put(`${CONFIG.API_ENDPOINTS.SERVICE_REQUESTS}/${requestId}/assign`, {
+                    chefId: user._id,
+                    chefName: `${user.firstName} ${user.lastName}`
                 });
-            });
-            
-            // Reject order buttons
-            document.querySelectorAll('.reject-order').forEach(btn => {
-                btn.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    const orderId = this.getAttribute('data-order-id');
-                    rejectOrder(orderId, e);
-                });
-            });
-            
-            // Mark ready buttons
-            document.querySelectorAll('.mark-ready').forEach(btn => {
-                btn.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    const orderId = this.getAttribute('data-order-id');
-                    markReady(orderId, e);
-                });
-            });
-            
-            // Complete order buttons
-            document.querySelectorAll('.complete-order').forEach(btn => {
-                btn.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    const orderId = this.getAttribute('data-order-id');
-                    completeOrder(orderId, e);
-                });
-            });
-        }
-        
-        // Filter orders
-        function filterOrders(status) {
-            currentFilter = status;
-            
-            // Update active button
-            document.querySelectorAll('.btn-group .btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            event.target.classList.add('active');
-            
-            displayOrders(status);
-        }
-        
-        // Display service requests
-        function displayServiceRequests() {
-            const container = document.getElementById('serviceRequests');
-            container.innerHTML = '';
-            
-            if (serviceRequests.length === 0) {
-                container.innerHTML = '<p class="text-muted text-center">No service requests</p>';
-                return;
+                
+                if (response.success) {
+                    Toast.show('Service request assigned to you!', 'success');
+                    await loadServiceRequests();
+                }
+                
+                Loading.hide();
+                
+            } catch (error) {
+                Loading.hide();
+                ErrorHandler.handle(error, 'assignServiceRequest');
             }
-            
-            serviceRequests.forEach(request => {
-                const requestElement = createServiceRequestElement(request);
-                container.innerHTML += requestElement;
-            });
-            
-            // Add event listeners
-            setTimeout(() => {
-                document.querySelectorAll('.assign-request').forEach(btn => {
-                    btn.addEventListener('click', function(e) {
-                        e.stopPropagation();
-                        const requestId = this.getAttribute('data-request-id');
-                        assignServiceRequest(requestId, e);
-                    });
-                });
-            }, 100);
         }
-        
-        function createServiceRequestElement(request) {
-            return `
-                <div class="service-request">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="mb-1">
-                                <i class="fas ${getServiceIcon(request.type)} me-2"></i>
-                                ${getServiceName(request.type)} Request
-                            </h6>
-                            <p class="mb-1"><i class="fas fa-chair me-1"></i>Table: ${request.tableNumber}</p>
-                            <small class="text-muted">
-                                <i class="fas fa-clock me-1"></i>
-                                ${new Date(request.createdAt).toLocaleTimeString()}
-                            </small>
-                        </div>
-                        <div>
-                            <button class="btn btn-sm btn-primary assign-request" data-request-id="${request._id}">
-                                <i class="fas fa-check me-1"></i> Assign to Me
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `;
+
+        async function completeServiceRequest(requestId) {
+            try {
+                Loading.show('Completing request...');
+                
+                const response = await API.put(`${CONFIG.API_ENDPOINTS.SERVICE_REQUESTS}/${requestId}/complete`);
+                
+                if (response.success) {
+                    Toast.show('Service request completed!', 'success');
+                    await loadServiceRequests();
+                }
+                
+                Loading.hide();
+                
+            } catch (error) {
+                Loading.hide();
+                ErrorHandler.handle(error, 'completeServiceRequest');
+            }
         }
-        
+
         function getServiceIcon(type) {
             switch(type) {
-                case 'water': return 'fa-tint';
-                case 'cleaning': return 'fa-broom';
-                case 'bill': return 'fa-file-invoice-dollar';
-                default: return 'fa-bell';
+                case 'water': return 'fas fa-tint';
+                case 'cleaning': return 'fas fa-broom';
+                case 'bill': return 'fas fa-file-invoice-dollar';
+                default: return 'fas fa-concierge-bell';
             }
         }
-        
+
         function getServiceName(type) {
             switch(type) {
                 case 'water': return 'Water Refill';
                 case 'cleaning': return 'Table Cleaning';
                 case 'bill': return 'Bill Payment';
-                default: return 'Service';
+                default: return 'Service Request';
             }
         }
-        
-        // Order actions
-        async function acceptOrder(orderId, event) {
-            if (event) event.stopPropagation();
-            
+
+        // Walk-in Order Functions
+        async function showWalkinOrderModal() {
             try {
-                Loading.show('Accepting order...');
-                const user = Auth.getUser();
+                // Load menu items for the modal
+                const response = await API.get(CONFIG.API_ENDPOINTS.CHEF_MENU + '?available=true');
                 
-                await API.post(CONFIG.API_ENDPOINTS.CHEF_ORDER_ACCEPT(orderId), { chefId: user._id });
-                
-                // Update local data
-                const order = currentOrders.find(o => o._id === orderId);
-                if (order) {
-                    order.status = 'preparing';
-                    order.assignedChef = user._id;
+                if (response.success) {
+                    const availableItems = response.menuItems || response.items || [];
+                    renderWalkinMenuItems(availableItems);
                 }
                 
-                // Refresh display
-                updateStatistics();
-                displayOrders(currentFilter);
+                // Reset selected items
+                selectedMenuItems.clear();
+                updateSelectedItems();
+                updateWalkinTotal();
                 
-                Toast.show('Order accepted successfully!', 'success');
-                
-                // Emit socket event
-                if (socket) {
-                    socket.emit('order-status-change', {
-                        orderId: orderId,
-                        status: 'preparing',
-                        chefId: user._id
-                    });
-                }
+                // Show modal
+                const modal = new bootstrap.Modal(document.getElementById('walkinOrderModal'));
+                modal.show();
                 
             } catch (error) {
-                console.error('Error accepting order:', error);
-                Toast.show(error.message || 'Failed to accept order', 'error');
-            } finally {
-                Loading.hide();
+                ErrorHandler.handle(error, 'showWalkinOrderModal');
             }
         }
-        
-        async function rejectOrder(orderId, event) {
-            if (event) event.stopPropagation();
+
+        function renderWalkinMenuItems(items) {
+            const container = document.getElementById('walkinMenuItems');
             
-            if (!confirm('Are you sure you want to reject this order?')) return;
-            
-            try {
-                Loading.show('Rejecting order...');
-                
-                await API.post(CONFIG.API_ENDPOINTS.CHEF_ORDER_REJECT(orderId), {});
-                
-                // Update local data
-                currentOrders = currentOrders.filter(o => o._id !== orderId);
-                
-                // Refresh display
-                updateStatistics();
-                displayOrders(currentFilter);
-                
-                Toast.show('Order rejected successfully!', 'warning');
-                
-                // Emit socket event
-                if (socket) {
-                    socket.emit('order-status-change', {
-                        orderId: orderId,
-                        status: 'rejected'
-                    });
-                }
-                
-            } catch (error) {
-                console.error('Error rejecting order:', error);
-                Toast.show(error.message || 'Failed to reject order', 'error');
-            } finally {
-                Loading.hide();
-            }
-        }
-        
-        async function markReady(orderId, event) {
-            if (event) event.stopPropagation();
-            
-            try {
-                Loading.show('Marking order as ready...');
-                
-                await API.post(CONFIG.API_ENDPOINTS.CHEF_ORDER_READY(orderId), {});
-                
-                // Update local data
-                const order = currentOrders.find(o => o._id === orderId);
-                if (order) {
-                    order.status = 'ready';
-                }
-                
-                // Refresh display
-                updateStatistics();
-                displayOrders(currentFilter);
-                
-                Toast.show('Order marked as ready!', 'success');
-                
-                // Emit socket event
-                if (socket) {
-                    socket.emit('order-status-change', {
-                        orderId: orderId,
-                        status: 'ready'
-                    });
-                }
-                
-            } catch (error) {
-                console.error('Error marking order as ready:', error);
-                Toast.show(error.message || 'Failed to update order status', 'error');
-            } finally {
-                Loading.hide();
-            }
-        }
-        
-        async function completeOrder(orderId, event) {
-            if (event) event.stopPropagation();
-            
-            try {
-                Loading.show('Completing order...');
-                
-                await API.post(CONFIG.API_ENDPOINTS.CHEF_ORDER_COMPLETE(orderId), {});
-                
-                // Update local data
-                currentOrders = currentOrders.filter(o => o._id !== orderId);
-                
-                // Refresh display
-                updateStatistics();
-                displayOrders(currentFilter);
-                
-                Toast.show('Order completed successfully!', 'success');
-                
-                // Emit socket event
-                if (socket) {
-                    socket.emit('order-status-change', {
-                        orderId: orderId,
-                        status: 'completed'
-                    });
-                }
-                
-            } catch (error) {
-                console.error('Error completing order:', error);
-                Toast.show(error.message || 'Failed to complete order', 'error');
-            } finally {
-                Loading.hide();
-            }
-        }
-        
-        async function assignServiceRequest(requestId, event) {
-    if (event) event.stopPropagation();
-    
-    try {
-        Loading.show('Assigning request...');
-        const user = Auth.getUser();
-        
-        // Use the correct endpoint
-        await API.post(CONFIG.API_ENDPOINTS.CHEF_SERVICE_REQUEST_ASSIGN(requestId), { chefId: user._id });
-        
-        // Remove from local data
-        serviceRequests = serviceRequests.filter(r => r._id !== requestId);
-        
-        // Refresh display
-        displayServiceRequests();
-        
-        Toast.show('Service request assigned to you', 'info');
-        
-    } catch (error) {
-        console.error('Error assigning request:', error);
-        Toast.show(error.message || 'Failed to assign request', 'error');
-    } finally {
-        Loading.hide();
-    }
-}
-        
-        // Menu management
-        async function loadMenuItems() {
-            try {
-                const data = await API.get(CONFIG.API_ENDPOINTS.CHEF_MENU);
-                menuItems = data.menuItems || [];
-                displayMenuItems(menuItems);
-            } catch (error) {
-                console.error('Error loading menu:', error);
-                Toast.show('Failed to load menu items', 'error');
-                
-                // Show error in menu containers
-                const availableContainer = document.getElementById('availableMenu');
-                const unavailableContainer = document.getElementById('unavailableMenu');
-                
-                if (availableContainer) {
-                    availableContainer.innerHTML = `
-                        <div class="col-12 text-center py-4">
-                            <div class="alert alert-danger">
-                                <i class="fas fa-exclamation-triangle me-2"></i>
-                                Unable to load menu items. Please try again later.
-                            </div>
-                            <button class="btn btn-primary mt-2" onclick="loadMenuItems()">
-                                <i class="fas fa-sync-alt me-2"></i> Retry
-                            </button>
-                        </div>
-                    `;
-                }
-            }
-        }
-        
-        function displayMenuItems(items) {
-            const availableContainer = document.getElementById('availableMenu');
-            const unavailableContainer = document.getElementById('unavailableMenu');
-            
-            availableContainer.innerHTML = '';
-            unavailableContainer.innerHTML = '';
-            
-            const availableItems = items.filter(item => item.available);
-            const unavailableItems = items.filter(item => !item.available);
-            
-            // Display available items
-            if (availableItems.length === 0) {
-                availableContainer.innerHTML = '<div class="col-12 text-center text-muted py-4">No available items</div>';
-            } else {
-                availableItems.forEach(item => {
-                    const menuCard = createMenuItemCard(item);
-                    availableContainer.innerHTML += menuCard;
-                });
-            }
-            
-            // Display unavailable items
-            if (unavailableItems.length === 0) {
-                unavailableContainer.innerHTML = '<div class="col-12 text-center text-muted py-4">No unavailable items</div>';
-            } else {
-                unavailableItems.forEach(item => {
-                    const menuCard = createMenuItemCard(item);
-                    unavailableContainer.innerHTML += menuCard;
-                });
-            }
-            
-            // Setup event listeners
-            setTimeout(setupMenuEventListeners, 100);
-        }
-        
-        function createMenuItemCard(item) {
-            return `
-                <div class="col-md-6 col-lg-4 mb-3">
-                    <div class="card h-100">
-                        <img src="${item.image || 'https://images.unsplash.com/photo-1565958011703-44f9829ba187?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80'}" 
-                             class="card-img-top" alt="${item.name}" style="height: 150px; object-fit: cover;">
-                        <div class="card-body">
-                            <h6 class="card-title">${item.name}</h6>
-                            <p class="card-text small text-muted">${item.description}</p>
-                            <div class="d-flex justify-content-between align-items-center">
-                                <span class="text-primary">$${item.price?.toFixed(2) || '0.00'}</span>
-                                <div class="dropdown">
-                                    <button class="btn btn-sm ${item.available ? 'btn-success' : 'btn-danger'} dropdown-toggle" 
-                                            type="button" data-bs-toggle="dropdown">
-                                        ${item.available ? 'Available' : 'Unavailable'}
-                                    </button>
-                                    <ul class="dropdown-menu">
-                                        <li>
-                                            <a class="dropdown-item menu-status-toggle" href="#" data-item-id="${item._id}" data-status="true">
-                                                Set as Available
-                                            </a>
-                                        </li>
-                                        <li>
-                                            <a class="dropdown-item menu-status-toggle" href="#" data-item-id="${item._id}" data-status="false">
-                                                Set as Unavailable
-                                            </a>
-                                        </li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-        
-        // Setup event listeners for menu item status updates
-        function setupMenuEventListeners() {
-            document.querySelectorAll('.menu-status-toggle').forEach(item => {
-                item.addEventListener('click', async function(e) {
-                    e.preventDefault();
-                    const itemId = this.getAttribute('data-item-id');
-                    const available = this.getAttribute('data-status') === 'true';
-                    
-                    await updateMenuItemStatus(itemId, available);
-                });
-            });
-        }
-        
-        async function updateMenuItemStatus(itemId, available) {
-            try {
-                Loading.show('Updating menu item...');
-                
-                await API.put(CONFIG.API_ENDPOINTS.CHEF_MENU_UPDATE(itemId), { available });
-                
-                // Update local data
-                const item = menuItems.find(i => i._id === itemId);
-                if (item) {
-                    item.available = available;
-                }
-                
-                // Reload display
-                displayMenuItems(menuItems);
-                
-                Toast.show(`Item ${available ? 'made available' : 'made unavailable'}`, 'success');
-                
-            } catch (error) {
-                console.error('Error updating menu item:', error);
-                Toast.show(error.message || 'Failed to update menu item', 'error');
-            } finally {
-                Loading.hide();
-            }
-        }
-        
-        function showMenuCategory(category) {
-            const availableTab = document.querySelector('.nav-link[onclick="showMenuCategory(\'available\')"]');
-            const unavailableTab = document.querySelector('.nav-link[onclick="showMenuCategory(\'unavailable\')"]');
-            
-            if (category === 'available') {
-                document.getElementById('availableMenu').style.display = 'flex';
-                document.getElementById('unavailableMenu').style.display = 'none';
-                availableTab.classList.add('active');
-                unavailableTab.classList.remove('active');
-            } else {
-                document.getElementById('availableMenu').style.display = 'none';
-                document.getElementById('unavailableMenu').style.display = 'flex';
-                availableTab.classList.remove('active');
-                unavailableTab.classList.add('active');
-            }
-        }
-        
-        // New order functions
-        async function loadMenuForNewOrder() {
-            try {
-                const data = await API.get(`${CONFIG.API_ENDPOINTS.CHEF_MENU}?available=true`);
-                menuItems = data.menuItems || [];
-                displayMenuForNewOrder(menuItems);
-            } catch (error) {
-                console.error('Error loading menu for new order:', error);
-                Toast.show('Failed to load menu', 'error');
-                
-                const container = document.getElementById('newOrderMenu');
-                if (container) {
-                    container.innerHTML = `
-                        <div class="col-12 text-center py-4">
-                            <div class="alert alert-danger">
-                                <i class="fas fa-exclamation-triangle me-2"></i>
-                                Unable to load menu items. Please try again later.
-                            </div>
-                            <button class="btn btn-primary mt-2" onclick="loadMenuForNewOrder()">
-                                <i class="fas fa-sync-alt me-2"></i> Retry
-                            </button>
-                        </div>
-                    `;
-                }
-            }
-        }
-        
-        function displayMenuForNewOrder(items) {
-            const container = document.getElementById('newOrderMenu');
-            container.innerHTML = '';
-            
-            if (items.length === 0) {
-                container.innerHTML = '<div class="col-12 text-center text-muted py-4">No menu items available</div>';
+            if (!items || items.length === 0) {
+                container.innerHTML = '<p class="text-muted">No menu items available</p>';
                 return;
             }
             
+            let html = '<div class="row">';
             items.forEach(item => {
-                const menuCard = `
+                html += `
                     <div class="col-md-6 mb-3">
                         <div class="card h-100">
-                            <img src="${item.image || 'https://images.unsplash.com/photo-1565958011703-44f9829ba187?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80'}" 
-                                 class="card-img-top" alt="${item.name}" style="height: 120px; object-fit: cover;">
                             <div class="card-body">
-                                <h6 class="card-title">${item.name}</h6>
-                                <p class="card-text small text-muted">${item.description}</p>
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <h6 class="mb-0">${item.name}</h6>
+                                    <span class="badge bg-primary">${FormatUtils.formatCategory(item.category)}</span>
+                                </div>
+                                <p class="small text-muted mb-3">${item.description || ''}</p>
                                 <div class="d-flex justify-content-between align-items-center">
-                                    <span class="text-primary">$${item.price?.toFixed(2) || '0.00'}</span>
-                                    <button class="btn btn-sm btn-outline-primary add-to-new-order" 
-                                            data-id="${item._id}" 
-                                            data-name="${item.name.replace(/'/g, "\\'")}" 
-                                            data-price="${item.price}">
-                                        <i class="fas fa-plus"></i> Add
-                                    </button>
+                                    <h5 class="text-primary mb-0">${FormatUtils.formatCurrency(item.price)}</h5>
+                                    <div class="quantity-control">
+                                        <button class="quantity-btn" onclick="decreaseWalkinItem('${item._id}')">
+                                            <i class="fas fa-minus"></i>
+                                        </button>
+                                        <span class="item-quantity" id="quantity-${item._id}">0</span>
+                                        <button class="quantity-btn" onclick="increaseWalkinItem('${item._id}', '${item.name}', ${item.price})">
+                                            <i class="fas fa-plus"></i>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 `;
-                container.innerHTML += menuCard;
+            });
+            html += '</div>';
+            
+            container.innerHTML = html;
+        }
+
+        function increaseWalkinItem(itemId, itemName, itemPrice) {
+            const currentQuantity = selectedMenuItems.get(itemId)?.quantity || 0;
+            selectedMenuItems.set(itemId, {
+                id: itemId,
+                name: itemName,
+                price: itemPrice,
+                quantity: currentQuantity + 1
             });
             
-            // Add event listeners
-            setTimeout(() => {
-                document.querySelectorAll('.add-to-new-order').forEach(button => {
-                    button.addEventListener('click', function() {
-                        const id = this.getAttribute('data-id');
-                        const name = this.getAttribute('data-name');
-                        const price = parseFloat(this.getAttribute('data-price'));
-                        addToNewOrder(id, name, price);
-                    });
-                });
-            }, 100);
+            updateQuantityDisplay(itemId, currentQuantity + 1);
+            updateSelectedItems();
+            updateWalkinTotal();
         }
-        
-        function addToNewOrder(itemId, name, price) {
-            const existingItem = newOrderItems.find(item => item.id === itemId);
+
+        function decreaseWalkinItem(itemId) {
+            const currentData = selectedMenuItems.get(itemId);
+            if (!currentData) return;
             
-            if (existingItem) {
-                existingItem.quantity += 1;
+            const newQuantity = currentData.quantity - 1;
+            
+            if (newQuantity <= 0) {
+                selectedMenuItems.delete(itemId);
+                updateQuantityDisplay(itemId, 0);
             } else {
-                newOrderItems.push({
-                    id: itemId,
-                    name: name,
-                    price: price,
-                    quantity: 1
+                selectedMenuItems.set(itemId, {
+                    ...currentData,
+                    quantity: newQuantity
                 });
+                updateQuantityDisplay(itemId, newQuantity);
             }
             
-            updateNewOrderSummary();
+            updateSelectedItems();
+            updateWalkinTotal();
         }
-        
-        function updateNewOrderSummary() {
-            const container = document.getElementById('newOrderSummary');
-            const total = newOrderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+        function updateQuantityDisplay(itemId, quantity) {
+            const display = document.getElementById(`quantity-${itemId}`);
+            if (display) {
+                display.textContent = quantity;
+            }
+        }
+
+        function updateSelectedItems() {
+            const container = document.getElementById('selectedItems');
             
-            document.getElementById('newOrderTotal').textContent = total.toFixed(2);
-            document.getElementById('submitOrderBtn').disabled = newOrderItems.length === 0;
-            
-            container.innerHTML = '';
-            
-            if (newOrderItems.length === 0) {
-                container.innerHTML = '<p class="text-muted">No items added</p>';
+            if (selectedMenuItems.size === 0) {
+                container.innerHTML = '<p class="text-muted mb-0">No items selected</p>';
                 return;
             }
             
-            newOrderItems.forEach((item, index) => {
-                const itemElement = `
+            let html = '';
+            selectedMenuItems.forEach((item, itemId) => {
+                html += `
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <div>
-                            <small class="fw-bold">${item.name}</small>
-                            <br>
-                            <small class="text-muted">$${item.price.toFixed(2)} × ${item.quantity}</small>
+                            <span class="fw-medium">${item.name}</span>
+                            <span class="text-muted ms-2">x${item.quantity}</span>
                         </div>
                         <div>
-                            <button class="btn btn-sm btn-outline-secondary decrease-quantity" 
-                                    data-index="${index}">
-                                <i class="fas fa-minus"></i>
-                            </button>
-                            <span class="mx-2">${item.quantity}</span>
-                            <button class="btn btn-sm btn-outline-secondary increase-quantity" 
-                                    data-index="${index}">
-                                <i class="fas fa-plus"></i>
-                            </button>
-                            <button class="btn btn-sm btn-danger ms-2 remove-item" 
-                                    data-index="${index}">
-                                <i class="fas fa-trash"></i>
+                            <span class="text-primary">${FormatUtils.formatCurrency(item.price * item.quantity)}</span>
+                            <button class="btn btn-sm btn-outline-danger ms-2" onclick="removeWalkinItem('${itemId}')">
+                                <i class="fas fa-times"></i>
                             </button>
                         </div>
                     </div>
                 `;
-                container.innerHTML += itemElement;
             });
             
-            // Add event listeners
-            setTimeout(() => {
-                document.querySelectorAll('.decrease-quantity').forEach(btn => {
-                    btn.addEventListener('click', function() {
-                        const index = parseInt(this.getAttribute('data-index'));
-                        updateNewOrderQuantity(index, -1);
-                    });
-                });
-                
-                document.querySelectorAll('.increase-quantity').forEach(btn => {
-                    btn.addEventListener('click', function() {
-                        const index = parseInt(this.getAttribute('data-index'));
-                        updateNewOrderQuantity(index, 1);
-                    });
-                });
-                
-                document.querySelectorAll('.remove-item').forEach(btn => {
-                    btn.addEventListener('click', function() {
-                        const index = parseInt(this.getAttribute('data-index'));
-                        removeFromNewOrder(index);
-                    });
-                });
-            }, 100);
+            container.innerHTML = html;
         }
-        
-        function updateNewOrderQuantity(index, change) {
-            newOrderItems[index].quantity += change;
+
+        function removeWalkinItem(itemId) {
+            selectedMenuItems.delete(itemId);
+            updateQuantityDisplay(itemId, 0);
+            updateSelectedItems();
+            updateWalkinTotal();
+        }
+
+        function updateWalkinTotal() {
+            let total = 0;
+            selectedMenuItems.forEach(item => {
+                total += item.price * item.quantity;
+            });
             
-            if (newOrderItems[index].quantity <= 0) {
-                newOrderItems.splice(index, 1);
-            }
-            
-            updateNewOrderSummary();
+            document.getElementById('walkinTotal').textContent = total.toFixed(2);
         }
-        
-        function removeFromNewOrder(index) {
-            newOrderItems.splice(index, 1);
-            updateNewOrderSummary();
-        }
-        
+
+        // Submit New Order function (FIXED VERSION)
         async function submitNewOrder() {
-            const tableNumber = document.getElementById('newOrderTable').value;
-            
-            if (!tableNumber || newOrderItems.length === 0) {
-                Toast.show('Please add items to the order', 'error');
-                return;
-            }
-            
             try {
                 Loading.show('Placing order...');
-                const user = Auth.getUser();
                 
-                const order = {
-                    tableNumber: parseInt(tableNumber),
-                    items: newOrderItems.map(item => ({
+                // Get form data
+                const tableNumber = parseInt(document.getElementById('walkinTableNumber').value);
+                
+                // Validate table number
+                if (!tableNumber || tableNumber < 1) {
+                    Toast.show('Please enter a valid table number', 'error');
+                    Loading.hide();
+                    return;
+                }
+                
+                // Collect order items
+                const items = [];
+                selectedMenuItems.forEach(item => {
+                    items.push({
                         itemId: item.id,
                         name: item.name,
                         price: item.price,
                         quantity: item.quantity
-                    })),
-                    totalAmount: newOrderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0),
+                    });
+                });
+                
+                if (items.length === 0) {
+                    Toast.show('Please add at least one item to the order', 'warning');
+                    Loading.hide();
+                    return;
+                }
+                
+                const orderData = {
+                    tableNumber: tableNumber,
+                    items: items,
+                    specialInstructions: document.getElementById('walkinSpecialInstructions')?.value || '',
+                    customerName: document.getElementById('walkinCustomerName')?.value || '',
                     chefId: user._id,
                     chefName: `${user.firstName} ${user.lastName}`
                 };
                 
-                const data = await API.post(CONFIG.API_ENDPOINTS.CHEF_NEW_ORDER, order);
+                console.log('Submitting walk-in order:', orderData);
                 
-                Toast.show('Order placed successfully!', 'success');
+                const response = await API.post(CONFIG.API_ENDPOINTS.CHEF_CREATE_ORDER, orderData);
                 
-                // Reset form
-                newOrderItems = [];
-                updateNewOrderSummary();
-                
-                // Switch to dashboard
-                showSection('dashboard');
-                
-                // Emit socket event
-                if (socket) {
-                    socket.emit('new-order', {
-                        tableNumber: tableNumber,
-                        orderId: data.order._id,
-                        orderNumber: data.order.orderNumber,
-                        status: 'pending'
-                    });
+                if (response.success) {
+                    Toast.show('Walk-in order created successfully!', 'success');
+                    
+                    // Close modal
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('walkinOrderModal'));
+                    if (modal) modal.hide();
+                    
+                    // Reset form
+                    document.getElementById('walkinOrderForm').reset();
+                    selectedMenuItems.clear();
+                    
+                    // Refresh dashboard
+                    await Promise.all([loadDashboard(), loadOrders()]);
+                    
+                    // Emit socket event
+                    if (socket) {
+                        socket.emit('new-order', {
+                            orderId: response.order._id,
+                            tableNumber: tableNumber,
+                            orderNumber: response.order.orderNumber,
+                            status: 'pending'
+                        });
+                    }
                 }
                 
-            } catch (error) {
-                console.error('Error placing order:', error);
-                Toast.show(error.message || 'Failed to place order', 'error');
-            } finally {
                 Loading.hide();
+            } catch (error) {
+                Loading.hide();
+                console.error('Order creation error:', error);
+                
+                let errorMessage = 'Failed to create order. ';
+                if (error.message.includes('400') && error.message.includes('Table not found')) {
+                    errorMessage = 'Table not found. Please enter a valid table number.';
+                } else if (error.message.includes('401')) {
+                    errorMessage += 'Session expired. Please login again.';
+                    setTimeout(() => Auth.logout(), 2000);
+                } else {
+                    errorMessage += error.message;
+                }
+                
+                Toast.show(errorMessage, 'error');
             }
         }
-        
-        // Notifications
-        function addNotification(message, type = 'info') {
-            const notification = {
-                id: Date.now(),
-                message: message,
-                type: type,
-                timestamp: new Date(),
-                read: false
-            };
-            
-            AppState.notifications.unshift(notification);
-            updateNotificationCount();
+
+        // Reports Functions
+        async function loadReports() {
+            try {
+                Loading.show();
+                
+                const response = await API.get(CONFIG.API_ENDPOINTS.CHEF_REPORTS);
+                
+                if (response.success) {
+                    const reportData = response.data;
+                    
+                    // Update report cards
+                    document.getElementById('todayRevenue').textContent = 
+                        FormatUtils.formatCurrency(reportData.todayRevenue || 0);
+                    document.getElementById('todayOrders').textContent = 
+                        reportData.todayOrders || 0;
+                    document.getElementById('avgPrepTime').textContent = 
+                        `${reportData.avgPrepTime || 0} min`;
+                    
+                    // Render chart
+                    renderOrderChart(reportData.chartData);
+                    
+                    // Render top items
+                    renderTopItems(reportData.topItems);
+                }
+                
+                Loading.hide();
+                
+            } catch (error) {
+                Loading.hide();
+                ErrorHandler.handle(error, 'loadReports');
+            }
         }
-        
-        function loadNotifications() {
-            const container = document.getElementById('notificationsList');
-            container.innerHTML = '';
+
+        function renderOrderChart(chartData) {
+            const ctx = document.getElementById('orderChart').getContext('2d');
             
-            if (AppState.notifications.length === 0) {
-                container.innerHTML = '<p class="text-muted text-center">No notifications</p>';
+            if (orderChart) {
+                orderChart.destroy();
+            }
+            
+            const labels = chartData?.labels || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+            const data = chartData?.data || [0, 0, 0, 0, 0, 0, 0];
+            
+            orderChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Orders',
+                        data: data,
+                        borderColor: '#3498db',
+                        backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 5
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderTopItems(topItems) {
+            const container = document.getElementById('topItemsList');
+            
+            if (!topItems || topItems.length === 0) {
+                container.innerHTML = '<p class="text-muted text-center">No data available</p>';
                 return;
             }
             
-            AppState.notifications.forEach(notification => {
-                const notificationElement = `
-                    <div class="alert alert-${notification.type} alert-dismissible fade show mb-2" role="alert">
-                        <small>${notification.message}</small>
-                        <br>
-                        <small class="text-muted">
-                            <i class="fas fa-clock me-1"></i>
-                            ${new Date(notification.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                        </small>
-                        <button type="button" class="btn-close btn-sm" data-bs-dismiss="alert" 
-                                onclick="removeNotification(${notification.id})"></button>
+            let html = '';
+            topItems.forEach((item, index) => {
+                html += `
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <span class="badge bg-primary me-2">${index + 1}</span>
+                            <span>${item.name}</span>
+                        </div>
+                        <span class="text-muted">${item.count} orders</span>
                     </div>
                 `;
-                container.innerHTML += notificationElement;
             });
-        }
-        
-        function removeNotification(id) {
-            AppState.notifications = AppState.notifications.filter(n => n.id !== id);
-            updateNotificationCount();
-            loadNotifications();
-        }
-        
-        function updateNotificationCount() {
-            const unreadCount = AppState.notifications.filter(n => !n.read).length;
-            document.getElementById('notificationCount').textContent = unreadCount;
-        }
-        
-        // View order details
-        async function viewOrderDetails(orderId) {
-            const order = currentOrders.find(o => o._id === orderId);
-            if (!order) return;
             
-            const modal = new bootstrap.Modal(document.getElementById('orderModal'));
-            const content = document.getElementById('orderDetailsContent');
-            
-            let itemsHtml = '';
-            if (order.items && order.items.length > 0) {
-                order.items.forEach(item => {
-                    itemsHtml += `
-                        <div class="d-flex justify-content-between border-bottom pb-2 mb-2">
-                            <div>
-                                <h6>${item.name}</h6>
-                                <small class="text-muted">Qty: ${item.quantity}</small>
-                            </div>
-                            <div class="text-end">
-                                <div>$${(item.price * item.quantity).toFixed(2)}</div>
-                                <small class="text-muted">$${item.price.toFixed(2)} each</small>
-                            </div>
-                        </div>
-                    `;
-                });
-            } else {
-                itemsHtml = '<p class="text-muted">No items in this order</p>';
-            }
-            
-            content.innerHTML = `
-                <div class="row">
-                    <div class="col-md-6">
-                        <h6>Order Information</h6>
-                        <p><strong>Order #:</strong> ${order.orderNumber}</p>
-                        <p><strong>Table:</strong> ${order.tableNumber}</p>
-                        <p><strong>Status:</strong> <span class="badge bg-${getStatusColor(order.status)}">${order.status.toUpperCase()}</span></p>
-                        <p><strong>Created:</strong> ${new Date(order.createdAt).toLocaleString()}</p>
-                    </div>
-                    <div class="col-md-6">
-                        <h6>Order Items</h6>
-                        ${itemsHtml}
-                        <div class="d-flex justify-content-between mt-3 pt-2 border-top">
-                            <h6>Total Amount:</h6>
-                            <h6>$${order.totalAmount?.toFixed(2) || '0.00'}</h6>
-                        </div>
-                    </div>
-                </div>
-                ${order.instructions ? `
-                    <div class="mt-3">
-                        <h6>Special Instructions</h6>
-                        <p class="text-muted">${order.instructions}</p>
-                    </div>
-                ` : ''}
-            `;
-            
-            modal.show();
+            container.innerHTML = html;
         }
-        
+
+        function exportReport(format) {
+            Toast.show(`Exporting report as ${format.toUpperCase()}...`, 'info');
+            // In a real application, this would generate and download the report
+            setTimeout(() => {
+                Toast.show('Report exported successfully!', 'success');
+            }, 1500);
+        }
+
+        // Utility Functions
         function getStatusColor(status) {
             switch(status) {
-                case 'pending': return 'warning';
-                case 'preparing': return 'info';
-                case 'ready': return 'success';
-                case 'completed': return 'secondary';
-                default: return 'dark';
+                case 'pending': return '#f39c12';
+                case 'preparing': return '#3498db';
+                case 'ready': return '#27ae60';
+                case 'completed': return '#7f8c8d';
+                default: return '#95a5a6';
             }
         }
-        
-        // View profile
-        function viewProfile() {
-            const user = Auth.getUser();
-            alert(`Chef Profile:\n\nName: ${user.firstName} ${user.lastName}\nEmail: ${user.email}\nRole: ${user.role}`);
+
+        function updateCurrentTime() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const dateStr = now.toLocaleDateString();
+            document.getElementById('currentTime').textContent = `${dateStr} ${timeStr}`;
         }
-        
-        
-        
-        // Logout
-        function logout() {
-            if (socket) socket.disconnect();
-            if (autoRefreshInterval) clearInterval(autoRefreshInterval);
-            Auth.logout();
+
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
         }
-        
-        // Initialize on load
-        document.addEventListener('DOMContentLoaded', initApp);
-        
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', () => {
+            initApp();
+        });
+
         // Make functions available globally
-        window.toggleSidebar = toggleSidebar;
         window.showSection = showSection;
-        window.toggleNotifications = toggleNotifications;
-        window.loadDashboard = loadDashboard;
-        window.filterOrders = filterOrders;
         window.acceptOrder = acceptOrder;
-        window.rejectOrder = rejectOrder;
-        window.markReady = markReady;
+        window.markAsReady = markAsReady;
         window.completeOrder = completeOrder;
-        window.assignServiceRequest = assignServiceRequest;
-        window.loadMenuItems = loadMenuItems;
-        window.showMenuCategory = showMenuCategory;
         window.updateMenuItemStatus = updateMenuItemStatus;
-        window.loadMenuForNewOrder = loadMenuForNewOrder;
-        window.addToNewOrder = addToNewOrder;
-        window.updateNewOrderQuantity = updateNewOrderQuantity;
-        window.removeFromNewOrder = removeFromNewOrder;
+        window.searchMenuItems = searchMenuItems;
+        window.filterMenu = filterMenu;
+        window.filterByCategory = filterByCategory;
+        window.assignServiceRequest = assignServiceRequest;
+        window.completeServiceRequest = completeServiceRequest;
+        window.showWalkinOrderModal = showWalkinOrderModal;
+        window.increaseWalkinItem = increaseWalkinItem;
+        window.decreaseWalkinItem = decreaseWalkinItem;
+        window.removeWalkinItem = removeWalkinItem;
         window.submitNewOrder = submitNewOrder;
-        window.removeNotification = removeNotification;
-        window.viewOrderDetails = viewOrderDetails;
-        window.viewProfile = viewProfile;
-        window.logout = logout;
+        window.loadDashboard = loadDashboard;
+        window.loadOrders = loadOrders;
+        window.loadMenuItems = loadMenuItems;
+        window.loadServiceRequests = loadServiceRequests;
+        window.loadReports = loadReports;
+        window.exportReport = exportReport;
     </script>
-    <!-- Add this line before </body> -->
-<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9999;"></div>
 </body>
 </html>

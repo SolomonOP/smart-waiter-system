@@ -39,7 +39,16 @@ const CONFIG = {
         
         // Chef endpoints
         CHEF_ORDERS: '/api/chef/orders',
+        CHEF_ORDERS: '/api/chef/orders',
+        CHEF_ORDERS_STATS: '/api/chef/orders/stats',
+        CHEF_ORDERS_QUEUE: '/api/chef/orders/queue',
         CHEF_MENU: '/api/chef/menu',
+        CHEF_SERVICE_REQUESTS: '/api/chef/service-requests',
+        CHEF_CREATE_ORDER: '/api/chef/orders/new',
+        CHEF_ORDER_ACCEPT: (id) => `/api/chef/orders/${id}/accept`,
+        CHEF_ORDER_READY: (id) => `/api/chef/orders/${id}/ready`,
+        CHEF_ORDER_COMPLETE: (id) => `/api/chef/orders/${id}/complete`,
+        CHEF_MENU_AVAILABILITY: (id) => `/api/chef/menu/${id}/availability`, // Fixed endpoint
         
         // Demo endpoints
         DEMO_ACCOUNTS: '/api/auth/demo-accounts',

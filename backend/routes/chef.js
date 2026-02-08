@@ -647,6 +647,8 @@ router.put('/menu/:id/availability', auth, isChef, [
     }
 });
 
+// In routes/chef.js, update the orders/new endpoint:
+
 // @route   POST /api/chef/orders/new
 // @desc    Create new order directly (for walk-ins)
 // @access  Private (Chef)
@@ -661,22 +663,29 @@ router.post('/orders/new', auth, isChef, [
     try {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
+            console.log('Validation errors:', errors.array());
             return res.status(400).json({
                 success: false,
                 errors: errors.array()
             });
         }
         
-        const { tableNumber, items, specialInstructions, chefId, chefName } = req.body;
+        const { tableNumber, items, specialInstructions } = req.body;
+        
+        console.log('Creating new order for table:', tableNumber);
+        console.log('Items:', items);
         
         // Check table availability
         const table = await Table.findOne({ tableNumber, isActive: true });
         if (!table) {
+            console.log('Table not found:', tableNumber);
             return res.status(400).json({
                 success: false,
                 message: 'Table not found or inactive'
             });
         }
+        
+        console.log('Table status:', table.status);
         
         if (table.status === 'occupied') {
             return res.status(400).json({
@@ -693,11 +702,14 @@ router.post('/orders/new', auth, isChef, [
             const menuItem = await MenuItem.findById(item.itemId);
             
             if (!menuItem) {
+                console.log('Menu item not found:', item.itemId);
                 return res.status(400).json({
                     success: false,
                     message: `Menu item ${item.itemId} not found`
                 });
             }
+            
+            console.log('Menu item found:', menuItem.name, 'Available:', menuItem.isAvailable);
             
             if (!menuItem.isAvailable) {
                 return res.status(400).json({
@@ -723,30 +735,33 @@ router.post('/orders/new', auth, isChef, [
             await menuItem.save();
         }
         
-        // Calculate estimated prep time
-        const estimatedPrepTime = Math.max(...orderItems.map(item => {
-            const prepTime = item.quantity * 10; // 10 minutes per item
-            return Math.min(prepTime, 60); // Max 60 minutes
-        }));
+        // Calculate estimated prep time (simplified)
+        const estimatedPrepTime = 15; // Default 15 minutes
+        
+        // Get next order number
+        const lastOrder = await Order.findOne().sort({ orderNumber: -1 });
+        const orderNumber = lastOrder ? lastOrder.orderNumber + 1 : 1000;
         
         // Create order
         const order = new Order({
+            orderNumber,
             tableNumber,
             customer: null, // Walk-in customer
             customerName: 'Walk-in Customer',
-            customerEmail: 'walkin@customer.com',
             items: orderItems,
             subtotal: totalAmount,
             totalAmount,
             paymentMethod: 'pending',
-            specialInstructions,
+            specialInstructions: specialInstructions || '',
             estimatedPrepTime,
             status: 'pending',
-            assignedChef: chefId,
-            chefName
+            assignedChef: req.userId,
+            chefName: req.user.firstName + ' ' + req.user.lastName
         });
         
+        console.log('Saving order...');
         await order.save();
+        console.log('Order saved:', order._id);
         
         // Update table status
         table.status = 'occupied';
@@ -755,6 +770,7 @@ router.post('/orders/new', auth, isChef, [
         table.customerName = 'Walk-in Customer';
         table.occupiedAt = new Date();
         await table.save();
+        console.log('Table updated');
         
         // Real-time notification
         const io = req.app.get('io');
@@ -787,9 +803,12 @@ router.post('/orders/new', auth, isChef, [
         
     } catch (error) {
         console.error('Create new order error:', error);
+        console.error('Error details:', error.message);
+        console.error('Error stack:', error.stack);
         res.status(500).json({
             success: false,
-            message: 'Server error'
+            message: 'Server error',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
 });
