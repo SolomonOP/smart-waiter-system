@@ -1786,12 +1786,34 @@ setTimeout(() => {
                     </button>
                 `;
             } else if (status === 'preparing') {
-                actionButtons = `
-                    <button class="btn btn-complete-prep btn-sm" onclick="completePreparation('${order._id}')">
-                        <i class="fas fa-check-double me-1"></i>Complete Prep
-                    </button>
-                `;
-            } else if (status === 'ready') {
+    // Create a SUPER SIMPLE button that's impossible to hide
+    actionButtons = `
+        <div style="
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            position: relative !important;
+            z-index: 1000 !important;
+        ">
+            <button onclick="completePreparation('${order._id}')" 
+                    style="
+                        background: #9b59b6 !important;
+                        color: white !important;
+                        border: none !important;
+                        padding: 10px 20px !important;
+                        border-radius: 5px !important;
+                        font-weight: bold !important;
+                        cursor: pointer !important;
+                        display: inline-block !important;
+                        visibility: visible !important;
+                        opacity: 1 !important;
+                        box-shadow: 0 0 20px red !important;
+                    ">
+                <i class="fas fa-check-double"></i> Complete Prep
+            </button>
+        </div>
+    `;
+} else if (status === 'ready') {
                 actionButtons = `
                     <div class="btn-group">
                         <button class="btn btn-download btn-sm" onclick="downloadBill('${order._id}')">
