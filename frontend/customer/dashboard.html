@@ -968,26 +968,37 @@
                 });
             }
         }
+         
+        // Update your loadTables function:
+async function loadTables() {
+    try {
+        const data = await API.get(CONFIG.API_ENDPOINTS.TABLES);
+        console.log('Tables API response:', data); // Add this for debugging
         
-        // Load tables
-        async function loadTables() {
-            try {
-                const data = await API.get(CONFIG.API_ENDPOINTS.TABLES);
-                activeTables = data.tables
-                    .filter(table => table.status === 'active')
-                    .map(table => table.number);
-                
-                if (activeTables.length > 0) {
-                    currentTable = activeTables[0];
-                    generateTableButtons();
-                } else {
-                    throw new Error('No active tables found');
-                }
-            } catch (error) {
-                console.error('Error loading tables:', error);
-                throw new Error('Unable to load tables. Please contact staff.');
-            }
+        // Make sure data.tables exists
+        if (!data.tables || !Array.isArray(data.tables)) {
+            throw new Error('Invalid tables data received');
         }
+        
+        activeTables = data.tables
+            .filter(table => table.status === 'available')
+            .map(table => table.tableNumber);
+        
+        console.log('Active tables:', activeTables); // Debug log
+        
+        if (activeTables.length > 0) {
+            currentTable = activeTables[0];
+            generateTableButtons();
+        } else {
+            // Show a helpful message if no tables are available
+            Toast.show('No tables are currently available. Please contact staff.', 'warning');
+            throw new Error('No available tables found');
+        }
+    } catch (error) {
+        console.error('Error loading tables:', error);
+        throw new Error('Unable to load tables. Please contact staff.');
+    }
+}
         
         // Generate table buttons
         function generateTableButtons() {
