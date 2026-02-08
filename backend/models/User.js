@@ -28,8 +28,8 @@ const UserSchema = new mongoose.Schema({
     password: {
         type: String,
         required: [true, 'Password is required'],
-        minlength: [6, 'Password must be at least 6 characters'],
-        select: false
+        minlength: [6, 'Password must be at least 6 characters']
+        // REMOVED: select: false - This was causing the issue!
     },
     phone: {
         type: String,
@@ -115,13 +115,6 @@ UserSchema.pre('save', function(next) {
 UserSchema.methods.comparePassword = async function(enteredPassword) {
     try {
         console.log('🔑 Comparing password for user:', this.email);
-        console.log('📋 Entered password length:', enteredPassword ? enteredPassword.length : 0);
-        console.log('📋 Stored hash exists:', !!this.password);
-        if (this.password) {
-            console.log('📋 Hash first 30 chars:', this.password.substring(0, 30) + '...');
-            console.log('📋 Hash algorithm:', this.password.substring(0, 4));
-        }
-        
         const result = await bcrypt.compare(enteredPassword, this.password);
         console.log('✅ Bcrypt compare result:', result);
         return result;
@@ -146,7 +139,7 @@ UserSchema.methods.generateAuthToken = function() {
             process.env.JWT_SECRET || 'smartwaiter_production_secret_2024',
             { expiresIn: process.env.JWT_EXPIRE || '7d' }
         );
-        console.log('✅ Token generated, first 30 chars:', token.substring(0, 30) + '...');
+        console.log('✅ Token generated');
         return token;
     } catch (error) {
         console.error('❌ Token generation error:', error);

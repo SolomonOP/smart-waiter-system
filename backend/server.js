@@ -11,6 +11,12 @@ const securityMiddleware = require('./middleware/security');
 const app = express();
 const server = http.createServer(app);
 
+// Make sure JWT secret is available
+if (!process.env.JWT_SECRET) {
+    console.warn('⚠️  JWT_SECRET not found in environment variables, using default');
+    process.env.JWT_SECRET = '3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855a3d9f7c9';
+}
+
 // Enhanced CORS configuration
 const allowedOrigins = [
   'https://smart-waiter-frontend.onrender.com',
