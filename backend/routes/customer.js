@@ -646,4 +646,54 @@ router.post('/menu/seed', async (req, res) => {
     }
 });
 
+
+// @route   GET /api/customer/tables
+// @desc    Get available tables for customers
+// @access  Private (Customer)
+router.get('/tables', auth, async (req, res) => {
+    try {
+        const tables = await Table.find({ status: 'available' })
+            .sort({ tableNumber: 1 })
+            .select('tableNumber capacity location');
+        
+        res.json({
+            success: true,
+            tables
+        });
+        
+    } catch (error) {
+        console.error('Get customer tables error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error'
+        });
+    }
+});
+
+// @route   GET /api/customer/tables
+// @desc    Get available tables
+// @access  Private (Customer)
+router.get('/tables', auth, async (req, res) => {
+    try {
+        const tables = await Table.find({ 
+            status: 'available',
+            isActive: true 
+        })
+        .sort({ tableNumber: 1 })
+        .select('tableNumber capacity location section');
+        
+        res.json({
+            success: true,
+            tables
+        });
+        
+    } catch (error) {
+        console.error('Get tables error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to load tables'
+        });
+    }
+});
+
 module.exports = router;

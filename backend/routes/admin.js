@@ -1175,4 +1175,83 @@ router.get('/analytics/sales', auth, isAdmin, async (req, res) => {
     }
 });
 
+// @route   GET /api/admin/revenue/weekly
+// @desc    Get weekly revenue data
+// @access  Private (Admin)
+router.get('/revenue/weekly', auth, isAdmin, async (req, res) => {
+    try {
+        // Get last 7 days
+        const days = 7;
+        const labels = [];
+        const data = [];
+        
+        // Generate last 7 days
+        for (let i = days - 1; i >= 0; i--) {
+            const date = new Date();
+            date.setDate(date.getDate() - i);
+            date.setHours(0, 0, 0, 0);
+            
+            const nextDate = new Date(date);
+            nextDate.setDate(nextDate.getDate() + 1);
+            
+            // Get day name
+            const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            labels.push(dayNames[date.getDay()]);
+            
+            // Get revenue for this day
+            const dayOrders = await Order.find({
+                createdAt: { $gte: date, $lt: nextDate },
+                status: 'completed'
+            });
+            
+            const dayRevenue = dayOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+            data.push(dayRevenue);
+        }
+        
+        res.json({
+            success: true,
+            labels,
+            data
+        });
+        
+    } catch (error) {
+        console.error('Get weekly revenue error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error'
+        });
+    }
+});
+
+// @route   GET /api/admin/tables
+// @desc    Get all tables
+// @access  Private (Admin)
+router.get('/tables', auth, isAdmin, async (req, res) => {
+    try {
+        const tables = await Table.find()
+            .sort({ tableNumber: 1 })
+            .select('tableNumber capacity status location currentOrder');
+        
+        const stats = {
+            total: tables.length,
+            available: tables.filter(t => t.status === 'available').length,
+            occupied: tables.filter(t => t.status === 'occupied').length,
+            reserved: tables.filter(t => t.status === 'reserved').length
+        };
+        
+        res.json({
+            success: true,
+            tables,
+            stats
+        });
+        
+    } catch (error) {
+        console.error('Get tables error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error'
+        });
+    }
+});
+
 module.exports = router;

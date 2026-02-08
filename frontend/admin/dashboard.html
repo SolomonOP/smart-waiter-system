@@ -4,344 +4,558 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Dashboard - Smart Waiter</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+    
+    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Socket.io -->
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+    
     <style>
         :root {
-            --primary: #2c3e50;
-            --secondary: #e74c3c;
+            --primary-color: #667eea;
+            --primary-dark: #5a67d8;
+            --secondary-color: #764ba2;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --light-color: #f8fafc;
+            --dark-color: #1e293b;
+            --gray-color: #64748b;
         }
         
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f8f9fa;
+            background-color: #f1f5f9;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            min-height: 100vh;
         }
         
         .sidebar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            height: 100vh;
-            width: 250px;
-            background: var(--primary);
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            min-height: 100vh;
             color: white;
-            padding: 20px 0;
+            position: fixed;
+            width: 260px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
             z-index: 1000;
-            overflow-y: auto;
-            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+        }
+        
+        .sidebar-brand {
+            padding: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .sidebar-menu {
+            padding: 20px 0;
+        }
+        
+        .sidebar-menu a {
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            padding: 12px 20px;
+            margin: 4px 10px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+        
+        .sidebar-menu a:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+        
+        .sidebar-menu a.active {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            font-weight: 500;
+        }
+        
+        .sidebar-menu i {
+            margin-right: 12px;
+            font-size: 18px;
+            width: 24px;
         }
         
         .main-content {
-            margin-left: 250px;
+            margin-left: 260px;
             padding: 20px;
             min-height: 100vh;
         }
         
-        .sidebar-header {
-            padding: 0 20px 20px;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-        }
-        
-        .sidebar-menu {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-        
-        .sidebar-menu li {
-            margin-bottom: 2px;
-        }
-        
-        .sidebar-menu a {
-            display: flex;
-            align-items: center;
-            padding: 12px 20px;
-            color: rgba(255,255,255,0.8);
-            text-decoration: none;
-            transition: all 0.3s;
-            border-left: 3px solid transparent;
-        }
-        
-        .sidebar-menu a:hover,
-        .sidebar-menu a.active {
-            background: rgba(255,255,255,0.1);
-            color: white;
-            border-left: 3px solid var(--secondary);
-        }
-        
-        .sidebar-menu .icon {
-            margin-right: 12px;
-            font-size: 1.1rem;
-            width: 24px;
-            text-align: center;
+        .navbar {
+            background: white;
+            border-radius: 12px;
+            padding: 15px 20px;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
         }
         
         .stat-card {
+            background: white;
             border-radius: 12px;
             padding: 20px;
-            color: white;
-            margin-bottom: 20px;
+            height: 100%;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
             border: none;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
         }
         
-        .stat-card.revenue { 
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        }
-        .stat-card.customers { 
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        }
-        .stat-card.orders { 
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-        }
-        .stat-card.tables { 
-            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
         }
         
-        .table-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-            gap: 15px;
-            margin-top: 20px;
-        }
-        
-        .table-item {
-            width: 80px;
-            height: 80px;
-            border-radius: 10px;
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: white;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s;
-            flex-direction: column;
-            box-shadow: 0 3px 5px rgba(0,0,0,0.2);
-        }
-        
-        .table-item:hover {
-            transform: scale(1.05);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-        }
-        
-        .table-available { background: #28a745; }
-        .table-occupied { background: #dc3545; }
-        .table-reserved { background: #ffc107; color: #000; }
-        
-        .staff-card {
-            border: 1px solid #dee2e6;
-            border-radius: 10px;
-            padding: 15px;
             margin-bottom: 15px;
-            background: white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
         
-        .menu-item-card {
-            border: 1px solid #dee2e6;
-            border-radius: 10px;
-            overflow: hidden;
-            margin-bottom: 20px;
-            background: white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        .stat-icon.revenue { background: linear-gradient(135deg, #667eea, #764ba2); color: white; }
+        .stat-icon.customers { background: linear-gradient(135deg, #10b981, #34d399); color: white; }
+        .stat-icon.orders { background: linear-gradient(135deg, #f59e0b, #fbbf24); color: white; }
+        .stat-icon.tables { background: linear-gradient(135deg, #8b5cf6, #a78bfa); color: white; }
+        
+        .stat-number {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--dark-color);
+            margin-bottom: 5px;
         }
         
-        .menu-item-image {
-            height: 150px;
-            background-size: cover;
-            background-position: center;
-        }
-        
-        .modal-xl {
-            max-width: 900px;
+        .stat-label {
+            color: var(--gray-color);
+            font-size: 14px;
+            font-weight: 500;
         }
         
         .card {
             border: none;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-            margin-bottom: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            margin-bottom: 25px;
         }
         
         .card-header {
             background: white;
-            border-bottom: 1px solid #eee;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 20px;
+            border-radius: 12px 12px 0 0 !important;
+        }
+        
+        .card-title {
+            color: var(--dark-color);
             font-weight: 600;
+            margin: 0;
+        }
+        
+        .table-container {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+        
+        .table {
+            margin: 0;
+        }
+        
+        .table thead th {
+            background: #f8fafc;
+            border-bottom: 2px solid #e2e8f0;
+            padding: 15px;
+            font-weight: 600;
+            color: var(--dark-color);
+        }
+        
+        .table tbody td {
+            padding: 15px;
+            vertical-align: middle;
+            border-color: #e2e8f0;
+        }
+        
+        .table tbody tr:hover {
+            background-color: #f8fafc;
+        }
+        
+        .badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-weight: 500;
+            font-size: 12px;
+        }
+        
+        .chart-container {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            height: 100%;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+        
+        .section-content {
+            display: none;
+        }
+        
+        .section-content.active {
+            display: block;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            border: none;
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn-outline-primary {
+            border: 2px solid var(--primary-color);
+            color: var(--primary-color);
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-outline-primary:hover {
+            background: var(--primary-color);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(102, 126, 234, 0.3);
+        }
+        
+        .form-control, .form-select {
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 10px 15px;
+            transition: all 0.3s ease;
+        }
+        
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .modal-content {
+            border-radius: 12px;
+            border: none;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+        
+        .modal-header {
+            border-bottom: 1px solid #e2e8f0;
+            padding: 20px;
+        }
+        
+        .modal-body {
+            padding: 20px;
+        }
+        
+        .modal-footer {
+            border-top: 1px solid #e2e8f0;
+            padding: 20px;
+        }
+        
+        @media (max-width: 992px) {
+            .sidebar {
+                width: 70px;
+            }
+            
+            .sidebar .menu-text {
+                display: none;
+            }
+            
+            .sidebar-brand .brand-text {
+                display: none;
+            }
+            
+            .main-content {
+                margin-left: 70px;
+            }
         }
         
         @media (max-width: 768px) {
             .sidebar {
-                width: 70px;
-            }
-            .sidebar .menu-text {
                 display: none;
             }
-            .sidebar-header h3 {
-                display: none;
-            }
+            
             .main-content {
-                margin-left: 70px;
+                margin-left: 0;
                 padding: 15px;
             }
+            
+            .navbar {
+                border-radius: 0;
+                margin: -20px -20px 20px -20px;
+            }
+        }
+        
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            z-index: 9999;
+            backdrop-filter: blur(5px);
+        }
+        
+        .menu-item-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .menu-item-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .table-card {
+            background: white;
+            border-radius: 12px;
+            padding: 15px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+        
+        .table-card.selected {
+            border-color: var(--primary-color);
+            background: rgba(102, 126, 234, 0.05);
+        }
+        
+        .table-card.occupied {
+            background: linear-gradient(135deg, #fecaca, #fca5a5);
+            color: #7f1d1d;
+        }
+        
+        .table-card.available {
+            background: linear-gradient(135deg, #bbf7d0, #86efac);
+            color: #14532d;
+        }
+        
+        .table-card.reserved {
+            background: linear-gradient(135deg, #fef3c7, #fde68a);
+            color: #78350f;
+        }
+        
+        .staff-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.3s ease;
+        }
+        
+        .staff-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .staff-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 24px;
+            font-weight: 600;
+            margin: 0 auto 15px;
+        }
+        
+        .filter-controls {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
         }
     </style>
 </head>
 <body>
     <!-- Sidebar -->
     <div class="sidebar">
-        <div class="sidebar-header">
-            <h3 class="text-center">Admin Dashboard</h3>
+        <div class="sidebar-brand">
+            <div class="d-flex align-items-center">
+                <i class="bi bi-cup-hot-fill fs-4"></i>
+                <span class="brand-text ms-2 fs-5 fw-bold">Smart Waiter</span>
+            </div>
+            <div class="text-white-50 small mt-2">Admin Dashboard</div>
         </div>
-        <ul class="sidebar-menu">
-            <li>
-                <a href="#" class="active" onclick="showSection('dashboard')">
-                    <i class="fas fa-tachometer-alt icon"></i>
-                    <span class="menu-text">Dashboard</span>
-                </a>
-            </li>
-            <li>
-                <a href="#" onclick="showSection('menu-management')">
-                    <i class="fas fa-utensils icon"></i>
-                    <span class="menu-text">Menu Management</span>
-                </a>
-            </li>
-            <li>
-                <a href="#" onclick="showSection('table-management')">
-                    <i class="fas fa-chair icon"></i>
-                    <span class="menu-text">Table Management</span>
-                </a>
-            </li>
-            <li>
-                <a href="#" onclick="showSection('staff-management')">
-                    <i class="fas fa-users icon"></i>
-                    <span class="menu-text">Staff Management</span>
-                </a>
-            </li>
-            <li>
-                <a href="#" onclick="showSection('sales-analytics')">
-                    <i class="fas fa-chart-line icon"></i>
-                    <span class="menu-text">Sales Analytics</span>
-                </a>
-            </li>
-            <li>
-                <a href="#" onclick="logout()">
-                    <i class="fas fa-sign-out-alt icon"></i>
+        
+        <div class="sidebar-menu">
+            <a href="#" onclick="showSection('dashboard')" class="active">
+                <i class="bi bi-speedometer2"></i>
+                <span class="menu-text">Dashboard</span>
+            </a>
+            <a href="#" onclick="showSection('menu-management')">
+                <i class="bi bi-menu-button-wide"></i>
+                <span class="menu-text">Menu Management</span>
+            </a>
+            <a href="#" onclick="showSection('table-management')">
+                <i class="bi bi-table"></i>
+                <span class="menu-text">Table Management</span>
+            </a>
+            <a href="#" onclick="showSection('staff-management')">
+                <i class="bi bi-people"></i>
+                <span class="menu-text">Staff Management</span>
+            </a>
+            <a href="#" onclick="showSection('sales-analytics')">
+                <i class="bi bi-bar-chart"></i>
+                <span class="menu-text">Sales Analytics</span>
+            </a>
+            <div class="mt-4 pt-3 border-top border-white-10 mx-3">
+                <a href="#" onclick="logout()" class="text-danger">
+                    <i class="bi bi-box-arrow-right"></i>
                     <span class="menu-text">Logout</span>
                 </a>
-            </li>
-        </ul>
+            </div>
+        </div>
     </div>
-
+    
     <!-- Main Content -->
     <div class="main-content">
-        <!-- Top Navigation -->
-        <nav class="navbar navbar-light bg-white shadow-sm mb-4 rounded">
+        <!-- Navbar -->
+        <nav class="navbar">
             <div class="container-fluid">
-                <h4 class="mb-0 text-primary">Admin Dashboard</h4>
-                <div class="d-flex align-items-center">
-                    <div class="dropdown">
-                        <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-user me-2"></i>
-                            <span id="adminName">Loading...</span>
-                        </button>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="#"><i class="fas fa-cog me-2"></i>Settings</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="#" onclick="logout()"><i class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
-                        </ul>
+                <div class="d-flex justify-content-between align-items-center w-100">
+                    <div>
+                        <h4 class="mb-0" id="pageTitle">Dashboard Overview</h4>
+                        <small class="text-muted" id="lastUpdated"></small>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <div class="me-3">
+                            <i class="bi bi-bell fs-5 text-gray"></i>
+                            <span class="badge bg-danger rounded-pill" style="font-size: 10px; position: relative; top: -10px; left: -5px;" id="notificationBadge">0</span>
+                        </div>
+                        <div class="dropdown">
+                            <a href="#" class="d-flex align-items-center text-decoration-none dropdown-toggle" data-bs-toggle="dropdown">
+                                <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                    <i class="bi bi-person-fill text-white"></i>
+                                </div>
+                                <div class="ms-2">
+                                    <div class="fw-medium" id="adminName">Admin User</div>
+                                    <div class="text-muted small">Administrator</div>
+                                </div>
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end shadow">
+                                <li><a class="dropdown-item" href="#"><i class="bi bi-person me-2"></i> Profile</a></li>
+                                <li><a class="dropdown-item" href="#"><i class="bi bi-gear me-2"></i> Settings</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item text-danger" href="#" onclick="logout()"><i class="bi bi-box-arrow-right me-2"></i> Logout</a></li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
             </div>
         </nav>
-
+        
         <!-- Dashboard Section -->
-        <section id="dashboardSection" class="section-content">
-            <h2 class="mb-4">Dashboard Overview</h2>
-            
-            <!-- Statistics Cards -->
-            <div class="row">
-                <div class="col-xl-3 col-md-6 mb-4">
-                    <div class="stat-card revenue">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="text-white-50">Today's Revenue</h6>
-                                <h3 class="mb-0" id="todayRevenue">$0.00</h3>
-                            </div>
-                            <i class="fas fa-dollar-sign fa-2x opacity-50"></i>
+        <div id="dashboardSection" class="section-content active">
+            <!-- Stats Cards -->
+            <div class="row mb-4">
+                <div class="col-md-3 col-sm-6 mb-3">
+                    <div class="stat-card">
+                        <div class="stat-icon revenue">
+                            <i class="bi bi-currency-dollar fs-4"></i>
                         </div>
+                        <div class="stat-number" id="todayRevenue">$0.00</div>
+                        <div class="stat-label">Today's Revenue</div>
+                        <small class="text-muted">+12% from yesterday</small>
                     </div>
                 </div>
-                <div class="col-xl-3 col-md-6 mb-4">
-                    <div class="stat-card customers">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="text-white-50">Today's Customers</h6>
-                                <h3 class="mb-0" id="todayCustomers">0</h3>
-                            </div>
-                            <i class="fas fa-users fa-2x opacity-50"></i>
+                <div class="col-md-3 col-sm-6 mb-3">
+                    <div class="stat-card">
+                        <div class="stat-icon customers">
+                            <i class="bi bi-people fs-4"></i>
                         </div>
+                        <div class="stat-number" id="todayCustomers">0</div>
+                        <div class="stat-label">Today's Customers</div>
+                        <small class="text-muted">+5 from yesterday</small>
                     </div>
                 </div>
-                <div class="col-xl-3 col-md-6 mb-4">
-                    <div class="stat-card orders">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="text-white-50">Orders Today</h6>
-                                <h3 class="mb-0" id="todayOrders">0</h3>
-                            </div>
-                            <i class="fas fa-shopping-cart fa-2x opacity-50"></i>
+                <div class="col-md-3 col-sm-6 mb-3">
+                    <div class="stat-card">
+                        <div class="stat-icon orders">
+                            <i class="bi bi-cart fs-4"></i>
                         </div>
+                        <div class="stat-number" id="todayOrders">0</div>
+                        <div class="stat-label">Today's Orders</div>
+                        <small class="text-muted">+8% from yesterday</small>
                     </div>
                 </div>
-                <div class="col-xl-3 col-md-6 mb-4">
-                    <div class="stat-card tables">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="text-white-50">Tables Occupied</h6>
-                                <h3 class="mb-0" id="tablesOccupied">0/0</h3>
-                            </div>
-                            <i class="fas fa-chair fa-2x opacity-50"></i>
+                <div class="col-md-3 col-sm-6 mb-3">
+                    <div class="stat-card">
+                        <div class="stat-icon tables">
+                            <i class="bi bi-table fs-4"></i>
                         </div>
+                        <div class="stat-number" id="tablesOccupied">0/0</div>
+                        <div class="stat-label">Tables Occupied</div>
+                        <small class="text-muted">75% occupancy rate</small>
                     </div>
                 </div>
             </div>
-
-            <!-- Charts -->
-            <div class="row mb-4">
+            
+            <!-- Charts and Recent Orders -->
+            <div class="row">
                 <div class="col-lg-8 mb-4">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0">Revenue Overview (Last 7 Days)</h5>
+                    <div class="chart-container">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h5 class="card-title mb-0">Revenue Overview (Last 7 Days)</h5>
+                            <select class="form-select w-auto" id="chartPeriod">
+                                <option value="week">This Week</option>
+                                <option value="month">This Month</option>
+                                <option value="year">This Year</option>
+                            </select>
                         </div>
-                        <div class="card-body">
-                            <canvas id="revenueChart" height="250"></canvas>
-                        </div>
+                        <canvas id="revenueChart" height="250"></canvas>
                     </div>
                 </div>
                 <div class="col-lg-4 mb-4">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0">Today's Status</h5>
-                        </div>
-                        <div class="card-body">
-                            <canvas id="statusChart" height="250"></canvas>
-                        </div>
+                    <div class="chart-container">
+                        <h5 class="card-title mb-4">Order Status Distribution</h5>
+                        <canvas id="statusChart" height="250"></canvas>
                     </div>
                 </div>
             </div>
-
+            
             <!-- Recent Orders -->
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">Recent Orders</h5>
-                    <button class="btn btn-sm btn-primary" onclick="loadDashboard()">
-                        <i class="fas fa-sync-alt"></i> Refresh
+                    <h5 class="card-title mb-0">Recent Orders</h5>
+                    <button class="btn btn-sm btn-outline-primary" onclick="loadDashboard()">
+                        <i class="bi bi-arrow-clockwise"></i> Refresh
                     </button>
                 </div>
-                <div class="card-body">
+                <div class="card-body p-0">
                     <div class="table-responsive">
-                        <table class="table table-hover">
+                        <table class="table table-hover mb-0">
                             <thead>
                                 <tr>
                                     <th>Order #</th>
@@ -350,173 +564,237 @@
                                     <th>Amount</th>
                                     <th>Status</th>
                                     <th>Time</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="recentOrdersTable">
-                                <tr><td colspan="6" class="text-center">Loading orders...</td></tr>
+                                <tr>
+                                    <td colspan="7" class="text-center py-5">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        <p class="mt-2 mb-0">Loading orders...</p>
+                                    </td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
                 </div>
             </div>
-        </section>
-
+        </div>
+        
         <!-- Menu Management Section -->
-        <section id="menuManagementSection" class="section-content" style="display: none;">
+        <div id="menu-managementSection" class="section-content">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2>Menu Management</h2>
+                <h4 class="mb-0">Menu Management</h4>
                 <button class="btn btn-primary" onclick="showAddMenuItemModal()">
-                    <i class="fas fa-plus me-2"></i>Add Menu Item
+                    <i class="bi bi-plus-circle me-2"></i> Add New Item
                 </button>
             </div>
             
-            <div class="card">
-                <div class="card-header">
-                    <ul class="nav nav-tabs card-header-tabs">
-                        <li class="nav-item">
-                            <button class="nav-link active" onclick="showMenuTab('available')">Available</button>
-                        </li>
-                        <li class="nav-item">
-                            <button class="nav-link" onclick="showMenuTab('unavailable')">Not Available</button>
-                        </li>
-                        <li class="nav-item">
-                            <button class="nav-link" onclick="showMenuTab('all')">All Items</button>
-                        </li>
-                    </ul>
-                </div>
-                <div class="card-body">
-                    <div id="menuItemsContainer">
-                        <p class="text-center text-muted py-4">Loading menu items...</p>
+            <div class="filter-controls">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <select class="form-select" id="menuCategoryFilter">
+                            <option value="">All Categories</option>
+                            <option value="appetizer">Appetizer</option>
+                            <option value="main">Main Course</option>
+                            <option value="dessert">Dessert</option>
+                            <option value="drink">Drink</option>
+                        </select>
                     </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Table Management Section -->
-        <section id="tableManagementSection" class="section-content" style="display: none;">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2>Table Management</h2>
-                <div>
-                    <button class="btn btn-success me-2" onclick="showAddTableModal()">
-                        <i class="fas fa-plus me-2"></i>Add Tables
-                    </button>
-                    <button class="btn btn-danger" onclick="showRemoveTableModal()">
-                        <i class="fas fa-minus me-2"></i>Remove Tables
-                    </button>
-                </div>
-            </div>
-            
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0">Tables Layout</h5>
-                </div>
-                <div class="card-body">
-                    <div class="table-grid" id="tablesGrid">
-                        <p class="text-center text-muted py-4">Loading tables...</p>
+                    <div class="col-md-4">
+                        <select class="form-select" id="menuStatusFilter">
+                            <option value="">All Status</option>
+                            <option value="available">Available</option>
+                            <option value="unavailable">Unavailable</option>
+                        </select>
                     </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Staff Management Section -->
-        <section id="staffManagementSection" class="section-content" style="display: none;">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2>Staff Management</h2>
-                <button class="btn btn-primary" onclick="showAddStaffModal()">
-                    <i class="fas fa-plus me-2"></i>Add Staff
-                </button>
-            </div>
-            
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0">Chef Staff</h5>
-                </div>
-                <div class="card-body">
-                    <div id="staffList" class="row">
-                        <div class="col-12 text-center text-muted py-4">Loading staff members...</div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Sales Analytics Section -->
-        <section id="salesAnalyticsSection" class="section-content" style="display: none;">
-            <h2 class="mb-4">Sales Analytics</h2>
-            
-            <div class="row mb-4">
-                <div class="col-md-6">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0">Select Date Range</h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">From Date</label>
-                                    <input type="date" id="fromDate" class="form-control" value="2024-01-01">
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">To Date</label>
-                                    <input type="date" id="toDate" class="form-control" value="2024-01-07">
-                                </div>
-                            </div>
-                            <button class="btn btn-primary w-100" onclick="loadSalesAnalytics()">
-                                <i class="fas fa-chart-bar me-2"></i>Generate Report
+                    <div class="col-md-4">
+                        <div class="input-group">
+                            <input type="text" class="form-control" placeholder="Search items..." id="menuSearch">
+                            <button class="btn btn-outline-secondary" type="button">
+                                <i class="bi bi-search"></i>
                             </button>
                         </div>
                     </div>
                 </div>
-                <div class="col-md-6">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0">Summary</h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between mb-2">
-                                <span>Total Revenue:</span>
-                                <strong id="totalRevenue">$0.00</strong>
-                            </div>
-                            <div class="d-flex justify-content-between mb-2">
-                                <span>Total Orders:</span>
-                                <strong id="totalOrders">0</strong>
-                            </div>
-                            <div class="d-flex justify-content-between mb-2">
-                                <span>Average Order Value:</span>
-                                <strong id="avgOrderValue">$0.00</strong>
-                            </div>
-                            <div class="d-flex justify-content-between">
-                                <span>Most Popular Item:</span>
-                                <strong id="popularItem">-</strong>
-                            </div>
-                        </div>
+            </div>
+            
+            <div class="row" id="menuItemsContainer">
+                <div class="col-12 text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2 mb-0">Loading menu items...</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Table Management Section -->
+        <div id="table-managementSection" class="section-content">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 class="mb-0">Table Management</h4>
+                <div>
+                    <button class="btn btn-outline-primary me-2" onclick="showAddTableModal()">
+                        <i class="bi bi-plus-circle me-2"></i> Add Table
+                    </button>
+                    <button class="btn btn-primary" onclick="showBulkTableModal()">
+                        <i class="bi bi-collection me-2"></i> Bulk Add
+                    </button>
+                </div>
+            </div>
+            
+            <div class="filter-controls">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <select class="form-select" id="tableSectionFilter">
+                            <option value="">All Sections</option>
+                            <option value="main">Main Hall</option>
+                            <option value="terrace">Terrace</option>
+                            <option value="private">Private Room</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="tableStatusFilter">
+                            <option value="">All Status</option>
+                            <option value="available">Available</option>
+                            <option value="occupied">Occupied</option>
+                            <option value="reserved">Reserved</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="tableCapacityFilter">
+                            <option value="">All Capacities</option>
+                            <option value="2">2 Seats</option>
+                            <option value="4">4 Seats</option>
+                            <option value="6">6 Seats</option>
+                            <option value="8">8+ Seats</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-outline-secondary w-100" onclick="loadTables()">
+                            <i class="bi bi-filter me-2"></i> Apply Filters
+                        </button>
                     </div>
                 </div>
             </div>
             
-            <div class="card mb-4">
+            <div class="row" id="tablesContainer">
+                <div class="col-12 text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2 mb-0">Loading tables...</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Staff Management Section -->
+        <div id="staff-managementSection" class="section-content">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 class="mb-0">Staff Management</h4>
+                <button class="btn btn-primary" onclick="showAddStaffModal()">
+                    <i class="bi bi-person-plus me-2"></i> Add Staff Member
+                </button>
+            </div>
+            
+            <div class="row" id="staffContainer">
+                <div class="col-12 text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2 mb-0">Loading staff data...</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sales Analytics Section -->
+        <div id="sales-analyticsSection" class="section-content">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 class="mb-0">Sales Analytics</h4>
+                <div class="d-flex">
+                    <input type="date" class="form-control me-2" id="fromDate">
+                    <span class="align-self-center me-2">to</span>
+                    <input type="date" class="form-control me-2" id="toDate">
+                    <button class="btn btn-primary" onclick="loadSalesAnalytics()">
+                        <i class="bi bi-calendar-check me-2"></i> Apply
+                    </button>
+                </div>
+            </div>
+            
+            <div class="row mb-4">
+                <div class="col-md-3 mb-3">
+                    <div class="stat-card">
+                        <div class="stat-label">Total Revenue</div>
+                        <div class="stat-number" id="totalRevenue">$0.00</div>
+                        <small class="text-muted" id="revenueChange">0% from previous period</small>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="stat-card">
+                        <div class="stat-label">Total Orders</div>
+                        <div class="stat-number" id="totalOrders">0</div>
+                        <small class="text-muted" id="ordersChange">0% from previous period</small>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="stat-card">
+                        <div class="stat-label">Average Order Value</div>
+                        <div class="stat-number" id="averageOrder">$0.00</div>
+                        <small class="text-muted" id="avgOrderChange">0% from previous period</small>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="stat-card">
+                        <div class="stat-label">Top Selling Category</div>
+                        <div class="stat-number" id="topCategory">N/A</div>
+                        <small class="text-muted" id="topCategorySales">0 items sold</small>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-lg-8 mb-4">
+                    <div class="chart-container">
+                        <h5 class="card-title mb-4">Sales Trend</h5>
+                        <canvas id="salesTrendChart" height="300"></canvas>
+                    </div>
+                </div>
+                <div class="col-lg-4 mb-4">
+                    <div class="chart-container">
+                        <h5 class="card-title mb-4">Category Distribution</h5>
+                        <canvas id="categoryChart" height="300"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
                 <div class="card-header">
-                    <h5 class="mb-0">Detailed Sales Report</h5>
+                    <h5 class="card-title mb-0">Top Selling Items</h5>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
-                        <table class="table table-hover">
+                        <table class="table" id="topItemsTable">
                             <thead>
                                 <tr>
-                                    <th>Date</th>
-                                    <th>Orders</th>
+                                    <th>Item</th>
+                                    <th>Category</th>
+                                    <th>Quantity Sold</th>
                                     <th>Revenue</th>
-                                    <th>Avg. Order</th>
-                                    <th>Details</th>
+                                    <th>Rating</th>
                                 </tr>
                             </thead>
-                            <tbody id="salesReportTable">
-                                <tr><td colspan="5" class="text-center">Select date range and generate report</td></tr>
+                            <tbody>
+                                <tr>
+                                    <td colspan="5" class="text-center py-5">Loading top items...</td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
                 </div>
             </div>
-        </section>
+        </div>
     </div>
 
     <!-- Modals -->
@@ -525,165 +803,150 @@
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Add Menu Item</h5>
+                    <h5 class="modal-title">Add New Menu Item</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
                     <form id="addMenuItemForm">
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Item Name *</label>
+                                <label class="form-label">Item Name</label>
                                 <input type="text" class="form-control" name="name" required>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Category *</label>
-                                <select class="form-control" name="category" required>
+                                <label class="form-label">Category</label>
+                                <select class="form-select" name="category" required>
+                                    <option value="">Select Category</option>
                                     <option value="appetizer">Appetizer</option>
                                     <option value="main">Main Course</option>
                                     <option value="dessert">Dessert</option>
                                     <option value="drink">Drink</option>
                                 </select>
                             </div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Description *</label>
-                            <textarea class="form-control" name="description" rows="3" required></textarea>
-                        </div>
-                        <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Price ($) *</label>
-                                <input type="number" step="0.01" min="0" class="form-control" name="price" required>
+                                <label class="form-label">Price</label>
+                                <input type="number" class="form-control" name="price" step="0.01" min="0" required>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Availability *</label>
-                                <select class="form-control" name="available" required>
-                                    <option value="true">Available</option>
-                                    <option value="false">Not Available</option>
-                                </select>
+                                <label class="form-label">Preparation Time (minutes)</label>
+                                <input type="number" class="form-control" name="preparationTime" min="1" required>
                             </div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Image URL</label>
-                            <input type="text" class="form-control" name="image" placeholder="https://example.com/image.jpg">
+                            <div class="col-12 mb-3">
+                                <label class="form-label">Description</label>
+                                <textarea class="form-control" name="description" rows="3"></textarea>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Image URL</label>
+                                <input type="url" class="form-control" name="image" placeholder="https://example.com/image.jpg">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <div class="form-check form-switch mt-4">
+                                    <input class="form-check-input" type="checkbox" name="isAvailable" checked>
+                                    <label class="form-check-label">Available</label>
+                                </div>
+                            </div>
                         </div>
                     </form>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" onclick="addMenuItem()">Add Item</button>
+                    <button type="button" class="btn btn-primary" onclick="saveMenuItem()">Save Item</button>
                 </div>
             </div>
         </div>
     </div>
-
-    <!-- Edit Menu Item Modal -->
-    <div class="modal fade" id="editMenuItemModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Edit Menu Item</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="editMenuItemForm">
-                        <input type="hidden" id="editItemId" name="id">
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Item Name *</label>
-                                <input type="text" class="form-control" id="editItemName" name="name" required>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Category *</label>
-                                <select class="form-control" id="editItemCategory" name="category" required>
-                                    <option value="appetizer">Appetizer</option>
-                                    <option value="main">Main Course</option>
-                                    <option value="dessert">Dessert</option>
-                                    <option value="drink">Drink</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Description *</label>
-                            <textarea class="form-control" id="editItemDescription" name="description" rows="3" required></textarea>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Price ($) *</label>
-                                <input type="number" step="0.01" min="0" class="form-control" id="editItemPrice" name="price" required>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Availability *</label>
-                                <select class="form-control" id="editItemAvailable" name="available" required>
-                                    <option value="true">Available</option>
-                                    <option value="false">Not Available</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Image URL</label>
-                            <input type="text" class="form-control" id="editItemImage" name="image">
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" onclick="updateMenuItem()">Update Item</button>
-                    <button type="button" class="btn btn-danger" onclick="deleteMenuItem()">Delete Item</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
+    
     <!-- Add Table Modal -->
     <div class="modal fade" id="addTableModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Add Tables</h5>
+                    <h5 class="modal-title">Add New Table</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Number of Tables to Add</label>
-                        <input type="number" class="form-control" id="tablesToAdd" min="1" max="20" value="1">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Capacity per Table</label>
-                        <input type="number" class="form-control" id="tableCapacity" min="2" max="10" value="4">
-                    </div>
+                    <form id="addTableForm">
+                        <div class="mb-3">
+                            <label class="form-label">Table Number</label>
+                            <input type="number" class="form-control" name="tableNumber" min="1" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Capacity</label>
+                            <input type="number" class="form-control" name="capacity" min="1" max="20" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Section</label>
+                            <select class="form-select" name="section" required>
+                                <option value="main">Main Hall</option>
+                                <option value="terrace">Terrace</option>
+                                <option value="private">Private Room</option>
+                                <option value="outdoor">Outdoor</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Location</label>
+                            <input type="text" class="form-control" name="location" placeholder="e.g., Near window">
+                        </div>
+                    </form>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" onclick="addTables()">Add Tables</button>
+                    <button type="button" class="btn btn-primary" onclick="saveTable()">Save Table</button>
                 </div>
             </div>
         </div>
     </div>
-
-    <!-- Remove Table Modal -->
-    <div class="modal fade" id="removeTableModal" tabindex="-1">
+    
+    <!-- Bulk Add Tables Modal -->
+    <div class="modal fade" id="bulkTableModal" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Remove Tables</h5>
+                    <h5 class="modal-title">Bulk Add Tables</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Select Tables to Remove</label>
-                        <div id="tablesToRemove" class="table-grid">
-                            <p class="text-center text-muted py-4">Loading tables...</p>
+                    <form id="bulkTableForm">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Start Table Number</label>
+                                <input type="number" class="form-control" name="startNumber" min="1" value="1" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Number of Tables</label>
+                                <input type="number" class="form-control" name="tableCount" min="1" max="50" value="10" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Capacity per Table</label>
+                                <input type="number" class="form-control" name="capacity" min="1" max="20" value="4" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Section</label>
+                                <select class="form-select" name="section" required>
+                                    <option value="main">Main Hall</option>
+                                    <option value="terrace">Terrace</option>
+                                    <option value="private">Private Room</option>
+                                </select>
+                            </div>
+                            <div class="col-12 mb-3">
+                                <label class="form-label">Location Prefix</label>
+                                <input type="text" class="form-control" name="locationPrefix" placeholder="e.g., Section A">
+                            </div>
                         </div>
-                    </div>
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>
+                            This will create tables with sequential numbers starting from the specified number.
+                        </div>
+                    </form>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-danger" onclick="removeSelectedTables()">Remove Selected Tables</button>
+                    <button type="button" class="btn btn-primary" onclick="bulkAddTables()">Create Tables</button>
                 </div>
             </div>
         </div>
     </div>
-
+    
     <!-- Add Staff Modal -->
     <div class="modal fade" id="addStaffModal" tabindex="-1">
         <div class="modal-dialog">
@@ -696,80 +959,54 @@
                     <form id="addStaffForm">
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">First Name *</label>
+                                <label class="form-label">First Name</label>
                                 <input type="text" class="form-control" name="firstName" required>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Last Name *</label>
+                                <label class="form-label">Last Name</label>
                                 <input type="text" class="form-control" name="lastName" required>
                             </div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Email Address *</label>
-                            <input type="email" class="form-control" name="email" required>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Password *</label>
-                                <input type="password" class="form-control" name="password" required minlength="6">
+                            <div class="col-12 mb-3">
+                                <label class="form-label">Email</label>
+                                <input type="email" class="form-control" name="email" required>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Confirm Password *</label>
-                                <input type="password" class="form-control" name="confirmPassword" required>
+                                <label class="form-label">Phone</label>
+                                <input type="tel" class="form-control" name="phone" required>
                             </div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Phone Number *</label>
-                            <input type="tel" class="form-control" name="phone" required>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Role</label>
+                                <select class="form-select" name="role" required>
+                                    <option value="chef">Chef</option>
+                                    <option value="waiter">Waiter</option>
+                                    <option value="manager">Manager</option>
+                                    <option value="cashier">Cashier</option>
+                                </select>
+                            </div>
+                            <div class="col-12 mb-3">
+                                <label class="form-label">Password</label>
+                                <input type="password" class="form-control" name="password" required>
+                            </div>
                         </div>
                     </form>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" onclick="addStaffMember()">Add Staff</button>
+                    <button type="button" class="btn btn-primary" onclick="saveStaff()">Add Staff</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Sales Details Modal -->
-    <div class="modal fade" id="salesDetailsModal" tabindex="-1">
-        <div class="modal-dialog modal-xl">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Sales Details - <span id="salesDate"></span></h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead>
-                                <tr>
-                                    <th>Order #</th>
-                                    <th>Table</th>
-                                    <th>Customer</th>
-                                    <th>Items</th>
-                                    <th>Amount</th>
-                                    <th>Status</th>
-                                    <th>Time</th>
-                                </tr>
-                            </thead>
-                            <tbody id="salesDetailsTable">
-                                <tr><td colspan="7" class="text-center">Loading details...</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     
+    <!-- Include utils.js -->
+    <script src="../js/utils.js"></script>
     
     <script>
         // Initialize
-        let revenueChart, statusChart;
+        let revenueChart, statusChart, salesTrendChart, categoryChart;
         let selectedTables = [];
         let socket = null;
         
@@ -779,61 +1016,113 @@
             menuItems: [],
             tables: [],
             staff: [],
-            salesData: null
+            salesData: null,
+            charts: {}
         };
         
         // Initialize application
         async function initApp() {
-            // Check authentication
-            if (!Auth.check('admin')) {
-                return;
-            }
-            
-            // Set admin name
-            const user = Auth.getUser();
-            document.getElementById('adminName').textContent = `${user.firstName} ${user.lastName}`;
-            
-            // Initialize socket
-            initSocket();
-            
-            // Load dashboard data
-            await loadDashboard();
-            
-            // Auto-refresh dashboard every 60 seconds
-            setInterval(async () => {
-                if (AppState.currentSection === 'dashboard') {
-                    await loadDashboard();
+            try {
+                Loading.show('Initializing dashboard...');
+                
+                // Check authentication
+                if (!Auth.check('admin')) {
+                    return;
                 }
-            }, 60000);
-            
-            // Setup date inputs
-            setupDateInputs();
+                
+                const user = Auth.getUser();
+                
+                // Set admin name
+                document.getElementById('adminName').textContent = `${user.firstName || 'Admin'} ${user.lastName || ''}`;
+                
+                // Update last updated time
+                updateLastUpdated();
+                
+                // Initialize socket
+                initSocket();
+                
+                // Load dashboard data
+                await loadDashboard();
+                
+                // Setup date inputs
+                setupDateInputs();
+                
+                // Auto-refresh dashboard every 60 seconds
+                setInterval(async () => {
+                    if (AppState.currentSection === 'dashboard') {
+                        await loadDashboard();
+                    }
+                }, 60000);
+                
+                // Update time every minute
+                setInterval(updateLastUpdated, 60000);
+                
+                Loading.hide();
+                
+            } catch (error) {
+                Loading.hide();
+                ErrorHandler.handle(error, 'initApp');
+            }
         }
         
         // Initialize socket
         function initSocket() {
-            socket = SocketManager.connect();
-            
-            socket.on('new-order', (order) => {
-                console.log('New order received:', order);
-                if (AppState.currentSection === 'dashboard') {
-                    loadDashboard();
-                }
-                Toast.show(`New order #${order.orderNumber} for table ${order.tableNumber}`, 'info');
-            });
-            
-            socket.on('order-status-change', (data) => {
-                console.log('Order status changed:', data);
-                if (AppState.currentSection === 'dashboard') {
-                    loadDashboard();
-                }
-            });
-            
-            socket.on('menu-update', () => {
-                if (AppState.currentSection === 'menu-management') {
-                    loadMenuItems();
-                }
-            });
+            try {
+                SocketManager.connect();
+                
+                // Listen for events
+                SocketManager.on('new-order', (order) => {
+                    console.log('New order received:', order);
+                    if (AppState.currentSection === 'dashboard') {
+                        loadDashboard();
+                    }
+                    Toast.show(`New order #${order.orderNumber} for table ${order.tableNumber}`, 'info');
+                    updateNotificationBadge();
+                });
+                
+                SocketManager.on('order-status-change', (data) => {
+                    console.log('Order status changed:', data);
+                    if (AppState.currentSection === 'dashboard') {
+                        loadDashboard();
+                    }
+                    Toast.show(`Order #${data.orderNumber} status updated to ${data.status}`, 'info');
+                });
+                
+                SocketManager.on('service-request', (data) => {
+                    console.log('Service request:', data);
+                    Toast.show(`Service request from table ${data.tableNumber}`, 'warning');
+                    updateNotificationBadge();
+                });
+                
+            } catch (error) {
+                console.error('Socket initialization error:', error);
+            }
+        }
+        
+        // Update last updated time
+        function updateLastUpdated() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            document.getElementById('lastUpdated').textContent = `Last updated: ${timeString}`;
+        }
+        
+        // Update notification badge
+        function updateNotificationBadge() {
+            const badge = document.getElementById('notificationBadge');
+            if (badge) {
+                const current = parseInt(badge.textContent) || 0;
+                badge.textContent = current + 1;
+                badge.style.display = current + 1 > 0 ? 'inline' : 'none';
+            }
+        }
+        
+        // Clear notifications
+        function clearNotifications() {
+            const badge = document.getElementById('notificationBadge');
+            if (badge) {
+                badge.textContent = '0';
+                badge.style.display = 'none';
+            }
         }
         
         // Setup date inputs
@@ -848,27 +1137,43 @@
         
         // Show section
         async function showSection(sectionId) {
-            // Update state
-            AppState.currentSection = sectionId;
-            
-            // Hide all sections
-            document.querySelectorAll('.section-content').forEach(section => {
-                section.style.display = 'none';
-            });
-            
-            // Show selected section
-            document.getElementById(`${sectionId}Section`).style.display = 'block';
-            
-            // Update active menu
-            document.querySelectorAll('.sidebar-menu a').forEach(link => {
-                link.classList.remove('active');
-            });
-            event.target.closest('a').classList.add('active');
-            
-            // Load data for section
             try {
-                Loading.show('Loading...');
+                Loading.show('Loading section...');
                 
+                // Update state
+                AppState.currentSection = sectionId;
+                
+                // Update page title
+                const titles = {
+                    'dashboard': 'Dashboard Overview',
+                    'menu-management': 'Menu Management',
+                    'table-management': 'Table Management',
+                    'staff-management': 'Staff Management',
+                    'sales-analytics': 'Sales Analytics'
+                };
+                document.getElementById('pageTitle').textContent = titles[sectionId] || 'Dashboard';
+                
+                // Hide all sections
+                document.querySelectorAll('.section-content').forEach(section => {
+                    section.style.display = 'none';
+                });
+                
+                // Show selected section
+                const sectionElement = document.getElementById(`${sectionId}Section`);
+                if (sectionElement) {
+                    sectionElement.style.display = 'block';
+                }
+                
+                // Update active menu
+                document.querySelectorAll('.sidebar-menu a').forEach(link => {
+                    link.classList.remove('active');
+                });
+                const activeLink = document.querySelector(`.sidebar-menu a[onclick*="${sectionId}"]`);
+                if (activeLink) {
+                    activeLink.classList.add('active');
+                }
+                
+                // Load data for section
                 switch(sectionId) {
                     case 'dashboard':
                         await loadDashboard();
@@ -886,55 +1191,71 @@
                         await loadSalesAnalytics();
                         break;
                 }
-            } catch (error) {
-                Toast.show(`Failed to load ${sectionId} data`, 'error');
-            } finally {
+                
                 Loading.hide();
+                
+            } catch (error) {
+                Loading.hide();
+                ErrorHandler.handle(error, `showSection: ${sectionId}`);
             }
         }
         
         // Load dashboard data
         async function loadDashboard() {
             try {
-                const token = localStorage.getItem('token');
+                const token = Auth.getToken();
                 
                 // Load statistics
                 const statsData = await API.get(CONFIG.API_ENDPOINTS.ADMIN_STATS, token);
                 
                 // Update statistics
-                document.getElementById('todayRevenue').textContent = `$${statsData.todayRevenue?.toFixed(2) || '0.00'}`;
-                document.getElementById('todayCustomers').textContent = statsData.todayCustomers || 0;
-                document.getElementById('todayOrders').textContent = statsData.todayOrders || 0;
-                document.getElementById('tablesOccupied').textContent = 
-                    `${statsData.tablesOccupied || 0}/${statsData.totalTables || 0}`;
+                if (statsData.success && statsData.stats) {
+                    const stats = statsData.stats;
+                    document.getElementById('todayRevenue').textContent = `$${(stats.revenue?.today || 0).toFixed(2)}`;
+                    document.getElementById('todayCustomers').textContent = stats.customers?.today || 0;
+                    document.getElementById('todayOrders').textContent = stats.orders?.today || 0;
+                    document.getElementById('tablesOccupied').textContent = 
+                        `${stats.tables?.occupied || 0}/${stats.tables?.total || 0}`;
+                }
                 
                 // Load recent orders
-                const ordersData = await API.get(CONFIG.API_ENDPOINTS.ADMIN_ORDERS_RECENT, token);
-                
-                // Display recent orders
-                const ordersTable = document.getElementById('recentOrdersTable');
-                ordersTable.innerHTML = '';
-                
-                if (ordersData.orders && ordersData.orders.length > 0) {
-                    ordersData.orders.forEach(order => {
-                        const row = `
-                            <tr>
-                                <td>#${order.orderNumber}</td>
-                                <td>${order.tableNumber}</td>
-                                <td>${order.customerName || 'Walk-in'}</td>
-                                <td>$${order.totalAmount?.toFixed(2) || '0.00'}</td>
-                                <td>
-                                    <span class="badge bg-${getStatusColor(order.status)}">
-                                        ${(order.status || 'pending').toUpperCase()}
-                                    </span>
-                                </td>
-                                <td>${new Date(order.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
-                            </tr>
-                        `;
-                        ordersTable.innerHTML += row;
-                    });
-                } else {
-                    ordersTable.innerHTML = '<tr><td colspan="6" class="text-center">No recent orders</td></tr>';
+                try {
+                    const ordersData = await API.get(CONFIG.API_ENDPOINTS.ADMIN_ORDERS_RECENT + '?limit=10', token);
+                    
+                    // Display recent orders
+                    const ordersTable = document.getElementById('recentOrdersTable');
+                    
+                    if (ordersData.success && ordersData.orders && ordersData.orders.length > 0) {
+                        ordersTable.innerHTML = '';
+                        ordersData.orders.forEach(order => {
+                            const row = `
+                                <tr>
+                                    <td>#${order.orderNumber || 'N/A'}</td>
+                                    <td>${order.tableNumber || 'N/A'}</td>
+                                    <td>${order.customerName || 'Walk-in'}</td>
+                                    <td>$${(order.totalAmount || 0).toFixed(2)}</td>
+                                    <td>
+                                        <span class="badge bg-${getStatusColor(order.status)}">
+                                            ${FormatUtils.formatOrderStatus(order.status)}
+                                        </span>
+                                    </td>
+                                    <td>${FormatUtils.formatTime(order.createdAt)}</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary" onclick="viewOrder('${order._id}')">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            `;
+                            ordersTable.innerHTML += row;
+                        });
+                    } else {
+                        ordersTable.innerHTML = '<tr><td colspan="7" class="text-center py-4">No recent orders</td></tr>';
+                    }
+                } catch (orderError) {
+                    console.warn('Failed to load orders:', orderError);
+                    document.getElementById('recentOrdersTable').innerHTML = 
+                        '<tr><td colspan="7" class="text-center py-4 text-muted">Failed to load orders</td></tr>';
                 }
                 
                 // Load revenue data for chart
@@ -942,13 +1263,18 @@
                     const revenueData = await API.get(CONFIG.API_ENDPOINTS.ADMIN_REVENUE_WEEKLY, token);
                     createCharts(revenueData);
                 } catch (chartError) {
-                    console.warn('Could not load chart data, using demo data:', chartError);
+                    console.warn('Chart error, using demo:', chartError);
                     createDemoCharts();
                 }
                 
+                // Clear notifications on dashboard load
+                clearNotifications();
+                
+                updateLastUpdated();
+                
             } catch (error) {
-                console.error('Error loading dashboard:', error);
-                Toast.show('Failed to load dashboard data', 'error');
+                ErrorHandler.handle(error, 'loadDashboard');
+                createDemoCharts();
             }
         }
         
@@ -966,15 +1292,18 @@
         
         // Create charts
         function createCharts(revenueData) {
-            const revenueCtx = document.getElementById('revenueChart').getContext('2d');
-            const statusCtx = document.getElementById('statusChart').getContext('2d');
+            const revenueCtx = document.getElementById('revenueChart');
+            if (!revenueCtx) return;
+            
+            const statusCtx = document.getElementById('statusChart');
+            if (!statusCtx) return;
             
             // Destroy existing charts
-            if (revenueChart) revenueChart.destroy();
-            if (statusChart) statusChart.destroy();
+            if (AppState.charts.revenue) AppState.charts.revenue.destroy();
+            if (AppState.charts.status) AppState.charts.status.destroy();
             
             // Revenue Chart
-            revenueChart = new Chart(revenueCtx, {
+            AppState.charts.revenue = new Chart(revenueCtx.getContext('2d'), {
                 type: 'line',
                 data: {
                     labels: revenueData.labels || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
@@ -994,45 +1323,25 @@
                         legend: {
                             display: false
                         }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            grid: {
-                                drawBorder: false
-                            },
-                            ticks: {
-                                callback: function(value) {
-                                    return '$' + value;
-                                }
-                            }
-                        },
-                        x: {
-                            grid: {
-                                display: false
-                            }
-                        }
                     }
                 }
             });
             
             // Status Chart (demo data)
-            const statusData = {
-                labels: ['Pending', 'Preparing', 'Ready', 'Completed'],
-                datasets: [{
-                    data: [5, 3, 2, 10],
-                    backgroundColor: [
-                        '#ffc107',
-                        '#17a2b8',
-                        '#28a745',
-                        '#6c757d'
-                    ]
-                }]
-            };
-            
-            statusChart = new Chart(statusCtx, {
+            AppState.charts.status = new Chart(statusCtx.getContext('2d'), {
                 type: 'doughnut',
-                data: statusData,
+                data: {
+                    labels: ['Pending', 'Preparing', 'Ready', 'Completed'],
+                    datasets: [{
+                        data: [5, 3, 2, 10],
+                        backgroundColor: [
+                            '#ffc107',
+                            '#17a2b8',
+                            '#28a745',
+                            '#6c757d'
+                        ]
+                    }]
+                },
                 options: {
                     responsive: true,
                     plugins: {
@@ -1046,11 +1355,17 @@
         
         // Create demo charts
         function createDemoCharts() {
-            const revenueCtx = document.getElementById('revenueChart').getContext('2d');
-            const statusCtx = document.getElementById('statusChart').getContext('2d');
+            const revenueCtx = document.getElementById('revenueChart');
+            const statusCtx = document.getElementById('statusChart');
+            
+            if (!revenueCtx || !statusCtx) return;
+            
+            // Destroy existing charts
+            if (AppState.charts.revenue) AppState.charts.revenue.destroy();
+            if (AppState.charts.status) AppState.charts.status.destroy();
             
             // Revenue Chart with demo data
-            revenueChart = new Chart(revenueCtx, {
+            AppState.charts.revenue = new Chart(revenueCtx.getContext('2d'), {
                 type: 'line',
                 data: {
                     labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
@@ -1075,7 +1390,7 @@
             });
             
             // Status Chart with demo data
-            statusChart = new Chart(statusCtx, {
+            AppState.charts.status = new Chart(statusCtx.getContext('2d'), {
                 type: 'doughnut',
                 data: {
                     labels: ['Pending', 'Preparing', 'Ready', 'Completed'],
@@ -1092,290 +1407,412 @@
             });
         }
         
-        // Menu Management
+        // Load menu items
         async function loadMenuItems() {
             try {
-                const token = localStorage.getItem('token');
-                const data = await API.get(CONFIG.API_ENDPOINTS.ADMIN_MENU, token);
-                AppState.menuItems = data.menuItems || [];
-                displayMenuItems(AppState.menuItems, 'available');
+                const token = Auth.getToken();
+                const response = await API.get(CONFIG.API_ENDPOINTS.ADMIN_MENU, token);
+                
+                if (response.success && response.menuItems) {
+                    AppState.menuItems = response.menuItems;
+                    renderMenuItems(response.menuItems);
+                } else {
+                    document.getElementById('menuItemsContainer').innerHTML = `
+                        <div class="col-12 text-center py-5">
+                            <i class="bi bi-menu-up display-1 text-muted"></i>
+                            <p class="mt-3">No menu items found</p>
+                            <button class="btn btn-primary" onclick="showAddMenuItemModal()">
+                                <i class="bi bi-plus-circle me-2"></i> Add First Item
+                            </button>
+                        </div>
+                    `;
+                }
             } catch (error) {
-                console.error('Error loading menu items:', error);
-                Toast.show('Failed to load menu items', 'error');
+                ErrorHandler.handle(error, 'loadMenuItems');
             }
         }
         
-        function displayMenuItems(items, filter = 'available') {
+        // Render menu items
+        function renderMenuItems(menuItems) {
             const container = document.getElementById('menuItemsContainer');
-            container.innerHTML = '';
+            if (!container) return;
             
-            let filteredItems = items;
-            if (filter === 'available') {
-                filteredItems = items.filter(item => item.available);
-            } else if (filter === 'unavailable') {
-                filteredItems = items.filter(item => !item.available);
-            }
-            
-            if (filteredItems.length === 0) {
-                container.innerHTML = '<p class="text-muted text-center py-4">No menu items found</p>';
+            if (!menuItems || menuItems.length === 0) {
+                container.innerHTML = `
+                    <div class="col-12 text-center py-5">
+                        <i class="bi bi-menu-up display-1 text-muted"></i>
+                        <p class="mt-3">No menu items found</p>
+                        <button class="btn btn-primary" onclick="showAddMenuItemModal()">
+                            <i class="bi bi-plus-circle me-2"></i> Add First Item
+                        </button>
+                    </div>
+                `;
                 return;
             }
             
-            filteredItems.forEach(item => {
-                const itemCard = `
-                    <div class="menu-item-card">
-                        <div class="row g-0">
-                            <div class="col-md-3">
-                                <div class="menu-item-image" style="background-image: url('${item.image || 'https://images.unsplash.com/photo-1565958011703-44f9829ba187?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80'}')"></div>
+            container.innerHTML = '';
+            
+            menuItems.forEach(item => {
+                const col = document.createElement('div');
+                col.className = 'col-md-4 mb-4';
+                col.innerHTML = `
+                    <div class="card menu-item-card h-100">
+                        <div class="position-relative">
+                            ${item.image ? 
+                                `<img src="${item.image}" class="card-img-top" alt="${item.name}" style="height: 180px; object-fit: cover;">` : 
+                                `<div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 180px;">
+                                    <i class="bi bi-cup-hot display-4 text-muted"></i>
+                                </div>`
+                            }
+                            <span class="position-absolute top-0 end-0 m-2 badge ${item.isAvailable ? 'bg-success' : 'bg-danger'}">
+                                ${item.isAvailable ? 'Available' : 'Unavailable'}
+                            </span>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h5 class="card-title mb-0">${item.name}</h5>
+                                <span class="badge bg-primary">${FormatUtils.formatCategory(item.category)}</span>
                             </div>
-                            <div class="col-md-9">
-                                <div class="p-3">
-                                    <div class="d-flex justify-content-between align-items-start">
-                                        <div>
-                                            <h5 class="mb-1">${item.name}</h5>
-                                            <p class="text-muted mb-2">${item.description}</p>
-                                            <div class="d-flex align-items-center">
-                                                <span class="badge ${item.available ? 'bg-success' : 'bg-danger'} me-2">
-                                                    ${item.available ? 'Available' : 'Not Available'}
-                                                </span>
-                                                <span class="badge bg-secondary me-2">${item.category}</span>
-                                                <h5 class="text-primary mb-0">$${item.price?.toFixed(2) || '0.00'}</h5>
-                                            </div>
-                                        </div>
-                                        <div class="dropdown">
-                                            <button class="btn btn-outline-secondary dropdown-toggle" 
-                                                    type="button" data-bs-toggle="dropdown">
-                                                Actions
-                                            </button>
-                                            <ul class="dropdown-menu">
-                                                <li>
-                                                    <a class="dropdown-item" href="#" onclick="showEditMenuItemModal('${item._id}')">
-                                                        <i class="fas fa-edit me-2"></i>Edit
-                                                    </a>
-                                                </li>
-                                                <li>
-                                                    <a class="dropdown-item" href="#" onclick="toggleMenuItemAvailability('${item._id}', ${!item.available})">
-                                                        <i class="fas ${item.available ? 'fa-eye-slash' : 'fa-eye'} me-2"></i>
-                                                        ${item.available ? 'Make Unavailable' : 'Make Available'}
-                                                    </a>
-                                                </li>
-                                                <li><hr class="dropdown-divider"></li>
-                                                <li>
-                                                    <a class="dropdown-item text-danger" href="#" onclick="deleteMenuItemConfirm('${item._id}')">
-                                                        <i class="fas fa-trash me-2"></i>Delete
-                                                    </a>
-                                                </li>
-                                            </ul>
-                                        </div>
-                                    </div>
+                            <p class="card-text text-muted small mb-3">${item.description || 'No description available'}</p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h4 class="text-primary mb-0">$${item.price?.toFixed(2) || '0.00'}</h4>
+                                <div>
+                                    <button class="btn btn-sm btn-outline-primary me-1" onclick="editMenuItem('${item._id}')">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" onclick="deleteMenuItem('${item._id}')">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
                                 </div>
+                            </div>
+                            <div class="mt-3">
+                                <small class="text-muted">
+                                    <i class="bi bi-clock me-1"></i> ${item.preparationTime || 'N/A'} mins
+                                </small>
                             </div>
                         </div>
                     </div>
                 `;
-                container.innerHTML += itemCard;
+                container.appendChild(col);
             });
         }
         
-        function showMenuTab(tab) {
-            // Update active tab
-            document.querySelectorAll('.nav-tabs .nav-link').forEach(link => {
-                link.classList.remove('active');
-            });
-            event.target.classList.add('active');
-            
-            displayMenuItems(AppState.menuItems, tab);
-        }
-        
-        function showAddMenuItemModal() {
-            const modal = new bootstrap.Modal(document.getElementById('addMenuItemModal'));
-            document.getElementById('addMenuItemForm').reset();
-            modal.show();
-        }
-        
-        async function addMenuItem() {
-            const form = document.getElementById('addMenuItemForm');
-            const formData = new FormData(form);
-            const data = Object.fromEntries(formData);
-            
-            // Validate
-            if (!data.name || !data.price || !data.description) {
-                Toast.show('Please fill all required fields', 'error');
-                return;
-            }
-            
-            try {
-                Loading.show('Adding menu item...');
-                const token = localStorage.getItem('token');
-                await API.post(CONFIG.API_ENDPOINTS.ADMIN_MENU, data, token);
-                
-                Toast.show('Menu item added successfully!', 'success');
-                bootstrap.Modal.getInstance(document.getElementById('addMenuItemModal')).hide();
-                await loadMenuItems();
-                
-                // Emit socket event
-                if (socket) socket.emit('menu-update');
-                
-            } catch (error) {
-                console.error('Error adding menu item:', error);
-                Toast.show(error.message || 'Failed to add menu item', 'error');
-            } finally {
-                Loading.hide();
-            }
-        }
-        
-        async function showEditMenuItemModal(itemId) {
-            try {
-                const token = localStorage.getItem('token');
-                const item = await API.get(CONFIG.API_ENDPOINTS.ADMIN_MENU_ITEM(itemId), token);
-                
-                // Populate form
-                document.getElementById('editItemId').value = item._id;
-                document.getElementById('editItemName').value = item.name;
-                document.getElementById('editItemCategory').value = item.category;
-                document.getElementById('editItemDescription').value = item.description;
-                document.getElementById('editItemPrice').value = item.price;
-                document.getElementById('editItemAvailable').value = item.available;
-                document.getElementById('editItemImage').value = item.image || '';
-                
-                const modal = new bootstrap.Modal(document.getElementById('editMenuItemModal'));
-                modal.show();
-                
-            } catch (error) {
-                console.error('Error loading menu item:', error);
-                Toast.show('Failed to load menu item', 'error');
-            }
-        }
-        
-        async function updateMenuItem() {
-            const form = document.getElementById('editMenuItemForm');
-            const formData = new FormData(form);
-            const data = Object.fromEntries(formData);
-            const itemId = document.getElementById('editItemId').value;
-            
-            try {
-                Loading.show('Updating menu item...');
-                const token = localStorage.getItem('token');
-                await API.put(CONFIG.API_ENDPOINTS.ADMIN_MENU_ITEM(itemId), data, token);
-                
-                Toast.show('Menu item updated successfully!', 'success');
-                bootstrap.Modal.getInstance(document.getElementById('editMenuItemModal')).hide();
-                await loadMenuItems();
-                
-                // Emit socket event
-                if (socket) socket.emit('menu-update');
-                
-            } catch (error) {
-                console.error('Error updating menu item:', error);
-                Toast.show(error.message || 'Failed to update menu item', 'error');
-            } finally {
-                Loading.hide();
-            }
-        }
-        
-        async function deleteMenuItem() {
-            const itemId = document.getElementById('editItemId').value;
-            
-            if (!confirm('Are you sure you want to delete this menu item?')) return;
-            
-            try {
-                Loading.show('Deleting menu item...');
-                const token = localStorage.getItem('token');
-                await API.delete(CONFIG.API_ENDPOINTS.ADMIN_MENU_ITEM(itemId), token);
-                
-                Toast.show('Menu item deleted successfully!', 'success');
-                bootstrap.Modal.getInstance(document.getElementById('editMenuItemModal')).hide();
-                await loadMenuItems();
-                
-                // Emit socket event
-                if (socket) socket.emit('menu-update');
-                
-            } catch (error) {
-                console.error('Error deleting menu item:', error);
-                Toast.show(error.message || 'Failed to delete menu item', 'error');
-            } finally {
-                Loading.hide();
-            }
-        }
-        
-        function deleteMenuItemConfirm(itemId) {
-            if (!confirm('Are you sure you want to delete this menu item?')) return;
-            deleteMenuItemDirect(itemId);
-        }
-        
-        async function deleteMenuItemDirect(itemId) {
-            try {
-                Loading.show('Deleting menu item...');
-                const token = localStorage.getItem('token');
-                await API.delete(CONFIG.API_ENDPOINTS.ADMIN_MENU_ITEM(itemId), token);
-                
-                Toast.show('Menu item deleted successfully!', 'success');
-                await loadMenuItems();
-                
-                // Emit socket event
-                if (socket) socket.emit('menu-update');
-                
-            } catch (error) {
-                console.error('Error deleting menu item:', error);
-                Toast.show(error.message || 'Failed to delete menu item', 'error');
-            } finally {
-                Loading.hide();
-            }
-        }
-        
-        async function toggleMenuItemAvailability(itemId, available) {
-            try {
-                Loading.show('Updating availability...');
-                const token = localStorage.getItem('token');
-                await API.put(CONFIG.API_ENDPOINTS.ADMIN_MENU_AVAILABILITY(itemId), { available }, token);
-                
-                Toast.show(`Menu item ${available ? 'made available' : 'made unavailable'}!`, 'success');
-                await loadMenuItems();
-                
-                // Emit socket event
-                if (socket) socket.emit('menu-update');
-                
-            } catch (error) {
-                console.error('Error updating menu item availability:', error);
-                Toast.show(error.message || 'Failed to update availability', 'error');
-            } finally {
-                Loading.hide();
-            }
-        }
-        
-        // Table Management
+        // Load tables
         async function loadTables() {
             try {
-                const token = localStorage.getItem('token');
-                const data = await API.get(CONFIG.API_ENDPOINTS.ADMIN_TABLES, token);
-                AppState.tables = data.tables || [];
-                displayTables(AppState.tables);
+                const token = Auth.getToken();
+                const response = await API.get(CONFIG.API_ENDPOINTS.ADMIN_TABLES, token);
+                
+                if (response.success && response.tables) {
+                    AppState.tables = response.tables;
+                    renderTables(response.tables);
+                } else {
+                    document.getElementById('tablesContainer').innerHTML = `
+                        <div class="col-12 text-center py-5">
+                            <i class="bi bi-table display-1 text-muted"></i>
+                            <p class="mt-3">No tables found</p>
+                            <button class="btn btn-primary" onclick="showAddTableModal()">
+                                <i class="bi bi-plus-circle me-2"></i> Add First Table
+                            </button>
+                        </div>
+                    `;
+                }
             } catch (error) {
-                console.error('Error loading tables:', error);
-                Toast.show('Failed to load tables', 'error');
+                ErrorHandler.handle(error, 'loadTables');
             }
         }
         
-        function displayTables(tables) {
-            const container = document.getElementById('tablesGrid');
-            container.innerHTML = '';
+        // Render tables
+        function renderTables(tables) {
+            const container = document.getElementById('tablesContainer');
+            if (!container) return;
             
-            if (tables.length === 0) {
-                container.innerHTML = '<p class="text-center text-muted py-4">No tables found</p>';
+            if (!tables || tables.length === 0) {
+                container.innerHTML = `
+                    <div class="col-12 text-center py-5">
+                        <i class="bi bi-table display-1 text-muted"></i>
+                        <p class="mt-3">No tables found</p>
+                        <button class="btn btn-primary" onclick="showAddTableModal()">
+                            <i class="bi bi-plus-circle me-2"></i> Add First Table
+                        </button>
+                    </div>
+                `;
                 return;
             }
             
+            container.innerHTML = '';
+            
             tables.forEach(table => {
-                const tableElement = `
-                    <div class="table-item table-${table.status}" 
-                         data-table-id="${table._id}"
-                         data-table-number="${table.tableNumber}">
-                        <div class="fw-bold">${table.tableNumber}</div>
-                        <small>${table.capacity}p</small>
+                const col = document.createElement('div');
+                col.className = 'col-md-3 mb-4';
+                col.innerHTML = `
+                    <div class="table-card ${table.status} ${selectedTables.includes(table._id) ? 'selected' : ''}" 
+                         onclick="toggleTableSelection('${table._id}')">
+                        <div class="mb-3">
+                            <i class="bi bi-table fs-1"></i>
+                        </div>
+                        <h4 class="mb-2">Table ${table.tableNumber}</h4>
+                        <div class="mb-2">
+                            <span class="badge bg-${table.status === 'available' ? 'success' : table.status === 'occupied' ? 'danger' : 'warning'}">
+                                ${FormatUtils.getTableStatusText(table.status)}
+                            </span>
+                        </div>
+                        <div class="small mb-2">
+                            <i class="bi bi-people me-1"></i> ${table.capacity} seats
+                        </div>
+                        <div class="small text-muted mb-3">
+                            ${table.section ? FormatUtils.capitalize(table.section) : 'N/A'}
+                        </div>
+                        <div class="d-flex justify-content-center">
+                            <button class="btn btn-sm btn-outline-primary me-1" onclick="editTable('${table._id}', event)">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteTable('${table._id}', event)">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
                     </div>
                 `;
-                container.innerHTML += tableElement;
+                container.appendChild(col);
             });
+        }
+        
+        // Toggle table selection
+        function toggleTableSelection(tableId) {
+            const index = selectedTables.indexOf(tableId);
+            if (index > -1) {
+                selectedTables.splice(index, 1);
+            } else {
+                selectedTables.push(tableId);
+            }
+            loadTables(); // Re-render to update selection
+        }
+        
+        // Load staff
+        async function loadStaff() {
+            try {
+                const token = Auth.getToken();
+                const response = await API.get(CONFIG.API_ENDPOINTS.ADMIN_STAFF, token);
+                
+                if (response.success && response.staff) {
+                    AppState.staff = response.staff;
+                    renderStaff(response.staff);
+                } else {
+                    document.getElementById('staffContainer').innerHTML = `
+                        <div class="col-12 text-center py-5">
+                            <i class="bi bi-people display-1 text-muted"></i>
+                            <p class="mt-3">No staff members found</p>
+                            <button class="btn btn-primary" onclick="showAddStaffModal()">
+                                <i class="bi bi-person-plus me-2"></i> Add First Staff
+                            </button>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                ErrorHandler.handle(error, 'loadStaff');
+            }
+        }
+        
+        // Render staff
+        function renderStaff(staff) {
+            const container = document.getElementById('staffContainer');
+            if (!container) return;
+            
+            if (!staff || staff.length === 0) {
+                container.innerHTML = `
+                    <div class="col-12 text-center py-5">
+                        <i class="bi bi-people display-1 text-muted"></i>
+                        <p class="mt-3">No staff members found</p>
+                        <button class="btn btn-primary" onclick="showAddStaffModal()">
+                            <i class="bi bi-person-plus me-2"></i> Add First Staff
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = '';
+            
+            staff.forEach(member => {
+                const col = document.createElement('div');
+                col.className = 'col-md-4 mb-4';
+                col.innerHTML = `
+                    <div class="staff-card">
+                        <div class="staff-avatar">
+                            ${member.firstName?.charAt(0) || 'S'}${member.lastName?.charAt(0) || 'M'}
+                        </div>
+                        <h5 class="text-center mb-2">${member.firstName} ${member.lastName}</h5>
+                        <p class="text-center text-muted small mb-3">
+                            <i class="bi bi-envelope me-1"></i> ${member.email}<br>
+                            <i class="bi bi-telephone me-1"></i> ${member.phone}
+                        </p>
+                        <div class="text-center mb-3">
+                            <span class="badge bg-${getRoleColor(member.role)}">
+                                ${FormatUtils.capitalize(member.role)}
+                            </span>
+                        </div>
+                        <div class="d-flex justify-content-center">
+                            <button class="btn btn-sm btn-outline-primary me-2" onclick="editStaff('${member._id}')">
+                                <i class="bi bi-pencil"></i> Edit
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteStaff('${member._id}')">
+                                <i class="bi bi-trash"></i> Delete
+                            </button>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(col);
+            });
+        }
+        
+        // Get role color
+        function getRoleColor(role) {
+            switch(role) {
+                case 'chef': return 'danger';
+                case 'waiter': return 'info';
+                case 'manager': return 'warning';
+                case 'cashier': return 'success';
+                default: return 'secondary';
+            }
+        }
+        
+        // Load sales analytics
+        async function loadSalesAnalytics() {
+            try {
+                const token = Auth.getToken();
+                const fromDate = document.getElementById('fromDate').value;
+                const toDate = document.getElementById('toDate').value;
+                
+                // Load sales data
+                const salesData = await API.get(`${CONFIG.API_ENDPOINTS.ADMIN_SALES}?from=${fromDate}&to=${toDate}`, token);
+                
+                if (salesData.success) {
+                    AppState.salesData = salesData;
+                    updateSalesAnalytics(salesData);
+                }
+            } catch (error) {
+                ErrorHandler.handle(error, 'loadSalesAnalytics');
+            }
+        }
+        
+        // Update sales analytics display
+        function updateSalesAnalytics(data) {
+            // Update summary cards
+            document.getElementById('totalRevenue').textContent = `$${(data.totalRevenue || 0).toFixed(2)}`;
+            document.getElementById('totalOrders').textContent = data.totalOrders || 0;
+            document.getElementById('averageOrder').textContent = `$${((data.totalRevenue || 0) / (data.totalOrders || 1)).toFixed(2)}`;
+            document.getElementById('topCategory').textContent = data.topCategory || 'N/A';
+            
+            // Update change percentages (demo data)
+            document.getElementById('revenueChange').textContent = '+12% from previous period';
+            document.getElementById('ordersChange').textContent = '+8% from previous period';
+            document.getElementById('avgOrderChange').textContent = '+5% from previous period';
+            document.getElementById('topCategorySales').textContent = `${data.topCategoryCount || 0} items sold`;
+            
+            // Create charts
+            createSalesCharts(data);
+            
+            // Update top items table
+            updateTopItemsTable(data.topItems || []);
+        }
+        
+        // Create sales charts
+        function createSalesCharts(data) {
+            const trendCtx = document.getElementById('salesTrendChart');
+            const categoryCtx = document.getElementById('categoryChart');
+            
+            if (!trendCtx || !categoryCtx) return;
+            
+            // Destroy existing charts
+            if (AppState.charts.salesTrend) AppState.charts.salesTrend.destroy();
+            if (AppState.charts.category) AppState.charts.category.destroy();
+            
+            // Sales Trend Chart
+            AppState.charts.salesTrend = new Chart(trendCtx.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: data.dailySales?.map(d => d.date) || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                    datasets: [{
+                        label: 'Daily Revenue ($)',
+                        data: data.dailySales?.map(d => d.revenue) || [1200, 1900, 1500, 2100, 1800, 2500, 2200],
+                        backgroundColor: '#667eea',
+                        borderColor: '#5a67d8',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+            
+            // Category Distribution Chart
+            AppState.charts.category = new Chart(categoryCtx.getContext('2d'), {
+                type: 'pie',
+                data: {
+                    labels: data.categoryDistribution?.map(c => c.category) || ['Main Course', 'Drinks', 'Appetizers', 'Desserts'],
+                    datasets: [{
+                        data: data.categoryDistribution?.map(c => c.revenue) || [45, 25, 20, 10],
+                        backgroundColor: [
+                            '#667eea',
+                            '#10b981',
+                            '#f59e0b',
+                            '#ef4444'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Update top items table
+        function updateTopItemsTable(items) {
+            const table = document.getElementById('topItemsTable').querySelector('tbody');
+            
+            if (!items || items.length === 0) {
+                table.innerHTML = '<tr><td colspan="5" class="text-center py-4">No data available</td></tr>';
+                return;
+            }
+            
+            table.innerHTML = '';
+            
+            items.forEach((item, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>
+                        <div class="d-flex align-items-center">
+                            <span class="badge bg-primary me-2">${index + 1}</span>
+                            ${item.name}
+                        </div>
+                    </td>
+                    <td>${FormatUtils.formatCategory(item.category)}</td>
+                    <td>${item.quantitySold || 0}</td>
+                    <td>$${(item.revenue || 0).toFixed(2)}</td>
+                    <td>
+                        <span class="badge bg-${item.rating >= 4 ? 'success' : item.rating >= 3 ? 'warning' : 'danger'}">
+                            ${item.rating?.toFixed(1) || 'N/A'}
+                        </span>
+                    </td>
+                `;
+                table.appendChild(row);
+            });
+        }
+        
+        // Modal functions
+        function showAddMenuItemModal() {
+            const modal = new bootstrap.Modal(document.getElementById('addMenuItemModal'));
+            modal.show();
         }
         
         function showAddTableModal() {
@@ -1383,357 +1820,241 @@
             modal.show();
         }
         
-        async function addTables() {
-            const count = parseInt(document.getElementById('tablesToAdd').value);
-            const capacity = parseInt(document.getElementById('tableCapacity').value);
-            
-            if (!count || count < 1 || count > 20) {
-                Toast.show('Please enter a valid number of tables (1-20)', 'error');
-                return;
-            }
-            
-            if (!capacity || capacity < 2 || capacity > 10) {
-                Toast.show('Please enter valid capacity (2-10)', 'error');
-                return;
-            }
-            
-            try {
-                Loading.show('Adding tables...');
-                const token = localStorage.getItem('token');
-                await API.post(CONFIG.API_ENDPOINTS.ADMIN_TABLES, { count, capacity }, token);
-                
-                Toast.show(`${count} table(s) added successfully!`, 'success');
-                bootstrap.Modal.getInstance(document.getElementById('addTableModal')).hide();
-                await loadTables();
-                await loadDashboard(); // Refresh stats
-                
-            } catch (error) {
-                console.error('Error adding tables:', error);
-                Toast.show(error.message || 'Failed to add tables', 'error');
-            } finally {
-                Loading.hide();
-            }
-        }
-        
-        function showRemoveTableModal() {
-            loadTablesForRemoval();
-            const modal = new bootstrap.Modal(document.getElementById('removeTableModal'));
+        function showBulkTableModal() {
+            const modal = new bootstrap.Modal(document.getElementById('bulkTableModal'));
             modal.show();
-        }
-        
-        async function loadTablesForRemoval() {
-            try {
-                const token = localStorage.getItem('token');
-                const data = await API.get(CONFIG.API_ENDPOINTS.ADMIN_TABLES, token);
-                displayTablesForRemoval(data.tables || []);
-            } catch (error) {
-                console.error('Error loading tables:', error);
-                Toast.show('Failed to load tables', 'error');
-            }
-        }
-        
-        function displayTablesForRemoval(tables) {
-            const container = document.getElementById('tablesToRemove');
-            container.innerHTML = '';
-            selectedTables = [];
-            
-            if (tables.length === 0) {
-                container.innerHTML = '<p class="text-center text-muted py-4">No tables available</p>';
-                return;
-            }
-            
-            tables.forEach(table => {
-                const isOccupied = table.status === 'occupied';
-                const tableElement = `
-                    <div class="table-item table-${table.status} ${isOccupied ? 'occupied disabled' : 'selectable'}" 
-                         data-table-id="${table._id}"
-                         data-table-number="${table.tableNumber}"
-                         onclick="${isOccupied ? '' : `toggleTableSelection('${table._id}', ${table.tableNumber})`}"
-                         style="${isOccupied ? 'opacity: 0.5; cursor: not-allowed;' : 'cursor: pointer;'}">
-                        <div class="fw-bold">${table.tableNumber}</div>
-                        <small>${table.capacity}p</small>
-                        ${isOccupied ? '<small class="d-block">Occupied</small>' : ''}
-                    </div>
-                `;
-                container.innerHTML += tableElement;
-            });
-        }
-        
-        function toggleTableSelection(tableId, tableNumber) {
-            const tableElement = document.querySelector(`[data-table-id="${tableId}"]`);
-            const index = selectedTables.indexOf(tableId);
-            
-            if (index === -1) {
-                selectedTables.push(tableId);
-                tableElement.style.border = '3px solid #dc3545';
-                tableElement.style.transform = 'scale(1.05)';
-            } else {
-                selectedTables.splice(index, 1);
-                tableElement.style.border = '';
-                tableElement.style.transform = '';
-            }
-        }
-        
-        async function removeSelectedTables() {
-            if (selectedTables.length === 0) {
-                Toast.show('Please select tables to remove', 'error');
-                return;
-            }
-            
-            if (!confirm(`Are you sure you want to remove ${selectedTables.length} table(s)?`)) return;
-            
-            try {
-                Loading.show('Removing tables...');
-                const token = localStorage.getItem('token');
-                await API.post(CONFIG.API_ENDPOINTS.ADMIN_TABLES_REMOVE, { tableIds: selectedTables }, token);
-                
-                Toast.show(`${selectedTables.length} table(s) removed successfully!`, 'success');
-                bootstrap.Modal.getInstance(document.getElementById('removeTableModal')).hide();
-                await loadTables();
-                await loadDashboard(); // Refresh stats
-                
-            } catch (error) {
-                console.error('Error removing tables:', error);
-                Toast.show(error.message || 'Failed to remove tables', 'error');
-            } finally {
-                Loading.hide();
-            }
-        }
-        
-        // Staff Management
-        async function loadStaff() {
-            try {
-                const token = localStorage.getItem('token');
-                const data = await API.get(CONFIG.API_ENDPOINTS.ADMIN_STAFF, token);
-                AppState.staff = data.staff || [];
-                displayStaff(AppState.staff);
-            } catch (error) {
-                console.error('Error loading staff:', error);
-                Toast.show('Failed to load staff', 'error');
-            }
-        }
-        
-        function displayStaff(staffList) {
-            const container = document.getElementById('staffList');
-            container.innerHTML = '';
-            
-            if (staffList.length === 0) {
-                container.innerHTML = '<div class="col-12 text-center text-muted py-4">No staff members found</div>';
-                return;
-            }
-            
-            staffList.forEach(staff => {
-                const staffCard = `
-                    <div class="col-md-6 col-lg-4 mb-3">
-                        <div class="staff-card">
-                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                <div>
-                                    <h5 class="mb-1">${staff.firstName} ${staff.lastName}</h5>
-                                    <p class="text-muted mb-1">${staff.email}</p>
-                                    <p class="mb-1"><small><i class="fas fa-phone me-1"></i>${staff.phone}</small></p>
-                                </div>
-                                <span class="badge bg-info">${staff.role}</span>
-                            </div>
-                            <div class="d-flex justify-content-between">
-                                <small class="text-muted">
-                                    <i class="fas fa-calendar me-1"></i>
-                                    ${new Date(staff.createdAt).toLocaleDateString()}
-                                </small>
-                                <button class="btn btn-sm btn-danger" onclick="removeStaff('${staff._id}')">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                container.innerHTML += staffCard;
-            });
         }
         
         function showAddStaffModal() {
             const modal = new bootstrap.Modal(document.getElementById('addStaffModal'));
-            document.getElementById('addStaffForm').reset();
             modal.show();
         }
         
-        async function addStaffMember() {
-            const form = document.getElementById('addStaffForm');
-            const formData = new FormData(form);
-            const data = Object.fromEntries(formData);
-            
-            // Validate passwords
-            if (data.password !== data.confirmPassword) {
-                Toast.show('Passwords do not match', 'error');
-                return;
-            }
-            
-            if (data.password.length < 6) {
-                Toast.show('Password must be at least 6 characters', 'error');
-                return;
-            }
-            
-            // Remove confirmPassword
-            delete data.confirmPassword;
-            
+        // Save functions
+        async function saveMenuItem() {
             try {
-                Loading.show('Adding staff member...');
-                const token = localStorage.getItem('token');
-                await API.post(CONFIG.API_ENDPOINTS.ADMIN_STAFF, data, token);
+                Loading.show('Saving menu item...');
                 
-                Toast.show('Staff member added successfully!', 'success');
-                bootstrap.Modal.getInstance(document.getElementById('addStaffModal')).hide();
-                await loadStaff();
+                const form = document.getElementById('addMenuItemForm');
+                const formData = new FormData(form);
+                const data = Object.fromEntries(formData);
                 
-            } catch (error) {
-                console.error('Error adding staff:', error);
-                Toast.show(error.message || 'Failed to add staff member', 'error');
-            } finally {
-                Loading.hide();
-            }
-        }
-        
-        async function removeStaff(staffId) {
-            if (!confirm('Are you sure you want to remove this staff member?')) return;
-            
-            try {
-                Loading.show('Removing staff member...');
-                const token = localStorage.getItem('token');
-                await API.delete(CONFIG.API_ENDPOINTS.ADMIN_STAFF_MEMBER(staffId), token);
+                data.price = parseFloat(data.price);
+                data.preparationTime = parseInt(data.preparationTime);
+                data.isAvailable = data.isAvailable === 'on';
                 
-                Toast.show('Staff member removed successfully!', 'success');
-                await loadStaff();
+                const token = Auth.getToken();
+                const response = await API.post(CONFIG.API_ENDPOINTS.ADMIN_MENU, data, token);
                 
-            } catch (error) {
-                console.error('Error removing staff:', error);
-                Toast.show(error.message || 'Failed to remove staff member', 'error');
-            } finally {
-                Loading.hide();
-            }
-        }
-        
-        // Sales Analytics
-        async function loadSalesAnalytics() {
-            const fromDate = document.getElementById('fromDate').value;
-            const toDate = document.getElementById('toDate').value;
-            
-            if (!fromDate || !toDate) {
-                Toast.show('Please select both from and to dates', 'error');
-                return;
-            }
-            
-            try {
-                Loading.show('Generating report...');
-                const token = localStorage.getItem('token');
-                const data = await API.get(`${CONFIG.API_ENDPOINTS.ADMIN_SALES}?from=${fromDate}&to=${toDate}`, token);
-                AppState.salesData = data;
-                displaySalesAnalytics(data);
-                
-            } catch (error) {
-                console.error('Error loading sales analytics:', error);
-                Toast.show(error.message || 'Failed to load sales data', 'error');
-            } finally {
-                Loading.hide();
-            }
-        }
-        
-        function displaySalesAnalytics(data) {
-            // Update summary
-            const summary = data.summary || {};
-            document.getElementById('totalRevenue').textContent = `$${summary.totalRevenue?.toFixed(2) || '0.00'}`;
-            document.getElementById('totalOrders').textContent = summary.totalOrders || 0;
-            document.getElementById('avgOrderValue').textContent = `$${summary.avgOrderValue?.toFixed(2) || '0.00'}`;
-            document.getElementById('popularItem').textContent = summary.popularItem || '-';
-            
-            // Display detailed report
-            const table = document.getElementById('salesReportTable');
-            table.innerHTML = '';
-            
-            const dailyReports = data.dailyReports || [];
-            if (dailyReports.length === 0) {
-                table.innerHTML = '<tr><td colspan="5" class="text-center">No sales data for selected period</td></tr>';
-                return;
-            }
-            
-            dailyReports.forEach(report => {
-                const row = `
-                    <tr>
-                        <td>${new Date(report.date).toLocaleDateString()}</td>
-                        <td>${report.orders || 0}</td>
-                        <td>$${report.revenue?.toFixed(2) || '0.00'}</td>
-                        <td>$${report.avgOrder?.toFixed(2) || '0.00'}</td>
-                        <td>
-                            <button class="btn btn-sm btn-outline-primary" 
-                                    onclick="showSalesDetails('${report.date}')">
-                                View Details
-                            </button>
-                        </td>
-                    </tr>
-                `;
-                table.innerHTML += row;
-            });
-        }
-        
-        async function showSalesDetails(date) {
-            try {
-                Loading.show('Loading details...');
-                const token = localStorage.getItem('token');
-                const data = await API.get(CONFIG.API_ENDPOINTS.ADMIN_SALES_DATE(date), token);
-                
-                // Update modal title
-                document.getElementById('salesDate').textContent = new Date(date).toLocaleDateString();
-                
-                // Display order details
-                const table = document.getElementById('salesDetailsTable');
-                table.innerHTML = '';
-                
-                const orders = data.orders || [];
-                if (orders.length === 0) {
-                    table.innerHTML = '<tr><td colspan="7" class="text-center">No orders for this date</td></tr>';
-                } else {
-                    orders.forEach(order => {
-                        const row = `
-                            <tr>
-                                <td>#${order.orderNumber}</td>
-                                <td>${order.tableNumber}</td>
-                                <td>${order.customerName || 'Walk-in'}</td>
-                                <td>${order.items?.length || 0} items</td>
-                                <td>$${order.totalAmount?.toFixed(2) || '0.00'}</td>
-                                <td>
-                                    <span class="badge bg-${getStatusColor(order.status)}">
-                                        ${(order.status || 'pending').toUpperCase()}
-                                    </span>
-                                </td>
-                                <td>${new Date(order.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
-                            </tr>
-                        `;
-                        table.innerHTML += row;
-                    });
+                if (response.success) {
+                    Toast.show('Menu item added successfully!', 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('addMenuItemModal')).hide();
+                    form.reset();
+                    await loadMenuItems();
                 }
                 
-                const modal = new bootstrap.Modal(document.getElementById('salesDetailsModal'));
-                modal.show();
-                
-            } catch (error) {
-                console.error('Error loading sales details:', error);
-                Toast.show('Failed to load sales details', 'error');
-            } finally {
                 Loading.hide();
+            } catch (error) {
+                Loading.hide();
+                ErrorHandler.handle(error, 'saveMenuItem');
             }
+        }
+        
+        async function saveTable() {
+            try {
+                Loading.show('Saving table...');
+                
+                const form = document.getElementById('addTableForm');
+                const formData = new FormData(form);
+                const data = Object.fromEntries(formData);
+                
+                data.tableNumber = parseInt(data.tableNumber);
+                data.capacity = parseInt(data.capacity);
+                
+                const token = Auth.getToken();
+                const response = await API.post(CONFIG.API_ENDPOINTS.ADMIN_TABLES, data, token);
+                
+                if (response.success) {
+                    Toast.show('Table added successfully!', 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('addTableModal')).hide();
+                    form.reset();
+                    await loadTables();
+                }
+                
+                Loading.hide();
+            } catch (error) {
+                Loading.hide();
+                ErrorHandler.handle(error, 'saveTable');
+            }
+        }
+        
+        async function bulkAddTables() {
+            try {
+                Loading.show('Creating tables...');
+                
+                const form = document.getElementById('bulkTableForm');
+                const formData = new FormData(form);
+                const data = Object.fromEntries(formData);
+                
+                data.startNumber = parseInt(data.startNumber);
+                data.tableCount = parseInt(data.tableCount);
+                data.capacity = parseInt(data.capacity);
+                
+                const token = Auth.getToken();
+                const response = await API.post(CONFIG.API_ENDPOINTS.ADMIN_TABLES + '/bulk', data, token);
+                
+                if (response.success) {
+                    Toast.show(`${data.tableCount} tables created successfully!`, 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('bulkTableModal')).hide();
+                    form.reset();
+                    await loadTables();
+                }
+                
+                Loading.hide();
+            } catch (error) {
+                Loading.hide();
+                ErrorHandler.handle(error, 'bulkAddTables');
+            }
+        }
+        
+        async function saveStaff() {
+            try {
+                Loading.show('Adding staff member...');
+                
+                const form = document.getElementById('addStaffForm');
+                const formData = new FormData(form);
+                const data = Object.fromEntries(formData);
+                
+                const token = Auth.getToken();
+                const response = await API.post(CONFIG.API_ENDPOINTS.ADMIN_STAFF, data, token);
+                
+                if (response.success) {
+                    Toast.show('Staff member added successfully!', 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('addStaffModal')).hide();
+                    form.reset();
+                    await loadStaff();
+                }
+                
+                Loading.hide();
+            } catch (error) {
+                Loading.hide();
+                ErrorHandler.handle(error, 'saveStaff');
+            }
+        }
+        
+        // Edit functions
+        async function editMenuItem(itemId) {
+            const item = AppState.menuItems.find(m => m._id === itemId);
+            if (!item) return;
+            
+            // TODO: Implement edit modal
+            Toast.show('Edit functionality coming soon!', 'info');
+        }
+        
+        async function editTable(tableId) {
+            const table = AppState.tables.find(t => t._id === tableId);
+            if (!table) return;
+            
+            // TODO: Implement edit modal
+            Toast.show('Edit functionality coming soon!', 'info');
+        }
+        
+        async function editStaff(staffId) {
+            const staff = AppState.staff.find(s => s._id === staffId);
+            if (!staff) return;
+            
+            // TODO: Implement edit modal
+            Toast.show('Edit functionality coming soon!', 'info');
+        }
+        
+        // Delete functions
+        async function deleteMenuItem(itemId) {
+            if (!confirm('Are you sure you want to delete this menu item?')) return;
+            
+            try {
+                Loading.show('Deleting menu item...');
+                
+                const token = Auth.getToken();
+                const response = await API.delete(`${CONFIG.API_ENDPOINTS.ADMIN_MENU_ITEM(itemId)}`, token);
+                
+                if (response.success) {
+                    Toast.show('Menu item deleted successfully!', 'success');
+                    await loadMenuItems();
+                }
+                
+                Loading.hide();
+            } catch (error) {
+                Loading.hide();
+                ErrorHandler.handle(error, 'deleteMenuItem');
+            }
+        }
+        
+        async function deleteTable(tableId) {
+            if (!confirm('Are you sure you want to delete this table?')) return;
+            
+            try {
+                Loading.show('Deleting table...');
+                
+                const token = Auth.getToken();
+                const response = await API.delete(`${CONFIG.API_ENDPOINTS.ADMIN_TABLES}/${tableId}`, token);
+                
+                if (response.success) {
+                    Toast.show('Table deleted successfully!', 'success');
+                    await loadTables();
+                }
+                
+                Loading.hide();
+            } catch (error) {
+                Loading.hide();
+                ErrorHandler.handle(error, 'deleteTable');
+            }
+        }
+        
+        async function deleteStaff(staffId) {
+            if (!confirm('Are you sure you want to delete this staff member?')) return;
+            
+            try {
+                Loading.show('Deleting staff member...');
+                
+                const token = Auth.getToken();
+                const response = await API.delete(`${CONFIG.API_ENDPOINTS.ADMIN_STAFF_MEMBER(staffId)}`, token);
+                
+                if (response.success) {
+                    Toast.show('Staff member deleted successfully!', 'success');
+                    await loadStaff();
+                }
+                
+                Loading.hide();
+            } catch (error) {
+                Loading.hide();
+                ErrorHandler.handle(error, 'deleteStaff');
+            }
+        }
+        
+        // View order details
+        function viewOrder(orderId) {
+            // TODO: Implement order detail view
+            Toast.show('Order detail view coming soon!', 'info');
         }
         
         // Logout
         function logout() {
-            if (socket) socket.disconnect();
             Auth.logout();
         }
         
         // Initialize on load
         document.addEventListener('DOMContentLoaded', initApp);
+        
+        // Prevent event bubbling for table actions
+        function editTable(tableId, event) {
+            event.stopPropagation();
+            editTable(tableId);
+        }
+        
+        function deleteTable(tableId, event) {
+            event.stopPropagation();
+            deleteTable(tableId);
+        }
     </script>
-    <!-- In admin/dashboard.html, update these script tags: -->
-<script src="../config.js"></script>
-<script src="../js/utils.js"></script>
-<!-- Load Socket.io -->
-<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 </body>
 </html>
