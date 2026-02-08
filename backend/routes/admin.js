@@ -467,7 +467,7 @@ router.post('/tables', auth, isAdmin, [
     check('tableNumber', 'Table number is required').isInt({ min: 1 }),
     check('capacity', 'Capacity must be between 1 and 20').isInt({ min: 1, max: 20 }),
     check('section', 'Section is required').optional().isIn(['main', 'terrace', 'private', 'outdoor']),
-    check('location', 'Location cannot exceed 100 characters').optional().isLength({ max: 100 })
+    check('location', 'Location must be one of: near entrance, window side, center, corner, bar area, patio').optional().isIn(['near entrance', 'window side', 'center', 'corner', 'bar area', 'patio'])
 ], async (req, res) => {
     try {
         const errors = validationResult(req);
@@ -479,7 +479,12 @@ router.post('/tables', auth, isAdmin, [
             });
         }
         
-        const { tableNumber, capacity, location = 'Near entrance', section = 'main' } = req.body;
+        const { 
+            tableNumber, 
+            capacity, 
+            location = 'near entrance', 
+            section = 'main' 
+        } = req.body;
         
         console.log('Creating table:', { tableNumber, capacity, location, section });
         
@@ -492,11 +497,22 @@ router.post('/tables', auth, isAdmin, [
             });
         }
         
+        // Generate QR Code
+        const qrCodeData = {
+            tableNumber,
+            section,
+            capacity,
+            restaurantId: 'restaurant-' + Math.random().toString(36).substr(2, 9)
+        };
+        
+        const qrCodeText = JSON.stringify(qrCodeData);
+        
         const table = new Table({
             tableNumber: parseInt(tableNumber),
             capacity: parseInt(capacity),
-            location,
+            location: location.toLowerCase(), // Convert to lowercase for enum
             section,
+            qrCode: qrCodeText, // Add QR code
             status: 'available',
             isActive: true
         });
@@ -577,7 +593,7 @@ router.post('/tables/bulk', auth, isAdmin, [
                 errors.push(`Error creating table ${parseInt(startNumber) + i}: ${error.message}`);
             }
         }
-        
+
         res.status(201).json({
             success: true,
             message: `Created ${createdTables.length} tables successfully`,
