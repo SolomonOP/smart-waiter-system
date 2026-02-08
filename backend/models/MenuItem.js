@@ -40,10 +40,10 @@ const MenuItemSchema = new mongoose.Schema({
     images: [{
         type: String
     }],
-    available: {
-        type: Boolean,
-        default: true
-    },
+    isAvailable: {
+    type: Boolean,
+    default: true
+},
     popular: {
         type: Boolean,
         default: false

@@ -183,6 +183,56 @@ router.get('/revenue/weekly', auth, isAdmin, async (req, res) => {
     }
 });
 
+// @route   GET /api/admin/orders/status-stats
+// @desc    Get order status statistics
+// @access  Private (Admin)
+router.get('/orders/status-stats', auth, isAdmin, async (req, res) => {
+    try {
+        const statusCounts = await Order.aggregate([
+            {
+                $group: {
+                    _id: '$status',
+                    count: { $sum: 1 }
+                }
+            }
+        ]);
+        
+        const statusMap = {
+            pending: 'Pending',
+            confirmed: 'Confirmed',
+            preparing: 'Preparing',
+            ready: 'Ready',
+            served: 'Served',
+            completed: 'Completed',
+            cancelled: 'Cancelled',
+            rejected: 'Rejected'
+        };
+        
+        const labels = [];
+        const data = [];
+        
+        // Initialize all statuses with 0
+        Object.keys(statusMap).forEach(status => {
+            labels.push(statusMap[status]);
+            const found = statusCounts.find(s => s._id === status);
+            data.push(found ? found.count : 0);
+        });
+        
+        res.json({
+            success: true,
+            labels,
+            data
+        });
+        
+    } catch (error) {
+        console.error('Get order status stats error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error'
+        });
+    }
+});
+
 // @route   GET /api/admin/orders/recent
 // @desc    Get recent orders
 // @access  Private (Admin)
@@ -193,7 +243,8 @@ router.get('/orders/recent', auth, isAdmin, async (req, res) => {
         const orders = await Order.find()
             .sort({ createdAt: -1 })
             .limit(parseInt(limit))
-            .select('orderNumber tableNumber customerName totalAmount status createdAt');
+            .select('orderNumber tableNumber customerName totalAmount status createdAt')
+            .populate('customer', 'firstName lastName email');
         
         res.json({
             success: true,
@@ -229,7 +280,7 @@ router.get('/menu', auth, isAdmin, async (req, res) => {
         
         const menuItems = await MenuItem.find(query)
             .sort({ category: 1, name: 1 })
-            .select('name description price category isAvailable preparationTime image');
+            .select('name description price category isAvailable preparationTime image orderCount rating');
         
         res.json({
             success: true,
@@ -371,6 +422,11 @@ router.put('/menu/:id', auth, isAdmin, [
         // Update fields
         const updates = req.body;
         
+        // Handle checkbox value
+        if (updates.isAvailable !== undefined) {
+            updates.isAvailable = updates.isAvailable === true || updates.isAvailable === 'true';
+        }
+        
         // Remove restricted fields
         delete updates._id;
         delete updates.createdAt;
@@ -443,7 +499,7 @@ router.get('/tables', auth, isAdmin, async (req, res) => {
     try {
         const tables = await Table.find()
             .sort({ tableNumber: 1 })
-            .select('tableNumber capacity status location section currentOrder');
+            .select('tableNumber capacity status location section currentOrder currentCustomer customerName isActive');
         
         res.json({
             success: true,
@@ -544,80 +600,6 @@ router.post('/tables', auth, isAdmin, [
         res.status(500).json({
             success: false,
             message: 'Server error: ' + error.message
-        });
-    }
-});
-
-// @route   POST /api/admin/tables/bulk
-// @desc    Create multiple tables at once
-// @access  Private (Admin)
-router.post('/tables/bulk', auth, isAdmin, [
-    check('startNumber', 'Start number is required').isInt({ min: 1 }),
-    check('tableCount', 'Table count must be between 1 and 50').isInt({ min: 1, max: 50 }),
-    check('capacity', 'Capacity must be between 1 and 20').isInt({ min: 1, max: 20 }),
-    check('section', 'Section is required').optional().isIn(['main', 'terrace', 'private'])
-], async (req, res) => {
-    try {
-        const validationErrors = validationResult(req);
-        if (!validationErrors.isEmpty()) {
-            return res.status(400).json({
-                success: false,
-                errors: validationErrors.array()
-            });
-        }
-        
-        const { startNumber, tableCount, capacity, section = 'main', locationPrefix = '' } = req.body;
-        
-        const createdTables = [];
-        const errors = [];
-        
-        for (let i = 0; i < tableCount; i++) {
-            try {
-                const tableNumber = parseInt(startNumber) + i;
-                
-                // Check if table number already exists
-                const existingTable = await Table.findOne({ tableNumber });
-                if (existingTable) {
-                    errors.push(`Table ${tableNumber} already exists`);
-                    continue;
-                }
-                
-                // Generate location
-                let location = 'near entrance';
-                if (locationPrefix) {
-                    location = locationPrefix.toLowerCase() + ' area';
-                }
-                
-                const table = new Table({
-                    tableNumber,
-                    capacity: parseInt(capacity),
-                    location: location,
-                    section,
-                    status: 'available',
-                    isActive: true
-                    // QR code will be auto-generated by pre-save middleware
-                });
-                
-                await table.save();
-                createdTables.push(table);
-            } catch (error) {
-                errors.push(`Error creating table ${parseInt(startNumber) + i}: ${error.message}`);
-            }
-        }
-        
-        res.status(201).json({
-            success: true,
-            message: `Created ${createdTables.length} tables successfully`,
-            created: createdTables.length,
-            tables: createdTables,
-            errors: errors.length > 0 ? errors : undefined
-        });
-        
-    } catch (error) {
-        console.error('Bulk create tables error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Server error'
         });
     }
 });
@@ -754,6 +736,80 @@ router.delete('/tables/:id', auth, isAdmin, async (req, res) => {
         
     } catch (error) {
         console.error('Delete table error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error'
+        });
+    }
+});
+
+// @route   POST /api/admin/tables/bulk
+// @desc    Create multiple tables at once
+// @access  Private (Admin)
+router.post('/tables/bulk', auth, isAdmin, [
+    check('startNumber', 'Start number is required').isInt({ min: 1 }),
+    check('tableCount', 'Table count must be between 1 and 50').isInt({ min: 1, max: 50 }),
+    check('capacity', 'Capacity must be between 1 and 20').isInt({ min: 1, max: 20 }),
+    check('section', 'Section is required').optional().isIn(['main', 'terrace', 'private'])
+], async (req, res) => {
+    try {
+        const validationErrors = validationResult(req);
+        if (!validationErrors.isEmpty()) {
+            return res.status(400).json({
+                success: false,
+                errors: validationErrors.array()
+            });
+        }
+        
+        const { startNumber, tableCount, capacity, section = 'main', locationPrefix = '' } = req.body;
+        
+        const createdTables = [];
+        const errors = [];
+        
+        for (let i = 0; i < tableCount; i++) {
+            try {
+                const tableNumber = parseInt(startNumber) + i;
+                
+                // Check if table number already exists
+                const existingTable = await Table.findOne({ tableNumber });
+                if (existingTable) {
+                    errors.push(`Table ${tableNumber} already exists`);
+                    continue;
+                }
+                
+                // Generate location
+                let location = 'near entrance';
+                if (locationPrefix) {
+                    location = locationPrefix.toLowerCase() + ' area';
+                }
+                
+                const table = new Table({
+                    tableNumber,
+                    capacity: parseInt(capacity),
+                    location: location,
+                    section,
+                    status: 'available',
+                    isActive: true
+                    // QR code will be auto-generated by pre-save middleware
+                });
+                
+                await table.save();
+                createdTables.push(table);
+            } catch (error) {
+                errors.push(`Error creating table ${parseInt(startNumber) + i}: ${error.message}`);
+            }
+        }
+        
+        res.status(201).json({
+            success: true,
+            message: `Created ${createdTables.length} tables successfully`,
+            created: createdTables.length,
+            tables: createdTables,
+            errors: errors.length > 0 ? errors : undefined
+        });
+        
+    } catch (error) {
+        console.error('Bulk create tables error:', error);
         res.status(500).json({
             success: false,
             message: 'Server error'
@@ -1021,7 +1077,7 @@ router.delete('/staff/:id', auth, isAdmin, async (req, res) => {
 // @access  Private (Admin)
 router.get('/analytics/sales', auth, isAdmin, async (req, res) => {
     try {
-        const { startDate, endDate } = req.query;
+        const { from, to } = req.query;
         
         // Set date range
         let start = new Date();
@@ -1031,20 +1087,35 @@ router.get('/analytics/sales', auth, isAdmin, async (req, res) => {
         let end = new Date();
         end.setHours(23, 59, 59, 999);
         
-        if (startDate) {
-            start = new Date(startDate);
+        if (from) {
+            start = new Date(from);
             start.setHours(0, 0, 0, 0);
         }
         
-        if (endDate) {
-            end = new Date(endDate);
+        if (to) {
+            end = new Date(to);
             end.setHours(23, 59, 59, 999);
         }
         
+        // Get previous period for comparison
+        const periodDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+        const previousStart = new Date(start);
+        previousStart.setDate(previousStart.getDate() - periodDays);
+        const previousEnd = new Date(start);
+        previousEnd.setDate(previousEnd.getDate() - 1);
+        previousEnd.setHours(23, 59, 59, 999);
+        
+        // Current period orders
         const orders = await Order.find({
             createdAt: { $gte: start, $lte: end },
             status: 'completed'
         }).sort({ createdAt: 1 });
+        
+        // Previous period orders
+        const previousOrders = await Order.find({
+            createdAt: { $gte: previousStart, $lte: previousEnd },
+            status: 'completed'
+        });
         
         // Group orders by date
         const dailySales = [];
@@ -1072,19 +1143,72 @@ router.get('/analytics/sales', auth, isAdmin, async (req, res) => {
         const totalRevenue = orders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
         const totalOrders = orders.length;
         
+        // Previous period totals
+        const previousRevenue = previousOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+        const previousOrdersCount = previousOrders.length;
+        
+        // Calculate changes
+        const revenueChange = previousRevenue > 0 ? ((totalRevenue - previousRevenue) / previousRevenue) * 100 : 0;
+        const ordersChange = previousOrdersCount > 0 ? ((totalOrders - previousOrdersCount) / previousOrdersCount) * 100 : 0;
+        
+        // Get category distribution
+        const categoryRevenue = {};
+        orders.forEach(order => {
+            order.items.forEach(item => {
+                const category = item.category || 'unknown';
+                categoryRevenue[category] = (categoryRevenue[category] || 0) + (item.price * item.quantity);
+            });
+        });
+        
+        const categoryDistribution = Object.entries(categoryRevenue)
+            .map(([category, revenue]) => ({ category, revenue }))
+            .sort((a, b) => b.revenue - a.revenue);
+        
+        // Get top category
+        const topCategory = categoryDistribution.length > 0 ? categoryDistribution[0].category : 'N/A';
+        const topCategoryCount = orders.reduce((count, order) => {
+            return count + order.items.filter(item => item.category === topCategory).reduce((sum, item) => sum + item.quantity, 0);
+        }, 0);
+        
         // Get top selling items
         const itemCounts = {};
         orders.forEach(order => {
             order.items.forEach(item => {
+                const itemId = item.menuItem?.toString() || item.name;
                 const itemName = item.name || 'Unknown Item';
-                itemCounts[itemName] = (itemCounts[itemName] || 0) + item.quantity;
+                const category = item.category || 'unknown';
+                
+                if (!itemCounts[itemId]) {
+                    itemCounts[itemId] = {
+                        id: itemId,
+                        name: itemName,
+                        category: category,
+                        count: 0,
+                        revenue: 0
+                    };
+                }
+                
+                itemCounts[itemId].count += item.quantity;
+                itemCounts[itemId].revenue += (item.price * item.quantity);
             });
         });
         
-        const topItems = Object.entries(itemCounts)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 10)
-            .map(([name, count]) => ({ name, count }));
+        // Get ratings for items
+        const menuItems = await MenuItem.find({
+            _id: { $in: Object.keys(itemCounts).filter(id => id.length === 24) } // Only valid ObjectIds
+        }).select('name rating');
+        
+        // Add ratings to items
+        const topItems = Object.values(itemCounts)
+            .map(item => {
+                const menuItem = menuItems.find(mi => mi._id.toString() === item.id);
+                if (menuItem) {
+                    item.rating = menuItem.rating || 0;
+                }
+                return item;
+            })
+            .sort((a, b) => b.revenue - a.revenue)
+            .slice(0, 10);
         
         res.json({
             success: true,
@@ -1095,9 +1219,16 @@ router.get('/analytics/sales', auth, isAdmin, async (req, res) => {
             summary: {
                 totalRevenue,
                 totalOrders,
-                averageOrderValue: totalOrders > 0 ? totalRevenue / totalOrders : 0
+                averageOrderValue: totalOrders > 0 ? totalRevenue / totalOrders : 0,
+                change: {
+                    revenue: revenueChange,
+                    orders: ordersChange
+                }
             },
             dailySales,
+            categoryDistribution,
+            topCategory,
+            topCategoryCount,
             topItems
         });
         
@@ -1105,7 +1236,7 @@ router.get('/analytics/sales', auth, isAdmin, async (req, res) => {
         console.error('Get sales analytics error:', error);
         res.status(500).json({
             success: false,
-            message: 'Server error'
+            message: 'Server error: ' + error.message
         });
     }
 });

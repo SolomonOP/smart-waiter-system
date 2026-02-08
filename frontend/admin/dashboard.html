@@ -363,6 +363,16 @@
             color: #78350f;
         }
         
+        .table-card.maintenance {
+            background: linear-gradient(135deg, #dbeafe, #93c5fd);
+            color: #1e40af;
+        }
+        
+        .table-card.cleaning {
+            background: linear-gradient(135deg, #f3e8ff, #d8b4fe);
+            color: #5b21b6;
+        }
+        
         .staff-card {
             background: white;
             border-radius: 12px;
@@ -395,6 +405,22 @@
             padding: 20px;
             margin-bottom: 25px;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #64748b;
+        }
+        
+        .no-data i {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+        
+        .status-badge {
+            min-width: 80px;
+            text-align: center;
         }
     </style>
 </head>
@@ -487,7 +513,7 @@
                         </div>
                         <div class="stat-number" id="todayRevenue">$0.00</div>
                         <div class="stat-label">Today's Revenue</div>
-                        <small class="text-muted">+12% from yesterday</small>
+                        <small class="text-muted" id="revenueChange">--</small>
                     </div>
                 </div>
                 <div class="col-md-3 col-sm-6 mb-3">
@@ -497,7 +523,7 @@
                         </div>
                         <div class="stat-number" id="todayCustomers">0</div>
                         <div class="stat-label">Today's Customers</div>
-                        <small class="text-muted">+5 from yesterday</small>
+                        <small class="text-muted" id="customersChange">--</small>
                     </div>
                 </div>
                 <div class="col-md-3 col-sm-6 mb-3">
@@ -507,7 +533,7 @@
                         </div>
                         <div class="stat-number" id="todayOrders">0</div>
                         <div class="stat-label">Today's Orders</div>
-                        <small class="text-muted">+8% from yesterday</small>
+                        <small class="text-muted" id="ordersChange">--</small>
                     </div>
                 </div>
                 <div class="col-md-3 col-sm-6 mb-3">
@@ -517,7 +543,7 @@
                         </div>
                         <div class="stat-number" id="tablesOccupied">0/0</div>
                         <div class="stat-label">Tables Occupied</div>
-                        <small class="text-muted">75% occupancy rate</small>
+                        <small class="text-muted" id="occupancyRate">--</small>
                     </div>
                 </div>
             </div>
@@ -528,11 +554,9 @@
                     <div class="chart-container">
                         <div class="d-flex justify-content-between align-items-center mb-4">
                             <h5 class="card-title mb-0">Revenue Overview (Last 7 Days)</h5>
-                            <select class="form-select w-auto" id="chartPeriod">
-                                <option value="week">This Week</option>
-                                <option value="month">This Month</option>
-                                <option value="year">This Year</option>
-                            </select>
+                            <button class="btn btn-sm btn-outline-primary" onclick="loadRevenueChart()">
+                                <i class="bi bi-arrow-clockwise"></i> Refresh
+                            </button>
                         </div>
                         <canvas id="revenueChart" height="250"></canvas>
                     </div>
@@ -595,25 +619,27 @@
             <div class="filter-controls">
                 <div class="row g-3">
                     <div class="col-md-4">
-                        <select class="form-select" id="menuCategoryFilter">
+                        <select class="form-select" id="menuCategoryFilter" onchange="filterMenuItems()">
                             <option value="">All Categories</option>
                             <option value="appetizer">Appetizer</option>
                             <option value="main">Main Course</option>
                             <option value="dessert">Dessert</option>
                             <option value="drink">Drink</option>
+                            <option value="soup">Soup</option>
+                            <option value="salad">Salad</option>
                         </select>
                     </div>
                     <div class="col-md-4">
-                        <select class="form-select" id="menuStatusFilter">
+                        <select class="form-select" id="menuStatusFilter" onchange="filterMenuItems()">
                             <option value="">All Status</option>
-                            <option value="available">Available</option>
-                            <option value="unavailable">Unavailable</option>
+                            <option value="true">Available</option>
+                            <option value="false">Unavailable</option>
                         </select>
                     </div>
                     <div class="col-md-4">
                         <div class="input-group">
-                            <input type="text" class="form-control" placeholder="Search items..." id="menuSearch">
-                            <button class="btn btn-outline-secondary" type="button">
+                            <input type="text" class="form-control" placeholder="Search items..." id="menuSearch" onkeyup="filterMenuItems()">
+                            <button class="btn btn-outline-secondary" type="button" onclick="filterMenuItems()">
                                 <i class="bi bi-search"></i>
                             </button>
                         </div>
@@ -648,34 +674,40 @@
             <div class="filter-controls">
                 <div class="row g-3">
                     <div class="col-md-3">
-                        <select class="form-select" id="tableSectionFilter">
+                        <select class="form-select" id="tableSectionFilter" onchange="filterTables()">
                             <option value="">All Sections</option>
                             <option value="main">Main Hall</option>
                             <option value="terrace">Terrace</option>
                             <option value="private">Private Room</option>
+                            <option value="outdoor">Outdoor</option>
                         </select>
                     </div>
                     <div class="col-md-3">
-                        <select class="form-select" id="tableStatusFilter">
+                        <select class="form-select" id="tableStatusFilter" onchange="filterTables()">
                             <option value="">All Status</option>
                             <option value="available">Available</option>
                             <option value="occupied">Occupied</option>
                             <option value="reserved">Reserved</option>
+                            <option value="maintenance">Maintenance</option>
+                            <option value="cleaning">Cleaning</option>
                         </select>
                     </div>
                     <div class="col-md-3">
-                        <select class="form-select" id="tableCapacityFilter">
+                        <select class="form-select" id="tableCapacityFilter" onchange="filterTables()">
                             <option value="">All Capacities</option>
-                            <option value="2">2 Seats</option>
-                            <option value="4">4 Seats</option>
-                            <option value="6">6 Seats</option>
-                            <option value="8">8+ Seats</option>
+                            <option value="1-2">1-2 Seats</option>
+                            <option value="3-4">3-4 Seats</option>
+                            <option value="5-6">5-6 Seats</option>
+                            <option value="7+">7+ Seats</option>
                         </select>
                     </div>
                     <div class="col-md-3">
-                        <button class="btn btn-outline-secondary w-100" onclick="loadTables()">
-                            <i class="bi bi-filter me-2"></i> Apply Filters
-                        </button>
+                        <div class="input-group">
+                            <input type="text" class="form-control" placeholder="Search tables..." id="tableSearch" onkeyup="filterTables()">
+                            <button class="btn btn-outline-secondary" type="button" onclick="filterTables()">
+                                <i class="bi bi-search"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -695,8 +727,28 @@
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h4 class="mb-0">Staff Management</h4>
                 <button class="btn btn-primary" onclick="showAddStaffModal()">
-                    <i class="bi bi-person-plus me-2"></i> Add Staff Member
+                    <i class="bi bi-person-plus me-2"></i> Add Chef
                 </button>
+            </div>
+            
+            <div class="filter-controls mb-4">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <select class="form-select" id="staffStatusFilter" onchange="filterStaff()">
+                            <option value="">All Status</option>
+                            <option value="true">Active</option>
+                            <option value="false">Inactive</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <input type="text" class="form-control" placeholder="Search staff..." id="staffSearch" onkeyup="filterStaff()">
+                            <button class="btn btn-outline-secondary" type="button" onclick="filterStaff()">
+                                <i class="bi bi-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
             
             <div class="row" id="staffContainer">
@@ -728,28 +780,28 @@
                     <div class="stat-card">
                         <div class="stat-label">Total Revenue</div>
                         <div class="stat-number" id="totalRevenue">$0.00</div>
-                        <small class="text-muted" id="revenueChange">0% from previous period</small>
+                        <small class="text-muted" id="analyticsRevenueChange">--</small>
                     </div>
                 </div>
                 <div class="col-md-3 mb-3">
                     <div class="stat-card">
                         <div class="stat-label">Total Orders</div>
                         <div class="stat-number" id="totalOrders">0</div>
-                        <small class="text-muted" id="ordersChange">0% from previous period</small>
+                        <small class="text-muted" id="analyticsOrdersChange">--</small>
                     </div>
                 </div>
                 <div class="col-md-3 mb-3">
                     <div class="stat-card">
                         <div class="stat-label">Average Order Value</div>
                         <div class="stat-number" id="averageOrder">$0.00</div>
-                        <small class="text-muted" id="avgOrderChange">0% from previous period</small>
+                        <small class="text-muted" id="avgOrderChange">--</small>
                     </div>
                 </div>
                 <div class="col-md-3 mb-3">
                     <div class="stat-card">
                         <div class="stat-label">Top Selling Category</div>
                         <div class="stat-number" id="topCategory">N/A</div>
-                        <small class="text-muted" id="topCategorySales">0 items sold</small>
+                        <small class="text-muted" id="topCategorySales">--</small>
                     </div>
                 </div>
             </div>
@@ -770,8 +822,11 @@
             </div>
             
             <div class="card">
-                <div class="card-header">
+                <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="card-title mb-0">Top Selling Items</h5>
+                    <button class="btn btn-sm btn-outline-primary" onclick="loadSalesAnalytics()">
+                        <i class="bi bi-arrow-clockwise"></i> Refresh
+                    </button>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
@@ -810,25 +865,27 @@
                     <form id="addMenuItemForm">
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Item Name</label>
+                                <label class="form-label">Item Name *</label>
                                 <input type="text" class="form-control" name="name" required>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Category</label>
+                                <label class="form-label">Category *</label>
                                 <select class="form-select" name="category" required>
                                     <option value="">Select Category</option>
                                     <option value="appetizer">Appetizer</option>
                                     <option value="main">Main Course</option>
                                     <option value="dessert">Dessert</option>
                                     <option value="drink">Drink</option>
+                                    <option value="soup">Soup</option>
+                                    <option value="salad">Salad</option>
                                 </select>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Price</label>
+                                <label class="form-label">Price *</label>
                                 <input type="number" class="form-control" name="price" step="0.01" min="0" required>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Preparation Time (minutes)</label>
+                                <label class="form-label">Preparation Time (minutes) *</label>
                                 <input type="number" class="form-control" name="preparationTime" min="1" required>
                             </div>
                             <div class="col-12 mb-3">
@@ -841,7 +898,7 @@
                             </div>
                             <div class="col-md-6 mb-3">
                                 <div class="form-check form-switch mt-4">
-                                    <input class="form-check-input" type="checkbox" name="isAvailable" checked>
+                                    <input class="form-check-input" type="checkbox" name="isAvailable" checked id="availabilitySwitch">
                                     <label class="form-check-label">Available</label>
                                 </div>
                             </div>
@@ -851,6 +908,67 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="button" class="btn btn-primary" onclick="saveMenuItem()">Save Item</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Edit Menu Item Modal -->
+    <div class="modal fade" id="editMenuItemModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Menu Item</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editMenuItemForm">
+                        <input type="hidden" name="id" id="editMenuItemId">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Item Name *</label>
+                                <input type="text" class="form-control" name="name" id="editMenuItemName" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Category *</label>
+                                <select class="form-select" name="category" id="editMenuItemCategory" required>
+                                    <option value="">Select Category</option>
+                                    <option value="appetizer">Appetizer</option>
+                                    <option value="main">Main Course</option>
+                                    <option value="dessert">Dessert</option>
+                                    <option value="drink">Drink</option>
+                                    <option value="soup">Soup</option>
+                                    <option value="salad">Salad</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Price *</label>
+                                <input type="number" class="form-control" name="price" id="editMenuItemPrice" step="0.01" min="0" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Preparation Time (minutes) *</label>
+                                <input type="number" class="form-control" name="preparationTime" id="editMenuItemPrepTime" min="1" required>
+                            </div>
+                            <div class="col-12 mb-3">
+                                <label class="form-label">Description</label>
+                                <textarea class="form-control" name="description" id="editMenuItemDescription" rows="3"></textarea>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Image URL</label>
+                                <input type="url" class="form-control" name="image" id="editMenuItemImage" placeholder="https://example.com/image.jpg">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <div class="form-check form-switch mt-4">
+                                    <input class="form-check-input" type="checkbox" name="isAvailable" id="editMenuItemAvailable">
+                                    <label class="form-check-label">Available</label>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="updateMenuItem()">Update Item</button>
                 </div>
             </div>
         </div>
@@ -867,15 +985,15 @@
                 <div class="modal-body">
                     <form id="addTableForm">
                         <div class="mb-3">
-                            <label class="form-label">Table Number</label>
+                            <label class="form-label">Table Number *</label>
                             <input type="number" class="form-control" name="tableNumber" min="1" required>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Capacity</label>
+                            <label class="form-label">Capacity *</label>
                             <input type="number" class="form-control" name="capacity" min="1" max="20" required>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Section</label>
+                            <label class="form-label">Section *</label>
                             <select class="form-select" name="section" required>
                                 <option value="main">Main Hall</option>
                                 <option value="terrace">Terrace</option>
@@ -892,6 +1010,64 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="button" class="btn btn-primary" onclick="saveTable()">Save Table</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Edit Table Modal -->
+    <div class="modal fade" id="editTableModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Table</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editTableForm">
+                        <input type="hidden" name="id" id="editTableId">
+                        <div class="mb-3">
+                            <label class="form-label">Table Number *</label>
+                            <input type="number" class="form-control" name="tableNumber" id="editTableNumber" min="1" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Capacity *</label>
+                            <input type="number" class="form-control" name="capacity" id="editTableCapacity" min="1" max="20" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Section *</label>
+                            <select class="form-select" name="section" id="editTableSection" required>
+                                <option value="main">Main Hall</option>
+                                <option value="terrace">Terrace</option>
+                                <option value="private">Private Room</option>
+                                <option value="outdoor">Outdoor</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Location</label>
+                            <input type="text" class="form-control" name="location" id="editTableLocation" placeholder="e.g., Near window">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Status *</label>
+                            <select class="form-select" name="status" id="editTableStatus" required>
+                                <option value="available">Available</option>
+                                <option value="occupied">Occupied</option>
+                                <option value="reserved">Reserved</option>
+                                <option value="maintenance">Maintenance</option>
+                                <option value="cleaning">Cleaning</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="isActive" id="editTableIsActive">
+                                <label class="form-check-label">Active</label>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="updateTable()">Update Table</button>
                 </div>
             </div>
         </div>
@@ -952,47 +1128,96 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Add Staff Member</h5>
+                    <h5 class="modal-title">Add Chef</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
                     <form id="addStaffForm">
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">First Name</label>
+                                <label class="form-label">First Name *</label>
                                 <input type="text" class="form-control" name="firstName" required>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Last Name</label>
+                                <label class="form-label">Last Name *</label>
                                 <input type="text" class="form-control" name="lastName" required>
                             </div>
                             <div class="col-12 mb-3">
-                                <label class="form-label">Email</label>
+                                <label class="form-label">Email *</label>
                                 <input type="email" class="form-control" name="email" required>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Phone</label>
+                                <label class="form-label">Phone *</label>
                                 <input type="tel" class="form-control" name="phone" required>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Role</label>
+                                <label class="form-label">Role *</label>
                                 <select class="form-select" name="role" required>
                                     <option value="chef">Chef</option>
-                                    <option value="waiter">Waiter</option>
-                                    <option value="manager">Manager</option>
-                                    <option value="cashier">Cashier</option>
                                 </select>
                             </div>
                             <div class="col-12 mb-3">
-                                <label class="form-label">Password</label>
-                                <input type="password" class="form-control" name="password" required>
+                                <label class="form-label">Password *</label>
+                                <input type="password" class="form-control" name="password" required minlength="6">
                             </div>
                         </div>
                     </form>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" onclick="saveStaff()">Add Staff</button>
+                    <button type="button" class="btn btn-primary" onclick="saveStaff()">Add Chef</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Edit Staff Modal -->
+    <div class="modal fade" id="editStaffModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Staff Member</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editStaffForm">
+                        <input type="hidden" name="id" id="editStaffId">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">First Name *</label>
+                                <input type="text" class="form-control" name="firstName" id="editStaffFirstName" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Last Name *</label>
+                                <input type="text" class="form-control" name="lastName" id="editStaffLastName" required>
+                            </div>
+                            <div class="col-12 mb-3">
+                                <label class="form-label">Email</label>
+                                <input type="email" class="form-control" name="email" id="editStaffEmail" readonly>
+                                <small class="text-muted">Email cannot be changed</small>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Phone *</label>
+                                <input type="tel" class="form-control" name="phone" id="editStaffPhone" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Role *</label>
+                                <select class="form-select" name="role" id="editStaffRole" required>
+                                    <option value="chef">Chef</option>
+                                </select>
+                            </div>
+                            <div class="col-12 mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="isActive" id="editStaffIsActive">
+                                    <label class="form-check-label">Active</label>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="updateStaff()">Update Staff</button>
                 </div>
             </div>
         </div>
@@ -1014,8 +1239,11 @@
         const AppState = {
             currentSection: 'dashboard',
             menuItems: [],
+            filteredMenuItems: [],
             tables: [],
+            filteredTables: [],
             staff: [],
+            filteredStaff: [],
             salesData: null,
             charts: {}
         };
@@ -1129,7 +1357,7 @@
         function setupDateInputs() {
             const today = new Date();
             const weekAgo = new Date();
-            weekAgo.setDate(today.getDate() - 7);
+            weekAgo.setDate(today.getDate() - 30);
             
             document.getElementById('fromDate').value = weekAgo.toISOString().split('T')[0];
             document.getElementById('toDate').value = today.toISOString().split('T')[0];
@@ -1211,61 +1439,44 @@
                 // Update statistics
                 if (statsData.success && statsData.stats) {
                     const stats = statsData.stats;
+                    
+                    // Today's revenue
                     document.getElementById('todayRevenue').textContent = `$${(stats.revenue?.today || 0).toFixed(2)}`;
+                    const revenueChange = stats.revenue?.change || 0;
+                    document.getElementById('revenueChange').textContent = 
+                        revenueChange > 0 ? `+${revenueChange.toFixed(1)}% from yesterday` : 
+                        revenueChange < 0 ? `${revenueChange.toFixed(1)}% from yesterday` : 'No change';
+                    document.getElementById('revenueChange').className = 
+                        revenueChange > 0 ? 'text-success' : revenueChange < 0 ? 'text-danger' : 'text-muted';
+                    
+                    // Today's customers
                     document.getElementById('todayCustomers').textContent = stats.customers?.today || 0;
+                    
+                    // Today's orders
                     document.getElementById('todayOrders').textContent = stats.orders?.today || 0;
-                    document.getElementById('tablesOccupied').textContent = 
-                        `${stats.tables?.occupied || 0}/${stats.tables?.total || 0}`;
+                    const ordersChange = stats.orders?.change || 0;
+                    document.getElementById('ordersChange').textContent = 
+                        ordersChange > 0 ? `+${ordersChange.toFixed(1)}% from yesterday` : 
+                        ordersChange < 0 ? `${ordersChange.toFixed(1)}% from yesterday` : 'No change';
+                    document.getElementById('ordersChange').className = 
+                        ordersChange > 0 ? 'text-success' : ordersChange < 0 ? 'text-danger' : 'text-muted';
+                    
+                    // Tables
+                    const totalTables = stats.tables?.total || 0;
+                    const occupiedTables = stats.tables?.occupied || 0;
+                    document.getElementById('tablesOccupied').textContent = `${occupiedTables}/${totalTables}`;
+                    const occupancyRate = totalTables > 0 ? Math.round((occupiedTables / totalTables) * 100) : 0;
+                    document.getElementById('occupancyRate').textContent = `${occupancyRate}% occupancy rate`;
                 }
                 
                 // Load recent orders
-                try {
-                    const ordersData = await API.get(CONFIG.API_ENDPOINTS.ADMIN_ORDERS_RECENT + '?limit=10', token);
-                    
-                    // Display recent orders
-                    const ordersTable = document.getElementById('recentOrdersTable');
-                    
-                    if (ordersData.success && ordersData.orders && ordersData.orders.length > 0) {
-                        ordersTable.innerHTML = '';
-                        ordersData.orders.forEach(order => {
-                            const row = `
-                                <tr>
-                                    <td>#${order.orderNumber || 'N/A'}</td>
-                                    <td>${order.tableNumber || 'N/A'}</td>
-                                    <td>${order.customerName || 'Walk-in'}</td>
-                                    <td>$${(order.totalAmount || 0).toFixed(2)}</td>
-                                    <td>
-                                        <span class="badge bg-${getStatusColor(order.status)}">
-                                            ${FormatUtils.formatOrderStatus(order.status)}
-                                        </span>
-                                    </td>
-                                    <td>${FormatUtils.formatTime(order.createdAt)}</td>
-                                    <td>
-                                        <button class="btn btn-sm btn-outline-primary" onclick="viewOrder('${order._id}')">
-                                            <i class="bi bi-eye"></i>
-                                        </button>
-                                    </td>
-                                </tr>
-                            `;
-                            ordersTable.innerHTML += row;
-                        });
-                    } else {
-                        ordersTable.innerHTML = '<tr><td colspan="7" class="text-center py-4">No recent orders</td></tr>';
-                    }
-                } catch (orderError) {
-                    console.warn('Failed to load orders:', orderError);
-                    document.getElementById('recentOrdersTable').innerHTML = 
-                        '<tr><td colspan="7" class="text-center py-4 text-muted">Failed to load orders</td></tr>';
-                }
+                await loadRecentOrders();
                 
-                // Load revenue data for chart
-                try {
-                    const revenueData = await API.get(CONFIG.API_ENDPOINTS.ADMIN_REVENUE_WEEKLY, token);
-                    createCharts(revenueData);
-                } catch (chartError) {
-                    console.warn('Chart error, using demo:', chartError);
-                    createDemoCharts();
-                }
+                // Load revenue chart
+                await loadRevenueChart();
+                
+                // Load order status distribution
+                await loadStatusChart();
                 
                 // Clear notifications on dashboard load
                 clearNotifications();
@@ -1274,7 +1485,148 @@
                 
             } catch (error) {
                 ErrorHandler.handle(error, 'loadDashboard');
-                createDemoCharts();
+            }
+        }
+        
+        // Load recent orders
+        async function loadRecentOrders() {
+            try {
+                const token = Auth.getToken();
+                const ordersData = await API.get(CONFIG.API_ENDPOINTS.ADMIN_ORDERS_RECENT + '?limit=10', token);
+                
+                // Display recent orders
+                const ordersTable = document.getElementById('recentOrdersTable');
+                
+                if (ordersData.success && ordersData.orders && ordersData.orders.length > 0) {
+                    ordersTable.innerHTML = '';
+                    ordersData.orders.forEach(order => {
+                        const row = `
+                            <tr>
+                                <td>#${order.orderNumber || 'N/A'}</td>
+                                <td>${order.tableNumber || 'N/A'}</td>
+                                <td>${order.customerName || 'Walk-in'}</td>
+                                <td>$${(order.totalAmount || 0).toFixed(2)}</td>
+                                <td>
+                                    <span class="badge bg-${getStatusColor(order.status)}">
+                                        ${FormatUtils.formatOrderStatus(order.status)}
+                                    </span>
+                                </td>
+                                <td>${FormatUtils.formatTime(order.createdAt)}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary" onclick="viewOrder('${order._id}')">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                        ordersTable.innerHTML += row;
+                    });
+                } else {
+                    ordersTable.innerHTML = '<tr><td colspan="7" class="text-center py-4">No recent orders</td></tr>';
+                }
+            } catch (orderError) {
+                console.warn('Failed to load orders:', orderError);
+                document.getElementById('recentOrdersTable').innerHTML = 
+                    '<tr><td colspan="7" class="text-center py-4 text-muted">Failed to load orders</td></tr>';
+            }
+        }
+        
+        // Load revenue chart
+        async function loadRevenueChart() {
+            try {
+                const token = Auth.getToken();
+                const revenueData = await API.get(CONFIG.API_ENDPOINTS.ADMIN_REVENUE_WEEKLY, token);
+                
+                const revenueCtx = document.getElementById('revenueChart');
+                if (!revenueCtx) return;
+                
+                // Destroy existing chart
+                if (AppState.charts.revenue) AppState.charts.revenue.destroy();
+                
+                // Create new chart
+                AppState.charts.revenue = new Chart(revenueCtx.getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: revenueData.labels || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                        datasets: [{
+                            label: 'Revenue ($)',
+                            data: revenueData.data || [0, 0, 0, 0, 0, 0, 0],
+                            borderColor: '#667eea',
+                            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return `$${context.parsed.y.toFixed(2)}`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: function(value) {
+                                        return '$' + value;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Failed to load revenue chart:', error);
+            }
+        }
+        
+        // Load status chart
+        async function loadStatusChart() {
+            try {
+                const token = Auth.getToken();
+                const statusData = await API.get(CONFIG.API_ENDPOINTS.ADMIN_ORDER_STATUS_STATS, token);
+                
+                const statusCtx = document.getElementById('statusChart');
+                if (!statusCtx) return;
+                
+                // Destroy existing chart
+                if (AppState.charts.status) AppState.charts.status.destroy();
+                
+                // Create new chart
+                AppState.charts.status = new Chart(statusCtx.getContext('2d'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: statusData.labels || ['Pending', 'Preparing', 'Ready', 'Completed'],
+                        datasets: [{
+                            data: statusData.data || [0, 0, 0, 0],
+                            backgroundColor: [
+                                '#ffc107',
+                                '#17a2b8',
+                                '#28a745',
+                                '#6c757d'
+                            ]
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Failed to load status chart:', error);
             }
         }
         
@@ -1290,123 +1642,6 @@
             }
         }
         
-        // Create charts
-        function createCharts(revenueData) {
-            const revenueCtx = document.getElementById('revenueChart');
-            if (!revenueCtx) return;
-            
-            const statusCtx = document.getElementById('statusChart');
-            if (!statusCtx) return;
-            
-            // Destroy existing charts
-            if (AppState.charts.revenue) AppState.charts.revenue.destroy();
-            if (AppState.charts.status) AppState.charts.status.destroy();
-            
-            // Revenue Chart
-            AppState.charts.revenue = new Chart(revenueCtx.getContext('2d'), {
-                type: 'line',
-                data: {
-                    labels: revenueData.labels || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-                    datasets: [{
-                        label: 'Revenue ($)',
-                        data: revenueData.data || [0, 0, 0, 0, 0, 0, 0],
-                        borderColor: '#667eea',
-                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                        borderWidth: 2,
-                        fill: true,
-                        tension: 0.4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: {
-                            display: false
-                        }
-                    }
-                }
-            });
-            
-            // Status Chart (demo data)
-            AppState.charts.status = new Chart(statusCtx.getContext('2d'), {
-                type: 'doughnut',
-                data: {
-                    labels: ['Pending', 'Preparing', 'Ready', 'Completed'],
-                    datasets: [{
-                        data: [5, 3, 2, 10],
-                        backgroundColor: [
-                            '#ffc107',
-                            '#17a2b8',
-                            '#28a745',
-                            '#6c757d'
-                        ]
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: {
-                            position: 'bottom'
-                        }
-                    }
-                }
-            });
-        }
-        
-        // Create demo charts
-        function createDemoCharts() {
-            const revenueCtx = document.getElementById('revenueChart');
-            const statusCtx = document.getElementById('statusChart');
-            
-            if (!revenueCtx || !statusCtx) return;
-            
-            // Destroy existing charts
-            if (AppState.charts.revenue) AppState.charts.revenue.destroy();
-            if (AppState.charts.status) AppState.charts.status.destroy();
-            
-            // Revenue Chart with demo data
-            AppState.charts.revenue = new Chart(revenueCtx.getContext('2d'), {
-                type: 'line',
-                data: {
-                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-                    datasets: [{
-                        label: 'Revenue ($)',
-                        data: [1200, 1900, 1500, 2100, 1800, 2500, 2200],
-                        borderColor: '#667eea',
-                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                        borderWidth: 2,
-                        fill: true,
-                        tension: 0.4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: {
-                            display: false
-                        }
-                    }
-                }
-            });
-            
-            // Status Chart with demo data
-            AppState.charts.status = new Chart(statusCtx.getContext('2d'), {
-                type: 'doughnut',
-                data: {
-                    labels: ['Pending', 'Preparing', 'Ready', 'Completed'],
-                    datasets: [{
-                        data: [5, 3, 2, 10],
-                        backgroundColor: [
-                            '#ffc107',
-                            '#17a2b8',
-                            '#28a745',
-                            '#6c757d'
-                        ]
-                    }]
-                }
-            });
-        }
-        
         // Load menu items
         async function loadMenuItems() {
             try {
@@ -1415,7 +1650,8 @@
                 
                 if (response.success && response.menuItems) {
                     AppState.menuItems = response.menuItems;
-                    renderMenuItems(response.menuItems);
+                    AppState.filteredMenuItems = [...response.menuItems];
+                    renderMenuItems(AppState.filteredMenuItems);
                 } else {
                     document.getElementById('menuItemsContainer').innerHTML = `
                         <div class="col-12 text-center py-5">
@@ -1432,6 +1668,37 @@
             }
         }
         
+        // Filter menu items
+        function filterMenuItems() {
+            const categoryFilter = document.getElementById('menuCategoryFilter').value;
+            const statusFilter = document.getElementById('menuStatusFilter').value;
+            const searchFilter = document.getElementById('menuSearch').value.toLowerCase();
+            
+            let filtered = [...AppState.menuItems];
+            
+            // Apply category filter
+            if (categoryFilter) {
+                filtered = filtered.filter(item => item.category === categoryFilter);
+            }
+            
+            // Apply status filter
+            if (statusFilter !== '') {
+                const isAvailable = statusFilter === 'true';
+                filtered = filtered.filter(item => item.isAvailable === isAvailable);
+            }
+            
+            // Apply search filter
+            if (searchFilter) {
+                filtered = filtered.filter(item => 
+                    item.name.toLowerCase().includes(searchFilter) ||
+                    item.description?.toLowerCase().includes(searchFilter)
+                );
+            }
+            
+            AppState.filteredMenuItems = filtered;
+            renderMenuItems(filtered);
+        }
+        
         // Render menu items
         function renderMenuItems(menuItems) {
             const container = document.getElementById('menuItemsContainer');
@@ -1441,9 +1708,9 @@
                 container.innerHTML = `
                     <div class="col-12 text-center py-5">
                         <i class="bi bi-menu-up display-1 text-muted"></i>
-                        <p class="mt-3">No menu items found</p>
+                        <p class="mt-3">No menu items found matching your criteria</p>
                         <button class="btn btn-primary" onclick="showAddMenuItemModal()">
-                            <i class="bi bi-plus-circle me-2"></i> Add First Item
+                            <i class="bi bi-plus-circle me-2"></i> Add New Item
                         </button>
                     </div>
                 `;
@@ -1505,7 +1772,8 @@
                 
                 if (response.success && response.tables) {
                     AppState.tables = response.tables;
-                    renderTables(response.tables);
+                    AppState.filteredTables = [...response.tables];
+                    renderTables(AppState.filteredTables);
                 } else {
                     document.getElementById('tablesContainer').innerHTML = `
                         <div class="col-12 text-center py-5">
@@ -1522,6 +1790,47 @@
             }
         }
         
+        // Filter tables
+        function filterTables() {
+            const sectionFilter = document.getElementById('tableSectionFilter').value;
+            const statusFilter = document.getElementById('tableStatusFilter').value;
+            const capacityFilter = document.getElementById('tableCapacityFilter').value;
+            const searchFilter = document.getElementById('tableSearch').value.toLowerCase();
+            
+            let filtered = [...AppState.tables];
+            
+            // Apply section filter
+            if (sectionFilter) {
+                filtered = filtered.filter(table => table.section === sectionFilter);
+            }
+            
+            // Apply status filter
+            if (statusFilter) {
+                filtered = filtered.filter(table => table.status === statusFilter);
+            }
+            
+            // Apply capacity filter
+            if (capacityFilter) {
+                const [min, max] = capacityFilter.split('-');
+                if (max) {
+                    filtered = filtered.filter(table => table.capacity >= parseInt(min) && table.capacity <= parseInt(max));
+                } else {
+                    filtered = filtered.filter(table => table.capacity >= 7);
+                }
+            }
+            
+            // Apply search filter
+            if (searchFilter) {
+                filtered = filtered.filter(table => 
+                    table.tableNumber.toString().includes(searchFilter) ||
+                    table.location?.toLowerCase().includes(searchFilter)
+                );
+            }
+            
+            AppState.filteredTables = filtered;
+            renderTables(filtered);
+        }
+        
         // Render tables
         function renderTables(tables) {
             const container = document.getElementById('tablesContainer');
@@ -1531,9 +1840,9 @@
                 container.innerHTML = `
                     <div class="col-12 text-center py-5">
                         <i class="bi bi-table display-1 text-muted"></i>
-                        <p class="mt-3">No tables found</p>
+                        <p class="mt-3">No tables found matching your criteria</p>
                         <button class="btn btn-primary" onclick="showAddTableModal()">
-                            <i class="bi bi-plus-circle me-2"></i> Add First Table
+                            <i class="bi bi-plus-circle me-2"></i> Add New Table
                         </button>
                     </div>
                 `;
@@ -1553,7 +1862,7 @@
                         </div>
                         <h4 class="mb-2">Table ${table.tableNumber}</h4>
                         <div class="mb-2">
-                            <span class="badge bg-${table.status === 'available' ? 'success' : table.status === 'occupied' ? 'danger' : 'warning'}">
+                            <span class="badge bg-${getTableStatusColor(table.status)}">
                                 ${FormatUtils.getTableStatusText(table.status)}
                             </span>
                         </div>
@@ -1577,6 +1886,18 @@
             });
         }
         
+        // Get table status color
+        function getTableStatusColor(status) {
+            switch(status) {
+                case 'available': return 'success';
+                case 'occupied': return 'danger';
+                case 'reserved': return 'warning';
+                case 'maintenance': return 'info';
+                case 'cleaning': return 'secondary';
+                default: return 'dark';
+            }
+        }
+        
         // Toggle table selection
         function toggleTableSelection(tableId) {
             const index = selectedTables.indexOf(tableId);
@@ -1585,7 +1906,7 @@
             } else {
                 selectedTables.push(tableId);
             }
-            loadTables(); // Re-render to update selection
+            filterTables(); // Re-render to update selection
         }
         
         // Load staff
@@ -1596,14 +1917,15 @@
                 
                 if (response.success && response.staff) {
                     AppState.staff = response.staff;
-                    renderStaff(response.staff);
+                    AppState.filteredStaff = [...response.staff];
+                    renderStaff(AppState.filteredStaff);
                 } else {
                     document.getElementById('staffContainer').innerHTML = `
                         <div class="col-12 text-center py-5">
                             <i class="bi bi-people display-1 text-muted"></i>
                             <p class="mt-3">No staff members found</p>
                             <button class="btn btn-primary" onclick="showAddStaffModal()">
-                                <i class="bi bi-person-plus me-2"></i> Add First Staff
+                                <i class="bi bi-person-plus me-2"></i> Add First Chef
                             </button>
                         </div>
                     `;
@@ -1611,6 +1933,33 @@
             } catch (error) {
                 ErrorHandler.handle(error, 'loadStaff');
             }
+        }
+        
+        // Filter staff
+        function filterStaff() {
+            const statusFilter = document.getElementById('staffStatusFilter').value;
+            const searchFilter = document.getElementById('staffSearch').value.toLowerCase();
+            
+            let filtered = [...AppState.staff];
+            
+            // Apply status filter
+            if (statusFilter !== '') {
+                const isActive = statusFilter === 'true';
+                filtered = filtered.filter(staff => staff.isActive === isActive);
+            }
+            
+            // Apply search filter
+            if (searchFilter) {
+                filtered = filtered.filter(staff => 
+                    staff.firstName?.toLowerCase().includes(searchFilter) ||
+                    staff.lastName?.toLowerCase().includes(searchFilter) ||
+                    staff.email?.toLowerCase().includes(searchFilter) ||
+                    staff.phone?.includes(searchFilter)
+                );
+            }
+            
+            AppState.filteredStaff = filtered;
+            renderStaff(filtered);
         }
         
         // Render staff
@@ -1622,9 +1971,9 @@
                 container.innerHTML = `
                     <div class="col-12 text-center py-5">
                         <i class="bi bi-people display-1 text-muted"></i>
-                        <p class="mt-3">No staff members found</p>
+                        <p class="mt-3">No staff members found matching your criteria</p>
                         <button class="btn btn-primary" onclick="showAddStaffModal()">
-                            <i class="bi bi-person-plus me-2"></i> Add First Staff
+                            <i class="bi bi-person-plus me-2"></i> Add New Chef
                         </button>
                     </div>
                 `;
@@ -1649,6 +1998,9 @@
                         <div class="text-center mb-3">
                             <span class="badge bg-${getRoleColor(member.role)}">
                                 ${FormatUtils.capitalize(member.role)}
+                            </span>
+                            <span class="badge ${member.isActive ? 'bg-success' : 'bg-danger'} ms-1">
+                                ${member.isActive ? 'Active' : 'Inactive'}
                             </span>
                         </div>
                         <div class="d-flex justify-content-center">
@@ -1679,6 +2031,8 @@
         // Load sales analytics
         async function loadSalesAnalytics() {
             try {
+                Loading.show('Loading sales analytics...');
+                
                 const token = Auth.getToken();
                 const fromDate = document.getElementById('fromDate').value;
                 const toDate = document.getElementById('toDate').value;
@@ -1690,7 +2044,10 @@
                     AppState.salesData = salesData;
                     updateSalesAnalytics(salesData);
                 }
+                
+                Loading.hide();
             } catch (error) {
+                Loading.hide();
                 ErrorHandler.handle(error, 'loadSalesAnalytics');
             }
         }
@@ -1698,16 +2055,33 @@
         // Update sales analytics display
         function updateSalesAnalytics(data) {
             // Update summary cards
-            document.getElementById('totalRevenue').textContent = `$${(data.totalRevenue || 0).toFixed(2)}`;
-            document.getElementById('totalOrders').textContent = data.totalOrders || 0;
-            document.getElementById('averageOrder').textContent = `$${((data.totalRevenue || 0) / (data.totalOrders || 1)).toFixed(2)}`;
-            document.getElementById('topCategory').textContent = data.topCategory || 'N/A';
+            document.getElementById('totalRevenue').textContent = `$${(data.summary?.totalRevenue || 0).toFixed(2)}`;
+            document.getElementById('totalOrders').textContent = data.summary?.totalOrders || 0;
             
-            // Update change percentages (demo data)
-            document.getElementById('revenueChange').textContent = '+12% from previous period';
-            document.getElementById('ordersChange').textContent = '+8% from previous period';
-            document.getElementById('avgOrderChange').textContent = '+5% from previous period';
-            document.getElementById('topCategorySales').textContent = `${data.topCategoryCount || 0} items sold`;
+            const avgOrderValue = data.summary?.averageOrderValue || 0;
+            document.getElementById('averageOrder').textContent = `$${avgOrderValue.toFixed(2)}`;
+            
+            // Update change percentages (real data)
+            if (data.summary?.change) {
+                document.getElementById('analyticsRevenueChange').textContent = 
+                    data.summary.change.revenue >= 0 ? 
+                    `+${data.summary.change.revenue.toFixed(1)}% from previous period` : 
+                    `${data.summary.change.revenue.toFixed(1)}% from previous period`;
+                document.getElementById('analyticsRevenueChange').className = 
+                    data.summary.change.revenue >= 0 ? 'text-success' : 'text-danger';
+                
+                document.getElementById('analyticsOrdersChange').textContent = 
+                    data.summary.change.orders >= 0 ? 
+                    `+${data.summary.change.orders.toFixed(1)}% from previous period` : 
+                    `${data.summary.change.orders.toFixed(1)}% from previous period`;
+                document.getElementById('analyticsOrdersChange').className = 
+                    data.summary.change.orders >= 0 ? 'text-success' : 'text-danger';
+            }
+            
+            // Top category
+            const topCategory = data.topCategory || 'N/A';
+            document.getElementById('topCategory').textContent = FormatUtils.formatCategory(topCategory);
+            document.getElementById('topCategorySales').textContent = data.topCategoryCount ? `${data.topCategoryCount} items sold` : '--';
             
             // Create charts
             createSalesCharts(data);
@@ -1728,52 +2102,71 @@
             if (AppState.charts.category) AppState.charts.category.destroy();
             
             // Sales Trend Chart
-            AppState.charts.salesTrend = new Chart(trendCtx.getContext('2d'), {
-                type: 'bar',
-                data: {
-                    labels: data.dailySales?.map(d => d.date) || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-                    datasets: [{
-                        label: 'Daily Revenue ($)',
-                        data: data.dailySales?.map(d => d.revenue) || [1200, 1900, 1500, 2100, 1800, 2500, 2200],
-                        backgroundColor: '#667eea',
-                        borderColor: '#5a67d8',
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: {
-                            display: false
+            if (data.dailySales && data.dailySales.length > 0) {
+                AppState.charts.salesTrend = new Chart(trendCtx.getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: data.dailySales.map(d => {
+                            const date = new Date(d.date);
+                            return `${date.getDate()}/${date.getMonth() + 1}`;
+                        }),
+                        datasets: [{
+                            label: 'Daily Revenue ($)',
+                            data: data.dailySales.map(d => d.revenue),
+                            backgroundColor: '#667eea',
+                            borderColor: '#5a67d8',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: function(value) {
+                                        return '$' + value;
+                                    }
+                                }
+                            }
                         }
                     }
-                }
-            });
+                });
+            }
             
             // Category Distribution Chart
-            AppState.charts.category = new Chart(categoryCtx.getContext('2d'), {
-                type: 'pie',
-                data: {
-                    labels: data.categoryDistribution?.map(c => c.category) || ['Main Course', 'Drinks', 'Appetizers', 'Desserts'],
-                    datasets: [{
-                        data: data.categoryDistribution?.map(c => c.revenue) || [45, 25, 20, 10],
-                        backgroundColor: [
-                            '#667eea',
-                            '#10b981',
-                            '#f59e0b',
-                            '#ef4444'
-                        ]
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: {
-                            position: 'bottom'
+            if (data.categoryDistribution && data.categoryDistribution.length > 0) {
+                AppState.charts.category = new Chart(categoryCtx.getContext('2d'), {
+                    type: 'pie',
+                    data: {
+                        labels: data.categoryDistribution.map(c => FormatUtils.formatCategory(c.category)),
+                        datasets: [{
+                            data: data.categoryDistribution.map(c => c.revenue),
+                            backgroundColor: [
+                                '#667eea',
+                                '#10b981',
+                                '#f59e0b',
+                                '#ef4444',
+                                '#8b5cf6',
+                                '#ec4899'
+                            ]
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            }
                         }
                     }
-                }
-            });
+                });
+            }
         }
         
         // Update top items table
@@ -1781,7 +2174,7 @@
             const table = document.getElementById('topItemsTable').querySelector('tbody');
             
             if (!items || items.length === 0) {
-                table.innerHTML = '<tr><td colspan="5" class="text-center py-4">No data available</td></tr>';
+                table.innerHTML = '<tr><td colspan="5" class="text-center py-4">No sales data available</td></tr>';
                 return;
             }
             
@@ -1793,16 +2186,19 @@
                     <td>
                         <div class="d-flex align-items-center">
                             <span class="badge bg-primary me-2">${index + 1}</span>
-                            ${item.name}
+                            ${item.name || 'Unknown Item'}
                         </div>
                     </td>
                     <td>${FormatUtils.formatCategory(item.category)}</td>
-                    <td>${item.quantitySold || 0}</td>
+                    <td>${item.count || 0}</td>
                     <td>$${(item.revenue || 0).toFixed(2)}</td>
                     <td>
-                        <span class="badge bg-${item.rating >= 4 ? 'success' : item.rating >= 3 ? 'warning' : 'danger'}">
-                            ${item.rating?.toFixed(1) || 'N/A'}
-                        </span>
+                        ${item.rating ? 
+                            `<span class="badge bg-${item.rating >= 4 ? 'success' : item.rating >= 3 ? 'warning' : 'danger'}">
+                                ${item.rating.toFixed(1)}
+                            </span>` : 
+                            '<span class="text-muted">N/A</span>'
+                        }
                     </td>
                 `;
                 table.appendChild(row);
@@ -1812,11 +2208,13 @@
         // Modal functions
         function showAddMenuItemModal() {
             const modal = new bootstrap.Modal(document.getElementById('addMenuItemModal'));
+            document.getElementById('addMenuItemForm').reset();
             modal.show();
         }
         
         function showAddTableModal() {
             const modal = new bootstrap.Modal(document.getElementById('addTableModal'));
+            document.getElementById('addTableForm').reset();
             modal.show();
         }
         
@@ -1827,7 +2225,202 @@
         
         function showAddStaffModal() {
             const modal = new bootstrap.Modal(document.getElementById('addStaffModal'));
+            document.getElementById('addStaffForm').reset();
             modal.show();
+        }
+        
+        // Edit menu item
+        async function editMenuItem(itemId) {
+            try {
+                Loading.show('Loading menu item...');
+                
+                const token = Auth.getToken();
+                const response = await API.get(CONFIG.API_ENDPOINTS.ADMIN_MENU_ITEM(itemId), token);
+                
+                if (response.success && response.menuItem) {
+                    const item = response.menuItem;
+                    
+                    // Populate edit form
+                    document.getElementById('editMenuItemId').value = item._id;
+                    document.getElementById('editMenuItemName').value = item.name;
+                    document.getElementById('editMenuItemCategory').value = item.category;
+                    document.getElementById('editMenuItemPrice').value = item.price;
+                    document.getElementById('editMenuItemPrepTime').value = item.preparationTime || 15;
+                    document.getElementById('editMenuItemDescription').value = item.description || '';
+                    document.getElementById('editMenuItemImage').value = item.image || '';
+                    document.getElementById('editMenuItemAvailable').checked = item.isAvailable;
+                    
+                    // Show modal
+                    const modal = new bootstrap.Modal(document.getElementById('editMenuItemModal'));
+                    modal.show();
+                }
+                
+                Loading.hide();
+            } catch (error) {
+                Loading.hide();
+                ErrorHandler.handle(error, 'editMenuItem');
+            }
+        }
+        
+        // Update menu item
+        async function updateMenuItem() {
+    try {
+        Loading.show('Updating menu item...');
+        
+        const form = document.getElementById('editMenuItemForm');
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData);
+        
+        const itemId = data.id;
+        delete data.id;
+        
+        data.price = parseFloat(data.price);
+        data.preparationTime = parseInt(data.preparationTime);
+        
+        // Fix: Handle checkbox value correctly
+        const isAvailableCheckbox = form.querySelector('input[name="isAvailable"]');
+        data.isAvailable = isAvailableCheckbox.checked;
+        
+        const token = Auth.getToken();
+        const response = await API.put(CONFIG.API_ENDPOINTS.ADMIN_MENU_ITEM(itemId), data, token);
+        
+        if (response.success) {
+            Toast.show('Menu item updated successfully!', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('editMenuItemModal')).hide();
+            await loadMenuItems();
+        }
+        
+        Loading.hide();
+    } catch (error) {
+        Loading.hide();
+        ErrorHandler.handle(error, 'updateMenuItem');
+    }
+}
+        
+        // Edit table
+        async function editTable(tableId) {
+            try {
+                Loading.show('Loading table details...');
+                
+                const token = Auth.getToken();
+                const response = await API.get(CONFIG.API_ENDPOINTS.ADMIN_TABLES + '/' + tableId, token);
+                
+                if (response.success && response.table) {
+                    const table = response.table;
+                    
+                    // Populate edit form
+                    document.getElementById('editTableId').value = table._id;
+                    document.getElementById('editTableNumber').value = table.tableNumber;
+                    document.getElementById('editTableCapacity').value = table.capacity;
+                    document.getElementById('editTableSection').value = table.section || 'main';
+                    document.getElementById('editTableLocation').value = table.location || '';
+                    document.getElementById('editTableStatus').value = table.status || 'available';
+                    document.getElementById('editTableIsActive').checked = table.isActive;
+                    
+                    // Show modal
+                    const modal = new bootstrap.Modal(document.getElementById('editTableModal'));
+                    modal.show();
+                }
+                
+                Loading.hide();
+            } catch (error) {
+                Loading.hide();
+                ErrorHandler.handle(error, 'editTable');
+            }
+        }
+        
+        // Update table
+        async function updateTable() {
+            try {
+                Loading.show('Updating table...');
+                
+                const form = document.getElementById('editTableForm');
+                const formData = new FormData(form);
+                const data = Object.fromEntries(formData);
+                
+                const tableId = data.id;
+                delete data.id;
+                
+                data.tableNumber = parseInt(data.tableNumber);
+                data.capacity = parseInt(data.capacity);
+                data.isActive = data.isActive === 'on';
+                
+                const token = Auth.getToken();
+                const response = await API.put(CONFIG.API_ENDPOINTS.ADMIN_TABLES + '/' + tableId, data, token);
+                
+                if (response.success) {
+                    Toast.show('Table updated successfully!', 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('editTableModal')).hide();
+                    await loadTables();
+                }
+                
+                Loading.hide();
+            } catch (error) {
+                Loading.hide();
+                ErrorHandler.handle(error, 'updateTable');
+            }
+        }
+        
+        // Edit staff
+        async function editStaff(staffId) {
+            try {
+                Loading.show('Loading staff details...');
+                
+                const token = Auth.getToken();
+                const response = await API.get(CONFIG.API_ENDPOINTS.ADMIN_STAFF + '/' + staffId, token);
+                
+                if (response.success && response.user) {
+                    const staff = response.user;
+                    
+                    // Populate edit form
+                    document.getElementById('editStaffId').value = staff._id;
+                    document.getElementById('editStaffFirstName').value = staff.firstName;
+                    document.getElementById('editStaffLastName').value = staff.lastName;
+                    document.getElementById('editStaffEmail').value = staff.email;
+                    document.getElementById('editStaffPhone').value = staff.phone;
+                    document.getElementById('editStaffRole').value = staff.role;
+                    document.getElementById('editStaffIsActive').checked = staff.isActive;
+                    
+                    // Show modal
+                    const modal = new bootstrap.Modal(document.getElementById('editStaffModal'));
+                    modal.show();
+                }
+                
+                Loading.hide();
+            } catch (error) {
+                Loading.hide();
+                ErrorHandler.handle(error, 'editStaff');
+            }
+        }
+        
+        // Update staff
+        async function updateStaff() {
+            try {
+                Loading.show('Updating staff member...');
+                
+                const form = document.getElementById('editStaffForm');
+                const formData = new FormData(form);
+                const data = Object.fromEntries(formData);
+                
+                const staffId = data.id;
+                delete data.id;
+                
+                data.isActive = data.isActive === 'on';
+                
+                const token = Auth.getToken();
+                const response = await API.put(CONFIG.API_ENDPOINTS.ADMIN_STAFF + '/' + staffId, data, token);
+                
+                if (response.success) {
+                    Toast.show('Staff member updated successfully!', 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('editStaffModal')).hide();
+                    await loadStaff();
+                }
+                
+                Loading.hide();
+            } catch (error) {
+                Loading.hide();
+                ErrorHandler.handle(error, 'updateStaff');
+            }
         }
         
         // Save functions
@@ -1842,11 +2435,11 @@
         data.price = parseFloat(data.price);
         data.preparationTime = parseInt(data.preparationTime);
         
-        // FIX: Properly handle checkbox value
+        // Fix: Properly handle checkbox value
         const isAvailableCheckbox = form.querySelector('input[name="isAvailable"]');
         data.isAvailable = isAvailableCheckbox.checked;
         
-        // FIX: Add default image if empty
+        // Add default image if empty
         if (!data.image) {
             data.image = 'https://via.placeholder.com/400x300/667eea/ffffff?text=' + encodeURIComponent(data.name);
         }
@@ -1870,90 +2463,93 @@
     }
 }
         
-       async function saveTable() {
-    try {
-        Loading.show('Saving table...');
-        
-        const form = document.getElementById('addTableForm');
-        const formData = new FormData(form);
-        const data = Object.fromEntries(formData);
-        
-        data.tableNumber = parseInt(data.tableNumber);
-        data.capacity = parseInt(data.capacity);
-        
-        // FIX: Convert location to lowercase to match enum
-        if (data.location) {
-            data.location = data.location.toLowerCase().trim();
-        } else {
-            data.location = 'near entrance'; // Default value
+        async function saveTable() {
+            try {
+                Loading.show('Saving table...');
+                
+                const form = document.getElementById('addTableForm');
+                const formData = new FormData(form);
+                const data = Object.fromEntries(formData);
+                
+                data.tableNumber = parseInt(data.tableNumber);
+                data.capacity = parseInt(data.capacity);
+                
+                // Fix location field
+                if (data.location) {
+                    data.location = data.location.trim();
+                } else {
+                    data.location = 'Near entrance'; // Default value
+                }
+                
+                // Ensure required fields
+                if (!data.section) data.section = 'main';
+                
+                console.log('Saving table:', data);
+                
+                const token = Auth.getToken();
+                const response = await API.post(CONFIG.API_ENDPOINTS.ADMIN_TABLES, data, token);
+                
+                if (response.success) {
+                    Toast.show('Table added successfully!', 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('addTableModal')).hide();
+                    form.reset();
+                    await loadTables();
+                }
+                
+                Loading.hide();
+            } catch (error) {
+                Loading.hide();
+                ErrorHandler.handle(error, 'saveTable');
+            }
         }
         
-        // Ensure required fields
-        if (!data.section) data.section = 'main';
-        
-        console.log('📦 Saving table:', data);
-        
-        const token = Auth.getToken();
-        const response = await API.post(CONFIG.API_ENDPOINTS.ADMIN_TABLES, data, token);
-        
-        if (response.success) {
-            Toast.show('Table added successfully!', 'success');
-            bootstrap.Modal.getInstance(document.getElementById('addTableModal')).hide();
-            form.reset();
-            await loadTables();
+        async function bulkAddTables() {
+            try {
+                Loading.show('Creating tables...');
+                
+                const form = document.getElementById('bulkTableForm');
+                const formData = new FormData(form);
+                const data = Object.fromEntries(formData);
+                
+                data.startNumber = parseInt(data.startNumber);
+                data.tableCount = parseInt(data.tableCount);
+                data.capacity = parseInt(data.capacity);
+                
+                console.log('Bulk creating tables:', data);
+                
+                const token = Auth.getToken();
+                const response = await API.post(CONFIG.API_ENDPOINTS.ADMIN_TABLES + '/bulk', data, token);
+                
+                if (response.success) {
+                    Toast.show(`${data.tableCount} tables created successfully!`, 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('bulkTableModal')).hide();
+                    form.reset();
+                    await loadTables();
+                }
+                
+                Loading.hide();
+            } catch (error) {
+                Loading.hide();
+                ErrorHandler.handle(error, 'bulkAddTables');
+            }
         }
-        
-        Loading.hide();
-    } catch (error) {
-        Loading.hide();
-        ErrorHandler.handle(error, 'saveTable');
-    }
-}
-
-async function bulkAddTables() {
-    try {
-        Loading.show('Creating tables...');
-        
-        const form = document.getElementById('bulkTableForm');
-        const formData = new FormData(form);
-        const data = Object.fromEntries(formData);
-        
-        data.startNumber = parseInt(data.startNumber);
-        data.tableCount = parseInt(data.tableCount);
-        data.capacity = parseInt(data.capacity);
-        
-        console.log('📦 Bulk creating tables:', data);
-        
-        const token = Auth.getToken();
-        const response = await API.post(CONFIG.API_ENDPOINTS.ADMIN_TABLES + '/bulk', data, token);
-        
-        if (response.success) {
-            Toast.show(`${data.tableCount} tables created successfully!`, 'success');
-            bootstrap.Modal.getInstance(document.getElementById('bulkTableModal')).hide();
-            form.reset();
-            await loadTables();
-        }
-        
-        Loading.hide();
-    } catch (error) {
-        Loading.hide();
-        ErrorHandler.handle(error, 'bulkAddTables');
-    }
-}
         
         async function saveStaff() {
             try {
-                Loading.show('Adding staff member...');
+                Loading.show('Adding chef...');
                 
                 const form = document.getElementById('addStaffForm');
                 const formData = new FormData(form);
                 const data = Object.fromEntries(formData);
                 
+                // Set role to chef only
+                data.role = 'chef';
+                
                 const token = Auth.getToken();
                 const response = await API.post(CONFIG.API_ENDPOINTS.ADMIN_STAFF, data, token);
                 
                 if (response.success) {
-                    Toast.show('Staff member added successfully!', 'success');
+                    Toast.show('Chef added successfully!', 'success');
                     bootstrap.Modal.getInstance(document.getElementById('addStaffModal')).hide();
                     form.reset();
                     await loadStaff();
@@ -1966,31 +2562,6 @@ async function bulkAddTables() {
             }
         }
         
-        // Edit functions
-        async function editMenuItem(itemId) {
-            const item = AppState.menuItems.find(m => m._id === itemId);
-            if (!item) return;
-            
-            // TODO: Implement edit modal
-            Toast.show('Edit functionality coming soon!', 'info');
-        }
-        
-        async function editTable(tableId) {
-            const table = AppState.tables.find(t => t._id === tableId);
-            if (!table) return;
-            
-            // TODO: Implement edit modal
-            Toast.show('Edit functionality coming soon!', 'info');
-        }
-        
-        async function editStaff(staffId) {
-            const staff = AppState.staff.find(s => s._id === staffId);
-            if (!staff) return;
-            
-            // TODO: Implement edit modal
-            Toast.show('Edit functionality coming soon!', 'info');
-        }
-        
         // Delete functions
         async function deleteMenuItem(itemId) {
             if (!confirm('Are you sure you want to delete this menu item?')) return;
@@ -1999,7 +2570,7 @@ async function bulkAddTables() {
                 Loading.show('Deleting menu item...');
                 
                 const token = Auth.getToken();
-                const response = await API.delete(`${CONFIG.API_ENDPOINTS.ADMIN_MENU_ITEM(itemId)}`, token);
+                const response = await API.delete(CONFIG.API_ENDPOINTS.ADMIN_MENU + '/' + itemId, token);
                 
                 if (response.success) {
                     Toast.show('Menu item deleted successfully!', 'success');
@@ -2020,7 +2591,7 @@ async function bulkAddTables() {
                 Loading.show('Deleting table...');
                 
                 const token = Auth.getToken();
-                const response = await API.delete(`${CONFIG.API_ENDPOINTS.ADMIN_TABLES}/${tableId}`, token);
+                const response = await API.delete(CONFIG.API_ENDPOINTS.ADMIN_TABLES + '/' + tableId, token);
                 
                 if (response.success) {
                     Toast.show('Table deleted successfully!', 'success');
@@ -2041,7 +2612,7 @@ async function bulkAddTables() {
                 Loading.show('Deleting staff member...');
                 
                 const token = Auth.getToken();
-                const response = await API.delete(`${CONFIG.API_ENDPOINTS.ADMIN_STAFF_MEMBER(staffId)}`, token);
+                const response = await API.delete(CONFIG.API_ENDPOINTS.ADMIN_STAFF + '/' + staffId, token);
                 
                 if (response.success) {
                     Toast.show('Staff member deleted successfully!', 'success');
@@ -2071,12 +2642,12 @@ async function bulkAddTables() {
         
         // Prevent event bubbling for table actions
         function editTable(tableId, event) {
-            event.stopPropagation();
+            if (event) event.stopPropagation();
             editTable(tableId);
         }
         
         function deleteTable(tableId, event) {
-            event.stopPropagation();
+            if (event) event.stopPropagation();
             deleteTable(tableId);
         }
     </script>

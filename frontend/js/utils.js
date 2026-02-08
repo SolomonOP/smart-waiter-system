@@ -16,12 +16,14 @@ const CONFIG = {
         
         // Admin endpoints
         ADMIN_STATS: '/api/admin/stats',
+        ADMIN_ORDER_STATUS_STATS: '/api/admin/orders/status-stats',
         ADMIN_ORDERS_RECENT: '/api/admin/orders/recent',
         ADMIN_REVENUE_WEEKLY: '/api/admin/revenue/weekly',
         ADMIN_MENU: '/api/admin/menu',
         ADMIN_MENU_ITEM: (id) => `/api/admin/menu/${id}`,
         ADMIN_MENU_AVAILABILITY: (id) => `/api/admin/menu/${id}/availability`,
         ADMIN_TABLES: '/api/admin/tables',
+        ADMIN_TABLE: (id) => `/api/admin/tables/${id}`,
         ADMIN_TABLES_BULK: '/api/admin/tables/bulk',
         ADMIN_TABLES_REMOVE: '/api/admin/tables/remove',
         ADMIN_STAFF: '/api/admin/staff',
