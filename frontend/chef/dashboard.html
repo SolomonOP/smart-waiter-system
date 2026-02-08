@@ -1525,6 +1525,8 @@ setTimeout(() => {
 }, 1000);
 
         function renderOrdersByStatus() {
+    console.log('🚀 [renderOrdersByStatus] STARTED');
+    
     const statusGroups = {
         'pending': document.getElementById('pendingOrdersList'),
         'preparing': document.getElementById('preparingOrdersList'),
@@ -1538,6 +1540,7 @@ setTimeout(() => {
     });
 
     if (!orders || orders.length === 0) {
+        console.log('📭 No orders to render');
         Object.values(statusGroups).forEach(container => {
             container.innerHTML = `
                 <div class="col-12">
@@ -1551,22 +1554,6 @@ setTimeout(() => {
         });
         return;
     }
-
-    // DEBUG: Log all orders and their status
-    console.log('🔍 DEBUG: All orders status:');
-    console.table(orders.map((order, index) => ({
-        '#': index + 1,
-        'Order #': order.orderNumber,
-        'Status': order.status,
-        'Table': order.tableNumber,
-        'Customer': order.customerName,
-        'Total': order.totalAmount,
-        'Has Items': order.items?.length || 0,
-        'isPreparing?': order.status === 'preparing'
-    })));
-
-    // Also log the raw orders array
-    console.log('📦 Raw orders array:', JSON.stringify(orders, null, 2));
 
     // Group orders by status
     const groupedOrders = {
@@ -1584,10 +1571,14 @@ setTimeout(() => {
         }
     });
 
+    console.log('📊 Grouped orders:', groupedOrders);
+
     // Render each group
     Object.keys(groupedOrders).forEach(status => {
         const container = statusGroups[status];
         const ordersList = groupedOrders[status];
+
+        console.log(`🔄 Rendering ${status} orders:`, ordersList.length);
 
         if (ordersList.length === 0) {
             container.innerHTML = `
@@ -1602,9 +1593,18 @@ setTimeout(() => {
         }
 
         let html = '';
-        ordersList.forEach(order => {
+        ordersList.forEach((order, index) => {
+            console.log(`📝 Rendering order ${index + 1}: ${order.orderNumber} (status: ${order.status})`);
+            
             const statusColor = getStatusColor(order.status);
             const customerEmail = order.customer?.email || order.customerEmail || 'No email';
+            
+            // DEBUG: Check if button should show
+            const shouldShowAcceptButton = order.status === 'pending' || order.status === 'confirmed';
+            const shouldShowCompleteButton = order.status === 'preparing';
+            const shouldShowReadyButtons = order.status === 'ready';
+            
+            console.log(`   Should show Complete button? ${shouldShowCompleteButton} (status: ${order.status})`);
             
             html += `
                 <div class="col-md-6 col-lg-4 mb-4">
@@ -1654,17 +1654,19 @@ setTimeout(() => {
                             <div class="d-flex justify-content-between align-items-center mt-auto">
                                 <h5 class="mb-0">${FormatUtils.formatCurrency(order.totalAmount || 0)}</h5>
                                 <div>
-                                    ${order.status === 'pending' || order.status === 'confirmed' ? `
+                                    ${shouldShowAcceptButton ? `
                                         <button class="btn btn-accept btn-sm" onclick="acceptOrder('${order._id}')">
                                             <i class="fas fa-check me-1"></i>Accept
                                         </button>
                                     ` : ''}
-                                    ${order.status === 'preparing' ? `
+                                    
+                                    ${shouldShowCompleteButton ? `
                                         <button class="btn btn-complete-prep btn-sm" onclick="completePreparation('${order._id}')">
                                             <i class="fas fa-check-double me-1"></i>Complete Prep
                                         </button>
                                     ` : ''}
-                                    ${order.status === 'ready' ? `
+                                    
+                                    ${shouldShowReadyButtons ? `
                                         <div class="btn-group">
                                             <button class="btn btn-download btn-sm" onclick="downloadBill('${order._id}')">
                                                 <i class="fas fa-download me-1"></i>Bill
@@ -1682,11 +1684,26 @@ setTimeout(() => {
             `;
         });
 
-        console.log('🔧 Rendering HTML for status:', status);
-        console.log('🔧 Sample order buttons HTML:', html.substring(0, 500));
+        console.log(`✅ Generated HTML for ${status} tab (${ordersList.length} orders)`);
+        console.log(`📄 Full HTML length: ${html.length} characters`);
+        
+        // Show more of the HTML for debugging
+        if (html.length > 0) {
+            console.log(`📋 First 1000 characters of HTML:`, html.substring(0, 1000));
+            
+            // Check if button HTML is present
+            const hasCompleteButton = html.includes('btn-complete-prep');
+            console.log(`🔍 HTML contains 'btn-complete-prep' class? ${hasCompleteButton}`);
+            
+            const hasCompletePrepText = html.includes('Complete Prep');
+            console.log(`🔍 HTML contains 'Complete Prep' text? ${hasCompletePrepText}`);
+        }
         
         container.innerHTML = html;
+        console.log(`🎨 Rendered ${status} tab to DOM`);
     });
+    
+    console.log('🏁 [renderOrdersByStatus] COMPLETED');
 }
 
 // Add these new functions to your JavaScript:
