@@ -399,29 +399,23 @@
             100% { transform: rotate(360deg); }
         }
         
-        .btn-complete-prep {
-    background: linear-gradient(135deg, #9b59b6, #8e44ad);
-    color: white;
-    border: none;
-    padding: 6px 12px;
-    font-size: 14px;
-    border-radius: 4px;
-    transition: all 0.3s;
-    display: inline-block !important;
+        /* Complete Prep button specific styling */
+.btn-complete-prep {
+    background: linear-gradient(135deg, #9b59b6, #8e44ad) !important;
+    color: white !important;
+    border: none !important;
+    padding: 6px 12px !important;
+    font-size: 14px !important;
+    border-radius: 4px !important;
     min-width: 120px !important;
     min-height: 32px !important;
-    width: auto !important;
-    height: auto !important;
-    position: relative !important;
-    z-index: 100 !important;
-    flex: 0 0 auto !important;
-    white-space: nowrap !important;
+    display: inline-block !important;
     visibility: visible !important;
     opacity: 1 !important;
 }
 
 .btn-complete-prep:hover {
-    background: linear-gradient(135deg, #8e44ad, #732d91);
+    background: linear-gradient(135deg, #8e44ad, #732d91) !important;
     transform: scale(1.05);
     box-shadow: 0 4px 8px rgba(155, 89, 182, 0.3);
 }
@@ -604,13 +598,34 @@
     flex: 0 0 auto !important;
 }
 
+/* Ensure button containers have proper layout */
+.card-body > .d-flex.justify-content-between.align-items-center.mt-auto {
+    min-height: 50px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    flex: 0 0 auto !important;
+    margin-top: auto !important;
+}
+
+/* Ensure action button container is visible */
+.card-body > .d-flex.justify-content-between.align-items-center.mt-auto > div:last-child {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    flex: 0 0 auto !important;
+    min-width: 120px !important;
+}
+
 /* Force all buttons to be visible */
 .order-card button {
     display: inline-block !important;
     visibility: visible !important;
     opacity: 1 !important;
     position: relative !important;
-    z-index: 10 !important;
+    z-index: 100 !important;
+    flex: 0 0 auto !important;
 }
 
 /* Card hover state to ensure visibility */
@@ -1671,9 +1686,10 @@ setTimeout(() => {
     };
 
     orders.forEach(order => {
-        if (groupedOrders[order.status]) {
-            groupedOrders[order.status].push(order);
-        } else if (order.status === 'confirmed') {
+        const status = order.status || 'pending';
+        if (groupedOrders[status]) {
+            groupedOrders[status].push(order);
+        } else {
             groupedOrders['pending'].push(order);
         }
     });
@@ -1700,22 +1716,43 @@ setTimeout(() => {
         }
 
         let html = '';
-        ordersList.forEach((order, index) => {
-            console.log(`📝 Rendering order ${index + 1}: ${order.orderNumber} (status: ${order.status})`);
+        ordersList.forEach((order) => {
+            console.log(`📝 Rendering order: ${order.orderNumber} (status: ${order.status})`);
             
             const statusColor = getStatusColor(order.status);
             const customerEmail = order.customer?.email || order.customerEmail || 'No email';
             
-            // DEBUG: Check if button should show
-            const shouldShowAcceptButton = order.status === 'pending' || order.status === 'confirmed';
-            const shouldShowCompleteButton = order.status === 'preparing';
-            const shouldShowReadyButtons = order.status === 'ready';
+            // Create action buttons based on status
+            let actionButtons = '';
             
-            console.log(`   Should show Complete button? ${shouldShowCompleteButton} (status: ${order.status})`);
+            if (status === 'pending' || status === 'confirmed') {
+                actionButtons = `
+                    <button class="btn btn-accept btn-sm" onclick="acceptOrder('${order._id}')">
+                        <i class="fas fa-check me-1"></i>Accept
+                    </button>
+                `;
+            } else if (status === 'preparing') {
+                actionButtons = `
+                    <button class="btn btn-complete-prep btn-sm" onclick="completePreparation('${order._id}')">
+                        <i class="fas fa-check-double me-1"></i>Complete Prep
+                    </button>
+                `;
+            } else if (status === 'ready') {
+                actionButtons = `
+                    <div class="btn-group">
+                        <button class="btn btn-download btn-sm" onclick="downloadBill('${order._id}')">
+                            <i class="fas fa-download me-1"></i>Bill
+                        </button>
+                        <button class="btn btn-success btn-sm" onclick="finalCompleteOrder('${order._id}')">
+                            <i class="fas fa-check-circle me-1"></i>Complete
+                        </button>
+                    </div>
+                `;
+            }
             
             html += `
                 <div class="col-md-6 col-lg-4 mb-4">
-                    <div class="card h-100 order-card order-${order.status}" data-order-id="${order._id}">
+                    <div class="card h-100 order-card order-${status}" data-order-id="${order._id}">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <h6 class="mb-0">Order #${order.orderNumber || 'N/A'}</h6>
                             <span class="badge" style="background-color: ${statusColor}">
@@ -1760,29 +1797,8 @@ setTimeout(() => {
                             
                             <div class="d-flex justify-content-between align-items-center mt-auto">
                                 <h5 class="mb-0">${FormatUtils.formatCurrency(order.totalAmount || 0)}</h5>
-                                <div>
-                                    ${shouldShowAcceptButton ? `
-                                        <button class="btn btn-accept btn-sm" onclick="acceptOrder('${order._id}')">
-                                            <i class="fas fa-check me-1"></i>Accept
-                                        </button>
-                                    ` : ''}
-                                    
-                                    ${shouldShowCompleteButton ? `
-                                        <button class="btn btn-complete-prep btn-sm" onclick="completePreparation('${order._id}')">
-                                            <i class="fas fa-check-double me-1"></i>Complete Prep
-                                        </button>
-                                    ` : ''}
-                                    
-                                    ${shouldShowReadyButtons ? `
-                                        <div class="btn-group">
-                                            <button class="btn btn-download btn-sm" onclick="downloadBill('${order._id}')">
-                                                <i class="fas fa-download me-1"></i>Bill
-                                            </button>
-                                            <button class="btn btn-success btn-sm" onclick="finalCompleteOrder('${order._id}')">
-                                                <i class="fas fa-check-circle me-1"></i>Complete
-                                            </button>
-                                        </div>
-                                    ` : ''}
+                                <div class="d-flex">
+                                    ${actionButtons}
                                 </div>
                             </div>
                         </div>
@@ -1792,36 +1808,24 @@ setTimeout(() => {
         });
 
         console.log(`✅ Generated HTML for ${status} tab (${ordersList.length} orders)`);
-        console.log(`📄 Full HTML length: ${html.length} characters`);
-        
-        // Show more of the HTML for debugging
-        if (html.length > 0) {
-            console.log(`📋 First 1000 characters of HTML:`, html.substring(0, 1000));
-            
-            // Check if button HTML is present
-            const hasCompleteButton = html.includes('btn-complete-prep');
-            console.log(`🔍 HTML contains 'btn-complete-prep' class? ${hasCompleteButton}`);
-            
-            const hasCompletePrepText = html.includes('Complete Prep');
-            console.log(`🔍 HTML contains 'Complete Prep' text? ${hasCompletePrepText}`);
-        }
-        
         container.innerHTML = html;
         
-        // Force button visibility
+        // Force button visibility for all buttons in this container
         setTimeout(() => {
-            container.querySelectorAll('.btn-complete-prep').forEach(btn => {
+            container.querySelectorAll('button').forEach(btn => {
                 btn.style.display = 'inline-block';
                 btn.style.visibility = 'visible';
                 btn.style.opacity = '1';
-                btn.classList.add('force-visible');
+                btn.style.position = 'relative';
+                btn.style.zIndex = '100';
             });
             
-            // Ensure button container has proper layout
-            container.querySelectorAll('.d-flex.justify-content-between.align-items-center.mt-auto').forEach(container => {
-                container.style.minHeight = '50px';
-                container.style.display = 'flex';
-                container.style.alignItems = 'center';
+            // Special handling for complete prep buttons
+            container.querySelectorAll('.btn-complete-prep').forEach(btn => {
+                btn.style.minWidth = '120px';
+                btn.style.minHeight = '32px';
+                btn.style.background = 'linear-gradient(135deg, #9b59b6, #8e44ad) !important';
+                btn.classList.add('force-visible');
             });
         }, 100);
         
@@ -1904,6 +1908,17 @@ async function downloadBill(orderId) {
         console.error('Download bill error:', error);
         Toast.show('Failed to download bill. Please try again.', 'error');
     }
+}
+
+function testOrderGrouping() {
+    console.log('🧪 Testing order grouping...');
+    orders.forEach((order, index) => {
+        console.log(`Order ${index}: #${order.orderNumber}, Status: ${order.status}`);
+    });
+    
+    // Manually check for preparing orders
+    const preparingOrders = orders.filter(o => o.status === 'preparing');
+    console.log(`Found ${preparingOrders.length} preparing orders:`, preparingOrders);
 }
 
 // Update finalCompleteOrder() function:
