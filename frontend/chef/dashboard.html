@@ -1777,44 +1777,22 @@ setTimeout(() => {
             const customerEmail = order.customer?.email || order.customerEmail || 'No email';
             
             // Create action buttons based on status
-            let actionButtons = '';
-            
-            if (status === 'pending' || status === 'confirmed') {
-                actionButtons = `
-                    <button class="btn btn-accept btn-sm" onclick="acceptOrder('${order._id}')">
+            let actionButtonHtml = '';
+
+            if (order.status === 'pending') {
+                actionButtonHtml = `
+                    <button class="btn btn-accept" onclick="acceptOrder('${order._id}')">
                         <i class="fas fa-check me-1"></i>Accept
                     </button>
                 `;
-            } else if (status === 'preparing') {
-    // Create a SUPER SIMPLE button that's impossible to hide
-    actionButtons = `
-        <div style="
-            display: block !important;
-            visibility: visible !important;
-            opacity: 1 !important;
-            position: relative !important;
-            z-index: 1000 !important;
-        ">
-            <button onclick="completePreparation('${order._id}')" 
-                    style="
-                        background: #9b59b6 !important;
-                        color: white !important;
-                        border: none !important;
-                        padding: 10px 20px !important;
-                        border-radius: 5px !important;
-                        font-weight: bold !important;
-                        cursor: pointer !important;
-                        display: inline-block !important;
-                        visibility: visible !important;
-                        opacity: 1 !important;
-                        box-shadow: 0 0 20px red !important;
-                    ">
-                <i class="fas fa-check-double"></i> Complete Prep
-            </button>
-        </div>
-    `;
-} else if (status === 'ready') {
-                actionButtons = `
+            } else if (order.status === 'preparing') {
+                actionButtonHtml = `
+                    <button class="btn btn-complete-prep" onclick="completePreparation('${order._id}')">
+                        <i class="fas fa-check-double me-1"></i>Complete Prep
+                    </button>
+                `;
+            } else if (order.status === 'ready') {
+                actionButtonHtml = `
                     <div class="btn-group">
                         <button class="btn btn-download btn-sm" onclick="downloadBill('${order._id}')">
                             <i class="fas fa-download me-1"></i>Bill
@@ -1828,7 +1806,7 @@ setTimeout(() => {
             
             html += `
                 <div class="col-md-6 col-lg-4 mb-4">
-                    <div class="card h-100 order-card order-${status}" data-order-id="${order._id}">
+                    <div class="card h-100 order-card order-${order.status}" data-order-id="${order._id}">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <h6 class="mb-0">Order #${order.orderNumber || 'N/A'}</h6>
                             <span class="badge" style="background-color: ${statusColor}">
@@ -1871,10 +1849,13 @@ setTimeout(() => {
                                 </div>
                             ` : ''}
                             
-                            <div class="d-flex justify-content-between align-items-center mt-auto">
-                                <h5 class="mb-0">${FormatUtils.formatCurrency(order.totalAmount || 0)}</h5>
-                                <div class="d-flex">
-                                    ${actionButtons}
+                            <!-- SIMPLE BUTTON SECTION -->
+                            <div class="mt-4 pt-3 border-top">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h5 class="mb-0 text-primary">${FormatUtils.formatCurrency(order.totalAmount || 0)}</h5>
+                                    <div>
+                                        ${actionButtonHtml}
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1908,14 +1889,146 @@ setTimeout(() => {
         console.log(`🎨 Rendered ${status} tab to DOM`);
 
         // FORCE BUTTON VISIBILITY
-    setTimeout(() => {
-        forceButtonVisibility(status);
-    }, 50);
+        setTimeout(() => {
+            forceButtonVisibility(status);
+        }, 50);
     });
     
     console.log('🏁 [renderOrdersByStatus] COMPLETED');
 }
 
+// Add this function and call it after renderOrdersByStatus
+function createEmergencyTestButton() {
+    console.log('🚨 Creating emergency test button...');
+    
+    // Create a RED emergency button at the top of the page
+    const emergencyBtn = document.createElement('button');
+    emergencyBtn.id = 'emergency-test-btn';
+    emergencyBtn.innerHTML = '🚨 EMERGENCY: TEST COMPLETE PREP BUTTONS';
+    emergencyBtn.style.cssText = `
+        position: fixed;
+        top: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: red;
+        color: white;
+        border: none;
+        padding: 15px 30px;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+        z-index: 99999;
+        box-shadow: 0 4px 20px rgba(255,0,0,0.5);
+    `;
+    emergencyBtn.onclick = () => {
+        // Find all preparing orders and show their buttons
+        const preparingContainer = document.getElementById('preparingOrdersList');
+        if (preparingContainer) {
+            const cards = preparingContainer.querySelectorAll('.order-card');
+            cards.forEach((card, index) => {
+                const orderId = card.dataset.orderId;
+                // Create a visible button
+                const testBtn = document.createElement('button');
+                testBtn.innerHTML = `TEST ${index + 1}`;
+                testBtn.style.cssText = `
+                    background: #9b59b6;
+                    color: white;
+                    border: none;
+                    padding: 10px 20px;
+                    border-radius: 5px;
+                    margin: 5px;
+                    font-weight: bold;
+                    cursor: pointer;
+                    display: block !important;
+                    visibility: visible !important;
+                    opacity: 1 !important;
+                `;
+                testBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    console.log('Testing order:', orderId);
+                    completePreparation(orderId);
+                };
+                
+                // Add to card
+                const cardBody = card.querySelector('.card-body');
+                if (cardBody) {
+                    // Remove existing button container
+                    const existingContainer = cardBody.querySelector('.mt-4');
+                    if (existingContainer) {
+                        existingContainer.remove();
+                    }
+                    
+                    // Add new container
+                    const newContainer = document.createElement('div');
+                    newContainer.className = 'mt-4 pt-3 border-top';
+                    newContainer.innerHTML = `
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0 text-primary">TEST</h5>
+                            <div>
+                                ${testBtn.outerHTML}
+                            </div>
+                        </div>
+                    `;
+                    cardBody.appendChild(newContainer);
+                }
+            });
+            alert(`Added ${cards.length} test buttons to preparing orders!`);
+        }
+    };
+    
+    document.body.appendChild(emergencyBtn);
+}
+
+// Call this after your renderOrdersByStatus function
+setTimeout(() => {
+    createEmergencyTestButton();
+}, 2000);
+
+
+// Debug function to check button generation
+function debugButtonGeneration() {
+    console.log('🔍 DEBUG: Checking button generation...');
+    
+    // Check if we have preparing orders
+    const preparingOrders = orders.filter(o => o.status === 'preparing');
+    console.log(`Found ${preparingOrders.length} preparing orders`);
+    
+    // Check HTML generation for first preparing order
+    if (preparingOrders.length > 0) {
+        const order = preparingOrders[0];
+        console.log('First preparing order:', {
+            id: order._id,
+            orderNumber: order.orderNumber,
+            status: order.status
+        });
+        
+        // Manually create button HTML
+        const manualButtonHtml = `
+            <button class="btn btn-complete-prep" onclick="completePreparation('${order._id}')">
+                <i class="fas fa-check-double me-1"></i>Complete Prep
+            </button>
+        `;
+        
+        console.log('Manual button HTML:', manualButtonHtml);
+        
+        // Create a test button on the page
+        const testDiv = document.createElement('div');
+        testDiv.id = 'debug-test-button';
+        testDiv.innerHTML = `
+            <div style="position: fixed; bottom: 20px; left: 20px; z-index: 9999;">
+                <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.3);">
+                    <h5>DEBUG: Test Button</h5>
+                    ${manualButtonHtml}
+                </div>
+            </div>
+        `;
+        document.body.appendChild(testDiv);
+    }
+}
+
+// Run debug
+setTimeout(debugButtonGeneration, 1500);
 
 // NEW FUNCTION: Force button visibility
 function forceButtonVisibility(status) {
