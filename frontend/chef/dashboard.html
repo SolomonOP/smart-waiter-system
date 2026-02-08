@@ -1492,6 +1492,21 @@ function initSocket() {
         return;
     }
 
+    // DEBUG: Log all orders and their status
+    console.log('🔍 DEBUG: All orders status:');
+    orders.forEach((order, index) => {
+        console.log(`Order ${index + 1}:`, {
+            orderNumber: order.orderNumber,
+            status: order.status,
+            tableNumber: order.tableNumber,
+            isPreparing: order.status === 'preparing',
+            isPreparingStrict: order.status === 'preparing',
+            statusType: typeof order.status
+        });
+    });
+
+    // Rest of your function remains the same...
+
     // Group orders by status
     const groupedOrders = {
         'pending': [],
@@ -1579,15 +1594,15 @@ function initSocket() {
                                 <h5 class="mb-0">${FormatUtils.formatCurrency(order.totalAmount || 0)}</h5>
                                 <div>
                                     ${order.status === 'pending' || order.status === 'confirmed' ? `
-                                        <button class="btn btn-accept btn-sm" onclick="acceptOrder('${order._id}')">
-                                            <i class="fas fa-check me-1"></i>Accept
-                                        </button>
-                                    ` : ''}
-                                    ${(order.status === 'preparing' || order.status === 'confirmed') ? `
-    <button class="btn btn-complete-prep btn-sm" onclick="completePreparation('${order._id}')">
-        <i class="fas fa-check-double me-1"></i>Complete Prep
-    </button>
-` : ''}
+        <button class="btn btn-accept btn-sm" onclick="acceptOrder('${order._id}')">
+            <i class="fas fa-check me-1"></i>Accept
+        </button>
+    ` : ''}
+    ${order.status === 'preparing' ? `
+        <button class="btn btn-complete-prep btn-sm" onclick="completePreparation('${order._id}')">
+            <i class="fas fa-check-double me-1"></i>Complete Prep
+        </button>
+    ` : ''}
                                     ${order.status === 'ready' ? `
                                         <div class="btn-group">
                                             <button class="btn btn-download btn-sm" onclick="downloadBill('${order._id}')">
