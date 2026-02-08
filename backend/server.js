@@ -194,24 +194,7 @@ socket.on('order-completed-by-chef', (data) => {
     });
 });
 
-// In your frontend JavaScript socket connection
-socket.on('order-ready-broadcast', (data) => {
-    console.log('Broadcast order ready:', data);
-    Toast.show(`Order #${data.orderNumber} from Table ${data.tableNumber} is ready for billing`, 'info');
-    loadOrders(); // Refresh orders list
-});
 
-socket.on('order-removed', (data) => {
-    console.log('Order removed:', data);
-    Toast.show('Order completed and removed from current orders', 'success');
-    loadOrders(); // Refresh orders list
-});
-
-socket.on('order-ready-update', (data) => {
-    console.log('Order ready update:', data);
-    Toast.show(`Order #${data.orderNumber} is ready for billing! Check ready orders.`, 'warning');
-    loadOrders(); // Refresh orders list
-});
 
   // Handle custom events from frontend
   socket.on('new-order', (data) => {

@@ -396,40 +396,88 @@
         }
         
         .btn-complete-prep {
-    background: #9b59b6;
+    background: linear-gradient(135deg, #9b59b6, #8e44ad);
     color: white;
     border: none;
+    padding: 6px 12px;
+    font-size: 14px;
+    border-radius: 4px;
+    transition: all 0.3s;
 }
 
 .btn-complete-prep:hover {
-    background: #8e44ad;
+    background: linear-gradient(135deg, #8e44ad, #732d91);
     transform: scale(1.05);
+    box-shadow: 0 4px 8px rgba(155, 89, 182, 0.3);
 }
 
 .btn-download {
-    background: #3498db;
+    background: linear-gradient(135deg, #3498db, #2980b9);
     color: white;
     border: none;
+    padding: 6px 12px;
+    font-size: 14px;
+    border-radius: 4px;
+    transition: all 0.3s;
 }
 
 .btn-download:hover {
-    background: #2980b9;
+    background: linear-gradient(135deg, #2980b9, #21618c);
     transform: scale(1.05);
+    box-shadow: 0 4px 8px rgba(52, 152, 219, 0.3);
 }
 
 .btn-success {
-    background: var(--success);
+    background: linear-gradient(135deg, #27ae60, #219653);
     color: white;
     border: none;
+    padding: 6px 12px;
+    font-size: 14px;
+    border-radius: 4px;
+    transition: all 0.3s;
 }
 
 .btn-success:hover {
-    background: #219653;
+    background: linear-gradient(135deg, #219653, #1e8449);
     transform: scale(1.05);
+    box-shadow: 0 4px 8px rgba(39, 174, 96, 0.3);
 }
 
 .border-danger {
     border-color: #e74c3c !important;
+    border-width: 2px !important;
+}
+
+.unavailable-item {
+    opacity: 0.8;
+    background-color: #f8f9fa;
+}
+
+.unavailable-item .card-title {
+    color: #6c757d !important;
+    text-decoration: line-through;
+}
+
+.unavailable-item .card-text {
+    color: #6c757d !important;
+}
+
+/* Menu section headers */
+.menu-section-header {
+    font-weight: 600;
+    padding: 10px 0;
+    margin: 20px 0 10px 0;
+    border-bottom: 2px solid;
+}
+
+.available-header {
+    color: #27ae60;
+    border-color: #27ae60;
+}
+
+.unavailable-header {
+    color: #e74c3c;
+    border-color: #e74c3c;
 }
 
 .text-muted {
@@ -876,11 +924,17 @@
                 CHEF_MENU: '/api/chef/menu',
                 CHEF_CREATE_ORDER: '/api/chef/orders/new',
                 SERVICE_REQUESTS: '/api/chef/service-requests',
-                DASHBOARD_STATS: '/api/chef/dashboard-stats'
+                DASHBOARD_STATS: '/api/chef/dashboard-stats',
+                COMPLETE_PREP: '/api/chef/orders/:id/complete-prep',
+        DOWNLOAD_BILL: '/api/chef/orders/:id/bill',
+        FINAL_COMPLETE: '/api/chef/orders/:id/final-complete'
             },
             SOCKET_EVENTS: {
                 NEW_ORDER: 'new-order',
-                ORDER_UPDATE: 'order-status-updated',
+                ORDER_UPDATE: 'order-status-update',
+                ORDER_READY_BROADCAST: 'order-ready-broadcast',
+        ORDER_READY_UPDATE: 'order-ready-update',
+        ORDER_REMOVED: 'order-removed',
                 SERVICE_REQUEST: 'new-service-request',
                 MENU_UPDATE: 'menu-item-updated',
                 DISCONNECT: 'disconnect',
@@ -1107,58 +1161,96 @@
             }
         }
 
-        function initSocket() {
-            try {
-                socket = io(CONFIG.BACKEND_URL, {
-                    transports: ['websocket', 'polling'],
-                    auth: {
-                        token: Auth.getToken()
-                    }
-                });
-
-                socket.on('connect', () => {
-                    console.log('Socket connected');
-                    document.getElementById('liveIndicator').style.display = 'block';
-                    Toast.show('Connected to live updates', 'success');
-                });
-
-                socket.on('disconnect', () => {
-                    console.log('Socket disconnected');
-                    document.getElementById('liveIndicator').style.display = 'none';
-                    Toast.show('Disconnected from live updates', 'warning');
-                });
-
-                // Listen for new orders
-                socket.on(CONFIG.SOCKET_EVENTS.NEW_ORDER, async (data) => {
-                    Toast.show(`New order from Table ${data.tableNumber}`, 'info');
-                    await loadDashboard();
-                    await loadOrders();
-                });
-
-                // Listen for order updates
-                socket.on(CONFIG.SOCKET_EVENTS.ORDER_UPDATE, async (data) => {
-                    console.log('Order update received:', data);
-                    await loadDashboard();
-                    await loadOrders();
-                });
-
-                // Listen for service requests
-                socket.on(CONFIG.SOCKET_EVENTS.SERVICE_REQUEST, async (data) => {
-                    Toast.show(`New service request from Table ${data.tableNumber}`, 'warning');
-                    await loadDashboard();
-                    await loadServiceRequests();
-                });
-
-                // Listen for menu updates
-                socket.on(CONFIG.SOCKET_EVENTS.MENU_UPDATE, async (data) => {
-                    console.log('Menu update received:', data);
-                    await loadMenuItems();
-                });
-
-            } catch (error) {
-                console.error('Socket initialization error:', error);
+        // In initSocket() function, update socket event listeners:
+function initSocket() {
+    try {
+        socket = io(CONFIG.BACKEND_URL, {
+            transports: ['websocket', 'polling'],
+            auth: {
+                token: Auth.getToken()
             }
-        }
+        });
+
+        socket.on('connect', () => {
+            console.log('Socket connected');
+            document.getElementById('liveIndicator').style.display = 'block';
+            Toast.show('Connected to live updates', 'success');
+            
+            // Register as chef
+            socket.emit('register', { 
+                role: 'chef',
+                userId: user?.id 
+            });
+            
+            // Join chef dashboard
+            socket.emit('chef-join', {
+                chefName: user?.firstName + ' ' + user?.lastName
+            });
+        });
+
+        socket.on('disconnect', () => {
+            console.log('Socket disconnected');
+            document.getElementById('liveIndicator').style.display = 'none';
+            Toast.show('Disconnected from live updates', 'warning');
+        });
+
+        // Listen for new orders
+        socket.on(CONFIG.SOCKET_EVENTS.NEW_ORDER, async (data) => {
+            Toast.show(`New order from Table ${data.tableNumber}`, 'info');
+            await loadDashboard();
+            await loadOrders();
+        });
+
+        // Listen for order status updates
+        socket.on(CONFIG.SOCKET_EVENTS.ORDER_UPDATE, async (data) => {
+            console.log('Order update received:', data);
+            Toast.show(`Order #${data.orderNumber} status updated to ${data.status}`, 'info');
+            await loadDashboard();
+            await loadOrders();
+        });
+
+        // Listen for order ready broadcast (for all chefs)
+        socket.on(CONFIG.SOCKET_EVENTS.ORDER_READY_BROADCAST, async (data) => {
+            console.log('Order ready broadcast:', data);
+            Toast.show(`Order #${data.orderNumber} from Table ${data.tableNumber} is ready for billing!`, 'warning');
+            await loadDashboard();
+            await loadOrders();
+        });
+
+        // Listen for order ready update
+        socket.on(CONFIG.SOCKET_EVENTS.ORDER_READY_UPDATE, async (data) => {
+            console.log('Order ready update:', data);
+            Toast.show(`Order #${data.orderNumber} is ready for billing! Check ready orders.`, 'warning');
+            await loadDashboard();
+            await loadOrders();
+        });
+
+        // Listen for order removed
+        socket.on(CONFIG.SOCKET_EVENTS.ORDER_REMOVED, async (data) => {
+            console.log('Order removed:', data);
+            Toast.show('Order completed and removed from current orders', 'success');
+            await loadDashboard();
+            await loadOrders();
+        });
+
+        // Listen for service requests
+        socket.on(CONFIG.SOCKET_EVENTS.SERVICE_REQUEST, async (data) => {
+            Toast.show(`New service request from Table ${data.tableNumber}`, 'warning');
+            await loadDashboard();
+            await loadServiceRequests();
+        });
+
+        // Listen for menu updates
+        socket.on(CONFIG.SOCKET_EVENTS.MENU_UPDATE, async (data) => {
+            console.log('Menu update received:', data);
+            Toast.show(`Menu item "${data.name}" ${data.available ? 'enabled' : 'disabled'}`, 'info');
+            await loadMenuItems();
+        });
+
+    } catch (error) {
+        console.error('Socket initialization error:', error);
+    }
+}
 
         function setupEventListeners() {
             // Mobile menu toggle
@@ -1520,11 +1612,12 @@
 
 // Add these new functions to your JavaScript:
 
+// Update completePreparation() function:
 async function completePreparation(orderId) {
     try {
         Loading.show('Marking order as ready...');
         
-        const response = await API.post(`${CONFIG.API_ENDPOINTS.CHEF_UPDATE_ORDER}/${orderId}/complete-prep`, {});
+        const response = await API.post(`/api/chef/orders/${orderId}/complete-prep`, {});
         
         if (response.success) {
             Toast.show('Order marked as ready for billing! All chefs notified.', 'success');
@@ -1539,10 +1632,18 @@ async function completePreparation(orderId) {
     }
 }
 
+// Update downloadBill() function:
 async function downloadBill(orderId) {
     try {
         const token = Auth.getToken();
-        const response = await fetch(`${CONFIG.BACKEND_URL}/api/chef/orders/${orderId}/bill`, {
+        
+        // Create a temporary anchor element
+        const a = document.createElement('a');
+        a.href = `${CONFIG.BACKEND_URL}/api/chef/orders/${orderId}/bill`;
+        a.download = `receipt-${orderId}.pdf`;
+        
+        // Add authorization header using fetch
+        const response = await fetch(a.href, {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
@@ -1554,31 +1655,34 @@ async function downloadBill(orderId) {
         
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `receipt-${orderId}.pdf`;
-        document.body.appendChild(a);
-        a.click();
+        
+        // Create another anchor for download
+        const downloadLink = document.createElement('a');
+        downloadLink.href = url;
+        downloadLink.download = `receipt-${orderId}.pdf`;
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
         window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
+        document.body.removeChild(downloadLink);
         
         Toast.show('Bill downloaded successfully!', 'success');
         
     } catch (error) {
         console.error('Download bill error:', error);
-        Toast.show('Failed to download bill', 'error');
+        Toast.show('Failed to download bill. Please try again.', 'error');
     }
 }
 
+// Update finalCompleteOrder() function:
 async function finalCompleteOrder(orderId) {
     try {
-        if (!confirm('Are you sure you want to complete this order? This will send the bill to customer email.')) {
+        if (!confirm('Are you sure you want to complete this order? This will send the bill to customer email and remove it from current orders.')) {
             return;
         }
         
         Loading.show('Completing order...');
         
-        const response = await API.post(`${CONFIG.API_ENDPOINTS.CHEF_UPDATE_ORDER}/${orderId}/final-complete`, {});
+        const response = await API.post(`/api/chef/orders/${orderId}/final-complete`, {});
         
         if (response.success) {
             Toast.show('Order completed! Bill sent to customer email.', 'success');
@@ -1651,25 +1755,26 @@ async function finalCompleteOrder(orderId) {
             }
         }
 
-        // Menu Management Functions
-        async function loadMenuItems() {
-            try {
-                Loading.show();
-                
-                const response = await API.get(CONFIG.API_ENDPOINTS.CHEF_MENU + '?available=true');
-                
-                if (response.success) {
-                    menuItems = response.menuItems || [];
-                    renderMenuItems(menuItems);
-                }
-                
-                Loading.hide();
-                
-            } catch (error) {
-                Loading.hide();
-                ErrorHandler.handle(error, 'loadMenuItems');
-            }
+        // In your chef dashboard HTML, update loadMenuItems():
+async function loadMenuItems() {
+    try {
+        Loading.show();
+        
+        // Load ALL items (available and unavailable)
+        const response = await API.get(CONFIG.API_ENDPOINTS.CHEF_MENU);
+        
+        if (response.success) {
+            menuItems = response.menuItems || [];
+            renderMenuItems(menuItems);
         }
+        
+        Loading.hide();
+        
+    } catch (error) {
+        Loading.hide();
+        ErrorHandler.handle(error, 'loadMenuItems');
+    }
+}
 
         function renderMenuItems(items) {
     const container = document.getElementById('menuItemsGrid');
@@ -1689,50 +1794,126 @@ async function finalCompleteOrder(orderId) {
     }
     
     // Separate available and unavailable items
-    const availableItems = items.filter(item => item.available);
-    const unavailableItems = items.filter(item => !item.available);
+    const availableItems = items.filter(item => item.available || item.isAvailable);
+    const unavailableItems = items.filter(item => !item.available && !item.isAvailable);
     
     let html = '';
     
     // Show available items first
     if (availableItems.length > 0) {
-        html += '<div class="col-12"><h5 class="mb-3 text-success"><i class="fas fa-check-circle me-2"></i>Available Items</h5></div>';
+        html += `
+            <div class="col-12">
+                <h5 class="menu-section-header available-header">
+                    <i class="fas fa-check-circle me-2"></i>Available Items (${availableItems.length})
+                </h5>
+            </div>
+        `;
+        
         availableItems.forEach(item => {
-            html += renderMenuItemCard(item);
+            html += renderMenuItemCard(item, true);
         });
     }
     
     // Show unavailable items in a separate section
     if (unavailableItems.length > 0) {
-        html += '<div class="col-12 mt-4"><h5 class="mb-3 text-danger"><i class="fas fa-times-circle me-2"></i>Unavailable Items</h5></div>';
+        html += `
+            <div class="col-12 mt-5">
+                <h5 class="menu-section-header unavailable-header">
+                    <i class="fas fa-times-circle me-2"></i>Unavailable Items (${unavailableItems.length})
+                </h5>
+            </div>
+        `;
+        
         unavailableItems.forEach(item => {
-            html += renderMenuItemCard(item);
+            html += renderMenuItemCard(item, false);
         });
     }
     
     container.innerHTML = html;
 }
 
-        async function updateMenuItemStatus(itemId, isAvailable) {
-            try {
-                Loading.show('Updating menu item...');
-                
-                const response = await API.put(
-                    `${CONFIG.API_ENDPOINTS.CHEF_MENU}/${itemId}/availability`,
-                    { available: isAvailable }
-                );
-                
-                if (response.success) {
-                    Toast.show(`Menu item ${isAvailable ? 'enabled' : 'disabled'} successfully!`, 'success');
-                    await loadMenuItems();
+function renderMenuItemCard(item, isAvailable) {
+    const availableStatus = item.available || item.isAvailable;
+    
+    return `
+        <div class="col-md-4 mb-4">
+            <div class="card menu-item-card h-100 ${!availableStatus ? 'border-danger unavailable-item' : ''}">
+                <div class="position-relative">
+                    ${item.image ? 
+                        `<img src="${item.image}" class="card-img-top" alt="${item.name}" style="height: 180px; object-fit: cover; ${!availableStatus ? 'filter: grayscale(50%) opacity(0.8)' : ''}">` : 
+                        `<div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 180px; ${!availableStatus ? 'opacity: 0.7' : ''}">
+                            <i class="fas fa-utensils fa-3x ${!availableStatus ? 'text-muted' : 'text-muted'}"></i>
+                        </div>`
+                    }
+                    <span class="position-absolute top-0 end-0 m-2 badge ${availableStatus ? 'bg-success' : 'bg-danger'}">
+                        ${availableStatus ? 'Available' : 'Unavailable'}
+                    </span>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h5 class="card-title mb-0 ${!availableStatus ? 'text-muted' : ''}">${item.name}</h5>
+                        <span class="badge bg-primary">${FormatUtils.formatCategory(item.category)}</span>
+                    </div>
+                    <p class="card-text ${!availableStatus ? 'text-muted' : 'text-muted'} small mb-3">${item.description || 'No description available'}</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h4 class="${!availableStatus ? 'text-muted' : 'text-primary'} mb-0">${FormatUtils.formatCurrency(item.price)}</h4>
+                        <div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" 
+                                       id="toggle-${item._id}"
+                                       ${availableStatus ? 'checked' : ''}
+                                       onchange="updateMenuItemStatus('${item._id}', this.checked)">
+                                <label class="form-check-label" for="toggle-${item._id}"></label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <small class="${!availableStatus ? 'text-muted' : 'text-muted'}">
+                            <i class="fas fa-clock me-1"></i> ${item.preparationTime || 'N/A'} mins
+                        </small>
+                        <small class="${!availableStatus ? 'text-muted' : 'text-muted'} d-block mt-1">
+                            <i class="fas fa-shopping-cart me-1"></i> Ordered ${item.orderCount || 0} times
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+        // In updateMenuItemStatus() function, handle both field names:
+async function updateMenuItemStatus(itemId, isAvailable) {
+    try {
+        Loading.show('Updating menu item...');
+        
+        const response = await API.put(
+            `/api/chef/menu/${itemId}/availability`,
+            { available: isAvailable }
+        );
+        
+        if (response.success) {
+            Toast.show(`Menu item ${isAvailable ? 'enabled' : 'disabled'} successfully!`, 'success');
+            
+            // Update local menuItems array
+            const itemIndex = menuItems.findIndex(item => item._id === itemId);
+            if (itemIndex !== -1) {
+                menuItems[itemIndex].available = isAvailable;
+                // Also update isAvailable if it exists
+                if (menuItems[itemIndex].isAvailable !== undefined) {
+                    menuItems[itemIndex].isAvailable = isAvailable;
                 }
-                
-                Loading.hide();
-            } catch (error) {
-                Loading.hide();
-                ErrorHandler.handle(error, 'updateMenuItemStatus');
             }
+            
+            // Re-render menu items
+            renderMenuItems(menuItems);
         }
+        
+        Loading.hide();
+    } catch (error) {
+        Loading.hide();
+        ErrorHandler.handle(error, 'updateMenuItemStatus');
+    }
+}
 
         function renderMenuItemCard(item) {
     return `
@@ -2293,6 +2474,10 @@ async function finalCompleteOrder(orderId) {
         window.loadOrders = loadOrders;
         window.loadMenuItems = loadMenuItems;
         window.loadServiceRequests = loadServiceRequests;
+        // At the bottom of your chef dashboard JavaScript, add:
+window.completePreparation = completePreparation;
+window.downloadBill = downloadBill;
+window.finalCompleteOrder = finalCompleteOrder;
     </script>
 </body>
 </html>
