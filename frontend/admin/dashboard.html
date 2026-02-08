@@ -1832,90 +1832,108 @@
         
         // Save functions
         async function saveMenuItem() {
-            try {
-                Loading.show('Saving menu item...');
-                
-                const form = document.getElementById('addMenuItemForm');
-                const formData = new FormData(form);
-                const data = Object.fromEntries(formData);
-                
-                data.price = parseFloat(data.price);
-                data.preparationTime = parseInt(data.preparationTime);
-                data.isAvailable = data.isAvailable === 'on';
-                
-                const token = Auth.getToken();
-                const response = await API.post(CONFIG.API_ENDPOINTS.ADMIN_MENU, data, token);
-                
-                if (response.success) {
-                    Toast.show('Menu item added successfully!', 'success');
-                    bootstrap.Modal.getInstance(document.getElementById('addMenuItemModal')).hide();
-                    form.reset();
-                    await loadMenuItems();
-                }
-                
-                Loading.hide();
-            } catch (error) {
-                Loading.hide();
-                ErrorHandler.handle(error, 'saveMenuItem');
-            }
+    try {
+        Loading.show('Saving menu item...');
+        
+        const form = document.getElementById('addMenuItemForm');
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData);
+        
+        data.price = parseFloat(data.price);
+        data.preparationTime = parseInt(data.preparationTime);
+        
+        // FIX: Properly handle checkbox value
+        const isAvailableCheckbox = form.querySelector('input[name="isAvailable"]');
+        data.isAvailable = isAvailableCheckbox.checked;
+        
+        // FIX: Add default image if empty
+        if (!data.image) {
+            data.image = 'https://via.placeholder.com/400x300/667eea/ffffff?text=' + encodeURIComponent(data.name);
         }
+        
+        console.log('📦 Saving menu item:', data);
+        
+        const token = Auth.getToken();
+        const response = await API.post(CONFIG.API_ENDPOINTS.ADMIN_MENU, data, token);
+        
+        if (response.success) {
+            Toast.show('Menu item added successfully!', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('addMenuItemModal')).hide();
+            form.reset();
+            await loadMenuItems();
+        }
+        
+        Loading.hide();
+    } catch (error) {
+        Loading.hide();
+        ErrorHandler.handle(error, 'saveMenuItem');
+    }
+}
         
         async function saveTable() {
-            try {
-                Loading.show('Saving table...');
-                
-                const form = document.getElementById('addTableForm');
-                const formData = new FormData(form);
-                const data = Object.fromEntries(formData);
-                
-                data.tableNumber = parseInt(data.tableNumber);
-                data.capacity = parseInt(data.capacity);
-                
-                const token = Auth.getToken();
-                const response = await API.post(CONFIG.API_ENDPOINTS.ADMIN_TABLES, data, token);
-                
-                if (response.success) {
-                    Toast.show('Table added successfully!', 'success');
-                    bootstrap.Modal.getInstance(document.getElementById('addTableModal')).hide();
-                    form.reset();
-                    await loadTables();
-                }
-                
-                Loading.hide();
-            } catch (error) {
-                Loading.hide();
-                ErrorHandler.handle(error, 'saveTable');
-            }
+    try {
+        Loading.show('Saving table...');
+        
+        const form = document.getElementById('addTableForm');
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData);
+        
+        data.tableNumber = parseInt(data.tableNumber);
+        data.capacity = parseInt(data.capacity);
+        
+        // Ensure required fields
+        if (!data.section) data.section = 'main';
+        if (!data.location) data.location = 'Near entrance';
+        
+        console.log('📦 Saving table:', data);
+        
+        const token = Auth.getToken();
+        const response = await API.post(CONFIG.API_ENDPOINTS.ADMIN_TABLES, data, token);
+        
+        if (response.success) {
+            Toast.show('Table added successfully!', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('addTableModal')).hide();
+            form.reset();
+            await loadTables();
         }
         
-        async function bulkAddTables() {
-            try {
-                Loading.show('Creating tables...');
-                
-                const form = document.getElementById('bulkTableForm');
-                const formData = new FormData(form);
-                const data = Object.fromEntries(formData);
-                
-                data.startNumber = parseInt(data.startNumber);
-                data.tableCount = parseInt(data.tableCount);
-                data.capacity = parseInt(data.capacity);
-                
-                const token = Auth.getToken();
-                const response = await API.post(CONFIG.API_ENDPOINTS.ADMIN_TABLES + '/bulk', data, token);
-                
-                if (response.success) {
-                    Toast.show(`${data.tableCount} tables created successfully!`, 'success');
-                    bootstrap.Modal.getInstance(document.getElementById('bulkTableModal')).hide();
-                    form.reset();
-                    await loadTables();
-                }
-                
-                Loading.hide();
-            } catch (error) {
-                Loading.hide();
-                ErrorHandler.handle(error, 'bulkAddTables');
-            }
+        Loading.hide();
+    } catch (error) {
+        Loading.hide();
+        ErrorHandler.handle(error, 'saveTable');
+    }
+}
+
+async function bulkAddTables() {
+    try {
+        Loading.show('Creating tables...');
+        
+        const form = document.getElementById('bulkTableForm');
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData);
+        
+        data.startNumber = parseInt(data.startNumber);
+        data.tableCount = parseInt(data.tableCount);
+        data.capacity = parseInt(data.capacity);
+        
+        console.log('📦 Bulk creating tables:', data);
+        
+        const token = Auth.getToken();
+        const response = await API.post(CONFIG.API_ENDPOINTS.ADMIN_TABLES + '/bulk', data, token);
+        
+        if (response.success) {
+            Toast.show(`${data.tableCount} tables created successfully!`, 'success');
+            bootstrap.Modal.getInstance(document.getElementById('bulkTableModal')).hide();
+            form.reset();
+            await loadTables();
         }
+        
+        Loading.hide();
+    } catch (error) {
+        Loading.hide();
+        ErrorHandler.handle(error, 'bulkAddTables');
+    }
+}
         
         async function saveStaff() {
             try {

@@ -35,7 +35,7 @@ router.get('/stats', auth, isAdmin, async (req, res) => {
             status: 'completed'
         });
         
-        const todayRevenue = todayOrders.reduce((sum, order) => sum + order.totalAmount, 0);
+        const todayRevenue = todayOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
         
         // Yesterday's revenue for comparison
         const yesterdayOrders = await Order.find({
@@ -43,7 +43,7 @@ router.get('/stats', auth, isAdmin, async (req, res) => {
             status: 'completed'
         });
         
-        const yesterdayRevenue = yesterdayOrders.reduce((sum, order) => sum + order.totalAmount, 0);
+        const yesterdayRevenue = yesterdayOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
         
         // Revenue change percentage
         let revenueChange = 0;
@@ -68,7 +68,7 @@ router.get('/stats', auth, isAdmin, async (req, res) => {
         }
         
         // Today's customers (unique)
-        const todayCustomerEmails = [...new Set(todayOrders.map(order => order.customerEmail))];
+        const todayCustomerEmails = [...new Set(todayOrders.map(order => order.customerEmail || order.customer))];
         const todayCustomers = todayCustomerEmails.length;
         
         // Active tables
@@ -85,7 +85,7 @@ router.get('/stats', auth, isAdmin, async (req, res) => {
         
         // Menu items availability
         const totalMenuItems = await MenuItem.countDocuments();
-        const availableMenuItems = await MenuItem.countDocuments({ available: true });
+        const availableMenuItems = await MenuItem.countDocuments({ isAvailable: true });
         
         // Staff counts
         const totalStaff = await User.countDocuments({ 
@@ -135,14 +135,17 @@ router.get('/stats', auth, isAdmin, async (req, res) => {
     }
 });
 
-// @route   GET /api/admin/revenue/daily
-// @desc    Get daily revenue for last 7 days
+// @route   GET /api/admin/revenue/weekly
+// @desc    Get weekly revenue data
 // @access  Private (Admin)
-router.get('/revenue/daily', auth, isAdmin, async (req, res) => {
+router.get('/revenue/weekly', auth, isAdmin, async (req, res) => {
     try {
+        // Get last 7 days
         const days = 7;
-        const revenueData = [];
+        const labels = [];
+        const data = [];
         
+        // Generate last 7 days
         for (let i = days - 1; i >= 0; i--) {
             const date = new Date();
             date.setDate(date.getDate() - i);
@@ -151,31 +154,28 @@ router.get('/revenue/daily', auth, isAdmin, async (req, res) => {
             const nextDate = new Date(date);
             nextDate.setDate(nextDate.getDate() + 1);
             
+            // Get day name
+            const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            labels.push(dayNames[date.getDay()]);
+            
+            // Get revenue for this day
             const dayOrders = await Order.find({
                 createdAt: { $gte: date, $lt: nextDate },
                 status: 'completed'
             });
             
-            const dayRevenue = dayOrders.reduce((sum, order) => sum + order.totalAmount, 0);
-            const dayOrdersCount = dayOrders.length;
-            
-            revenueData.push({
-                date: date.toISOString().split('T')[0],
-                day: date.toLocaleDateString('en-US', { weekday: 'short' }),
-                revenue: dayRevenue,
-                orders: dayOrdersCount,
-                averageOrderValue: dayOrdersCount > 0 ? dayRevenue / dayOrdersCount : 0
-            });
+            const dayRevenue = dayOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+            data.push(dayRevenue);
         }
         
         res.json({
             success: true,
-            period: '7days',
-            data: revenueData
+            labels,
+            data
         });
         
     } catch (error) {
-        console.error('Get daily revenue error:', error);
+        console.error('Get weekly revenue error:', error);
         res.status(500).json({
             success: false,
             message: 'Server error'
@@ -188,13 +188,12 @@ router.get('/revenue/daily', auth, isAdmin, async (req, res) => {
 // @access  Private (Admin)
 router.get('/orders/recent', auth, isAdmin, async (req, res) => {
     try {
-        const { limit = 20 } = req.query;
+        const { limit = 10 } = req.query;
         
         const orders = await Order.find()
             .sort({ createdAt: -1 })
             .limit(parseInt(limit))
-            .populate('customer', 'firstName lastName email')
-            .populate('assignedChef', 'firstName lastName');
+            .select('orderNumber tableNumber customerName totalAmount status createdAt');
         
         res.json({
             success: true,
@@ -204,193 +203,6 @@ router.get('/orders/recent', auth, isAdmin, async (req, res) => {
         
     } catch (error) {
         console.error('Get recent orders error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Server error'
-        });
-    }
-});
-
-// @route   GET /api/admin/orders
-// @desc    Get all orders with filters
-// @access  Private (Admin)
-router.get('/orders', auth, isAdmin, async (req, res) => {
-    try {
-        const { 
-            status, 
-            startDate, 
-            endDate, 
-            tableNumber,
-            sortBy = 'createdAt',
-            sortOrder = 'desc',
-            limit = 50,
-            page = 1 
-        } = req.query;
-        
-        // Build query
-        let query = {};
-        
-        if (status) {
-            query.status = status;
-        }
-        
-        if (tableNumber) {
-            query.tableNumber = parseInt(tableNumber);
-        }
-        
-        if (startDate || endDate) {
-            query.createdAt = {};
-            if (startDate) {
-                const start = new Date(startDate);
-                start.setHours(0, 0, 0, 0);
-                query.createdAt.$gte = start;
-            }
-            if (endDate) {
-                const end = new Date(endDate);
-                end.setHours(23, 59, 59, 999);
-                query.createdAt.$lte = end;
-            }
-        }
-        
-        // Pagination
-        const pageNumber = parseInt(page);
-        const pageSize = parseInt(limit);
-        const skip = (pageNumber - 1) * pageSize;
-        
-        // Sort
-        const sort = {};
-        sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
-        
-        const orders = await Order.find(query)
-            .sort(sort)
-            .skip(skip)
-            .limit(pageSize)
-            .populate('customer', 'firstName lastName email')
-            .populate('assignedChef', 'firstName lastName')
-            .populate('items.menuItem', 'name category');
-        
-        const totalOrders = await Order.countDocuments(query);
-        
-        res.json({
-            success: true,
-            count: orders.length,
-            total: totalOrders,
-            page: pageNumber,
-            pages: Math.ceil(totalOrders / pageSize),
-            orders
-        });
-        
-    } catch (error) {
-        console.error('Get orders error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Server error'
-        });
-    }
-});
-
-// @route   GET /api/admin/orders/:id
-// @desc    Get order details
-// @access  Private (Admin)
-router.get('/orders/:id', auth, isAdmin, async (req, res) => {
-    try {
-        const order = await Order.findById(req.params.id)
-            .populate('customer', 'firstName lastName email phone')
-            .populate('assignedChef', 'firstName lastName email')
-            .populate('items.menuItem', 'name description price category image');
-        
-        if (!order) {
-            return res.status(404).json({
-                success: false,
-                message: 'Order not found'
-            });
-        }
-        
-        res.json({
-            success: true,
-            order
-        });
-        
-    } catch (error) {
-        console.error('Get order details error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Server error'
-        });
-    }
-});
-
-// @route   PUT /api/admin/orders/:id/status
-// @desc    Update order status
-// @access  Private (Admin)
-router.put('/orders/:id/status', auth, isAdmin, [
-    check('status', 'Valid status is required').isIn([
-        'pending', 'confirmed', 'preparing', 'ready', 'completed', 'cancelled', 'rejected'
-    ])
-], async (req, res) => {
-    try {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-            return res.status(400).json({
-                success: false,
-                errors: errors.array()
-            });
-        }
-        
-        const { status } = req.body;
-        
-        const order = await Order.findById(req.params.id);
-        
-        if (!order) {
-            return res.status(404).json({
-                success: false,
-                message: 'Order not found'
-            });
-        }
-        
-        // Update order
-        order.status = status;
-        order.updatedAt = new Date();
-        
-        // Set timestamps based on status
-        if (status === 'preparing' && !order.preparingAt) {
-            order.preparingAt = new Date();
-        } else if (status === 'ready' && !order.readyAt) {
-            order.readyAt = new Date();
-        } else if (status === 'completed' && !order.completedAt) {
-            order.completedAt = new Date();
-            order.servedAt = new Date();
-        } else if (status === 'cancelled' && !order.cancelledAt) {
-            order.cancelledAt = new Date();
-        }
-        
-        await order.save();
-        
-        // Real-time notification
-        const io = req.app.get('io');
-        if (io) {
-            io.to(`table:${order.tableNumber}`).emit('order-status-changed', {
-                orderId: order._id,
-                orderNumber: order.orderNumber,
-                status: order.status,
-                message: `Order status updated to ${status}`,
-                timestamp: new Date().toISOString()
-            });
-        }
-        
-        res.json({
-            success: true,
-            message: 'Order status updated',
-            order: {
-                id: order._id,
-                orderNumber: order.orderNumber,
-                status: order.status,
-                updatedAt: order.updatedAt
-            }
-        });
-        
-    } catch (error) {
-        console.error('Update order status error:', error);
         res.status(500).json({
             success: false,
             message: 'Server error'
@@ -412,11 +224,12 @@ router.get('/menu', auth, isAdmin, async (req, res) => {
         }
         
         if (available !== undefined) {
-            query.available = available === 'true';
+            query.isAvailable = available === 'true';
         }
         
         const menuItems = await MenuItem.find(query)
-            .sort({ category: 1, name: 1 });
+            .sort({ category: 1, name: 1 })
+            .select('name description price category isAvailable preparationTime image');
         
         res.json({
             success: true,
@@ -438,15 +251,18 @@ router.get('/menu', auth, isAdmin, async (req, res) => {
 // @access  Private (Admin)
 router.post('/menu', auth, isAdmin, [
     check('name', 'Name is required').not().isEmpty().trim().escape(),
-    check('description', 'Description is required').not().isEmpty().trim().escape(),
+    check('description', 'Description is required').optional().trim().escape(),
     check('price', 'Valid price is required').isFloat({ min: 0 }),
     check('category', 'Valid category is required').isIn([
         'appetizer', 'main', 'dessert', 'drink', 'soup', 'salad'
-    ])
+    ]),
+    check('preparationTime', 'Preparation time must be a number').optional().isInt({ min: 1 }),
+    check('isAvailable', 'isAvailable must be boolean').optional().isBoolean()
 ], async (req, res) => {
     try {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
+            console.log('Validation errors:', errors.array());
             return res.status(400).json({
                 success: false,
                 errors: errors.array()
@@ -455,38 +271,29 @@ router.post('/menu', auth, isAdmin, [
         
         const { 
             name, 
-            description, 
+            description = '', 
             price, 
             category, 
-            subCategory,
-            available = true,
-            vegetarian = false,
-            vegan = false,
-            glutenFree = false,
-            popular = false,
+            isAvailable = true,
             preparationTime = 15,
-            ingredients = [],
-            allergens = []
+            image = 'https://via.placeholder.com/400x300/667eea/ffffff?text=' + encodeURIComponent(name)
         } = req.body;
+        
+        console.log('Creating menu item:', { name, price, category, isAvailable });
         
         const menuItem = new MenuItem({
             name,
             description,
-            price,
-            originalPrice: price,
+            price: parseFloat(price),
             category,
-            subCategory,
-            available,
-            vegetarian,
-            vegan,
-            glutenFree,
-            popular,
-            preparationTime,
-            ingredients,
-            allergens
+            isAvailable: isAvailable === true || isAvailable === 'true',
+            preparationTime: parseInt(preparationTime),
+            image
         });
         
         await menuItem.save();
+        
+        console.log('Menu item created:', menuItem._id);
         
         res.status(201).json({
             success: true,
@@ -496,6 +303,34 @@ router.post('/menu', auth, isAdmin, [
         
     } catch (error) {
         console.error('Create menu item error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error: ' + error.message
+        });
+    }
+});
+
+// @route   GET /api/admin/menu/:id
+// @desc    Get menu item by ID
+// @access  Private (Admin)
+router.get('/menu/:id', auth, isAdmin, async (req, res) => {
+    try {
+        const menuItem = await MenuItem.findById(req.params.id);
+        
+        if (!menuItem) {
+            return res.status(404).json({
+                success: false,
+                message: 'Menu item not found'
+            });
+        }
+        
+        res.json({
+            success: true,
+            menuItem
+        });
+        
+    } catch (error) {
+        console.error('Get menu item error:', error);
         res.status(500).json({
             success: false,
             message: 'Server error'
@@ -508,12 +343,12 @@ router.post('/menu', auth, isAdmin, [
 // @access  Private (Admin)
 router.put('/menu/:id', auth, isAdmin, [
     check('name', 'Name is required').optional().not().isEmpty().trim().escape(),
-    check('description', 'Description is required').optional().not().isEmpty().trim().escape(),
+    check('description', 'Description is required').optional().trim().escape(),
     check('price', 'Valid price is required').optional().isFloat({ min: 0 }),
     check('category', 'Valid category is required').optional().isIn([
         'appetizer', 'main', 'dessert', 'drink', 'soup', 'salad'
     ]),
-    check('available', 'Available must be boolean').optional().isBoolean()
+    check('isAvailable', 'isAvailable must be boolean').optional().isBoolean()
 ], async (req, res) => {
     try {
         const errors = validationResult(req);
@@ -539,7 +374,6 @@ router.put('/menu/:id', auth, isAdmin, [
         // Remove restricted fields
         delete updates._id;
         delete updates.createdAt;
-        delete updates.orderCount;
         
         Object.keys(updates).forEach(key => {
             menuItem[key] = updates[key];
@@ -609,8 +443,7 @@ router.get('/tables', auth, isAdmin, async (req, res) => {
     try {
         const tables = await Table.find()
             .sort({ tableNumber: 1 })
-            .populate('currentOrder', 'orderNumber status totalAmount')
-            .populate('currentCustomer', 'firstName lastName');
+            .select('tableNumber capacity status location section currentOrder');
         
         res.json({
             success: true,
@@ -628,24 +461,27 @@ router.get('/tables', auth, isAdmin, async (req, res) => {
 });
 
 // @route   POST /api/admin/tables
-// @desc    Create new table(s)
+// @desc    Create new table
 // @access  Private (Admin)
 router.post('/tables', auth, isAdmin, [
     check('tableNumber', 'Table number is required').isInt({ min: 1 }),
     check('capacity', 'Capacity must be between 1 and 20').isInt({ min: 1, max: 20 }),
-    check('location', 'Location is required').optional().isIn(['indoor', 'outdoor', 'terrace', 'private', 'vip']),
-    check('section', 'Section cannot exceed 50 characters').optional().isLength({ max: 50 })
+    check('section', 'Section is required').optional().isIn(['main', 'terrace', 'private', 'outdoor']),
+    check('location', 'Location cannot exceed 100 characters').optional().isLength({ max: 100 })
 ], async (req, res) => {
     try {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
+            console.log('Validation errors:', errors.array());
             return res.status(400).json({
                 success: false,
                 errors: errors.array()
             });
         }
         
-        const { tableNumber, capacity, location, section, tableName } = req.body;
+        const { tableNumber, capacity, location = 'Near entrance', section = 'main' } = req.body;
+        
+        console.log('Creating table:', { tableNumber, capacity, location, section });
         
         // Check if table number already exists
         const existingTable = await Table.findOne({ tableNumber });
@@ -657,15 +493,17 @@ router.post('/tables', auth, isAdmin, [
         }
         
         const table = new Table({
-            tableNumber,
-            tableName,
-            capacity,
-            location: location || 'indoor',
+            tableNumber: parseInt(tableNumber),
+            capacity: parseInt(capacity),
+            location,
             section,
-            status: 'available'
+            status: 'available',
+            isActive: true
         });
         
         await table.save();
+        
+        console.log('Table created:', table._id);
         
         res.status(201).json({
             success: true,
@@ -683,6 +521,101 @@ router.post('/tables', auth, isAdmin, [
             });
         }
         
+        res.status(500).json({
+            success: false,
+            message: 'Server error: ' + error.message
+        });
+    }
+});
+
+// @route   POST /api/admin/tables/bulk
+// @desc    Create multiple tables at once
+// @access  Private (Admin)
+router.post('/tables/bulk', auth, isAdmin, [
+    check('startNumber', 'Start number is required').isInt({ min: 1 }),
+    check('tableCount', 'Table count must be between 1 and 50').isInt({ min: 1, max: 50 }),
+    check('capacity', 'Capacity must be between 1 and 20').isInt({ min: 1, max: 20 }),
+    check('section', 'Section is required').optional().isIn(['main', 'terrace', 'private'])
+], async (req, res) => {
+    try {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({
+                success: false,
+                errors: errors.array()
+            });
+        }
+        
+        const { startNumber, tableCount, capacity, section = 'main', locationPrefix = '' } = req.body;
+        
+        const createdTables = [];
+        const errors = [];
+        
+        for (let i = 0; i < tableCount; i++) {
+            try {
+                const tableNumber = parseInt(startNumber) + i;
+                
+                // Check if table number already exists
+                const existingTable = await Table.findOne({ tableNumber });
+                if (existingTable) {
+                    errors.push(`Table ${tableNumber} already exists`);
+                    continue;
+                }
+                
+                const table = new Table({
+                    tableNumber,
+                    capacity: parseInt(capacity),
+                    location: locationPrefix ? `${locationPrefix} - Table ${tableNumber}` : `Table ${tableNumber}`,
+                    section,
+                    status: 'available',
+                    isActive: true
+                });
+                
+                await table.save();
+                createdTables.push(table);
+            } catch (error) {
+                errors.push(`Error creating table ${parseInt(startNumber) + i}: ${error.message}`);
+            }
+        }
+        
+        res.status(201).json({
+            success: true,
+            message: `Created ${createdTables.length} tables successfully`,
+            created: createdTables.length,
+            tables: createdTables,
+            errors: errors.length > 0 ? errors : undefined
+        });
+        
+    } catch (error) {
+        console.error('Bulk create tables error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error'
+        });
+    }
+});
+
+// @route   GET /api/admin/tables/:id
+// @desc    Get table by ID
+// @access  Private (Admin)
+router.get('/tables/:id', auth, isAdmin, async (req, res) => {
+    try {
+        const table = await Table.findById(req.params.id);
+        
+        if (!table) {
+            return res.status(404).json({
+                success: false,
+                message: 'Table not found'
+            });
+        }
+        
+        res.json({
+            success: true,
+            table
+        });
+        
+    } catch (error) {
+        console.error('Get table error:', error);
         res.status(500).json({
             success: false,
             message: 'Server error'
@@ -785,17 +718,6 @@ router.delete('/tables/:id', auth, isAdmin, async (req, res) => {
             });
         }
         
-        // Check if table has active order
-        if (table.currentOrder) {
-            const activeOrder = await Order.findById(table.currentOrder);
-            if (activeOrder && !['completed', 'cancelled', 'rejected'].includes(activeOrder.status)) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Cannot delete table with active order'
-                });
-            }
-        }
-        
         await table.deleteOne();
         
         res.json({
@@ -819,7 +741,7 @@ router.get('/staff', auth, isAdmin, async (req, res) => {
     try {
         const { role, isActive } = req.query;
         
-        let query = { role: { $in: ['chef', 'admin'] } };
+        let query = { role: { $in: ['chef', 'waiter', 'manager', 'cashier', 'admin'] } };
         
         if (role) {
             query.role = role;
@@ -857,7 +779,7 @@ router.post('/staff', auth, isAdmin, [
     check('email', 'Valid email is required').isEmail().normalizeEmail(),
     check('password', 'Password must be at least 6 characters').isLength({ min: 6 }),
     check('phone', 'Phone number is required').not().isEmpty().trim().escape(),
-    check('role', 'Valid role is required').isIn(['chef', 'admin'])
+    check('role', 'Valid role is required').isIn(['chef', 'waiter', 'manager', 'cashier'])
 ], async (req, res) => {
     try {
         const errors = validationResult(req);
@@ -927,6 +849,34 @@ router.post('/staff', auth, isAdmin, [
     }
 });
 
+// @route   GET /api/admin/staff/:id
+// @desc    Get staff member by ID
+// @access  Private (Admin)
+router.get('/staff/:id', auth, isAdmin, async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id).select('-password');
+        
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'Staff member not found'
+            });
+        }
+        
+        res.json({
+            success: true,
+            user
+        });
+        
+    } catch (error) {
+        console.error('Get staff member error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error'
+        });
+    }
+});
+
 // @route   PUT /api/admin/staff/:id
 // @desc    Update staff member
 // @access  Private (Admin)
@@ -934,7 +884,7 @@ router.put('/staff/:id', auth, isAdmin, [
     check('firstName', 'First name is required').optional().not().isEmpty().trim().escape(),
     check('lastName', 'Last name is required').optional().not().isEmpty().trim().escape(),
     check('phone', 'Phone number is required').optional().not().isEmpty().trim().escape(),
-    check('role', 'Valid role is required').optional().isIn(['chef', 'admin']),
+    check('role', 'Valid role is required').optional().isIn(['chef', 'waiter', 'manager', 'cashier', 'admin']),
     check('isActive', 'isActive must be boolean').optional().isBoolean()
 ], async (req, res) => {
     try {
@@ -1021,21 +971,6 @@ router.delete('/staff/:id', auth, isAdmin, async (req, res) => {
             });
         }
         
-        // Check if chef has assigned orders
-        if (user.role === 'chef') {
-            const assignedOrders = await Order.findOne({
-                assignedChef: user._id,
-                status: { $in: ['pending', 'confirmed', 'preparing'] }
-            });
-            
-            if (assignedOrders) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Cannot delete chef with assigned orders. Reassign orders first.'
-                });
-            }
-        }
-        
         // Soft delete - deactivate instead of deleting
         user.isActive = false;
         await user.save();
@@ -1059,7 +994,7 @@ router.delete('/staff/:id', auth, isAdmin, async (req, res) => {
 // @access  Private (Admin)
 router.get('/analytics/sales', auth, isAdmin, async (req, res) => {
     try {
-        const { startDate, endDate, groupBy = 'day' } = req.query;
+        const { startDate, endDate } = req.query;
         
         // Set date range
         let start = new Date();
@@ -1084,169 +1019,63 @@ router.get('/analytics/sales', auth, isAdmin, async (req, res) => {
             status: 'completed'
         }).sort({ createdAt: 1 });
         
-        // Group orders
-        const groupedData = {};
-        const categories = {};
-        const popularItems = {};
+        // Group orders by date
+        const dailySales = [];
+        const currentDate = new Date(start);
         
+        while (currentDate <= end) {
+            const dateStr = currentDate.toISOString().split('T')[0];
+            const dayOrders = orders.filter(order => 
+                order.createdAt.toISOString().split('T')[0] === dateStr
+            );
+            
+            const revenue = dayOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+            
+            dailySales.push({
+                date: dateStr,
+                revenue,
+                orders: dayOrders.length,
+                averageOrderValue: dayOrders.length > 0 ? revenue / dayOrders.length : 0
+            });
+            
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+        
+        // Calculate totals
+        const totalRevenue = orders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+        const totalOrders = orders.length;
+        
+        // Get top selling items
+        const itemCounts = {};
         orders.forEach(order => {
-            // Group by date
-            const dateKey = groupBy === 'day' 
-                ? order.createdAt.toISOString().split('T')[0]
-                : order.createdAt.toISOString().substring(0, 7); // month
-            
-            if (!groupedData[dateKey]) {
-                groupedData[dateKey] = {
-                    date: dateKey,
-                    revenue: 0,
-                    orders: 0,
-                    items: 0,
-                    averageOrderValue: 0
-                };
-            }
-            
-            groupedData[dateKey].revenue += order.totalAmount;
-            groupedData[dateKey].orders += 1;
-            groupedData[dateKey].items += order.items.reduce((sum, item) => sum + item.quantity, 0);
-            
-            // Track categories
             order.items.forEach(item => {
-                if (item.menuItem && item.menuItem.category) {
-                    const category = item.menuItem.category;
-                    categories[category] = (categories[category] || 0) + item.quantity;
-                }
-                
-                // Track popular items
-                const itemName = item.name;
-                popularItems[itemName] = (popularItems[itemName] || 0) + item.quantity;
+                const itemName = item.name || 'Unknown Item';
+                itemCounts[itemName] = (itemCounts[itemName] || 0) + item.quantity;
             });
         });
         
-        // Calculate averages
-        Object.values(groupedData).forEach(data => {
-            data.averageOrderValue = data.orders > 0 ? data.revenue / data.orders : 0;
-        });
-        
-        // Sort grouped data by date
-        const sortedData = Object.values(groupedData).sort((a, b) => a.date.localeCompare(b.date));
-        
-        // Get top categories
-        const topCategories = Object.entries(categories)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 5)
-            .map(([name, count]) => ({ name, count }));
-        
-        // Get top items
-        const topItems = Object.entries(popularItems)
+        const topItems = Object.entries(itemCounts)
             .sort((a, b) => b[1] - a[1])
             .slice(0, 10)
             .map(([name, count]) => ({ name, count }));
-        
-        // Calculate totals
-        const totalRevenue = orders.reduce((sum, order) => sum + order.totalAmount, 0);
-        const totalOrders = orders.length;
-        const totalItems = orders.reduce((sum, order) => 
-            sum + order.items.reduce((itemSum, item) => itemSum + item.quantity, 0), 0);
         
         res.json({
             success: true,
             period: {
                 start: start.toISOString(),
-                end: end.toISOString(),
-                days: Math.ceil((end - start) / (1000 * 60 * 60 * 24))
+                end: end.toISOString()
             },
             summary: {
                 totalRevenue,
                 totalOrders,
-                totalItems,
                 averageOrderValue: totalOrders > 0 ? totalRevenue / totalOrders : 0
             },
-            trends: sortedData,
-            categories: topCategories,
-            popularItems: topItems
+            dailySales,
+            topItems
         });
         
     } catch (error) {
         console.error('Get sales analytics error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Server error'
-        });
-    }
-});
-
-// @route   GET /api/admin/revenue/weekly
-// @desc    Get weekly revenue data
-// @access  Private (Admin)
-router.get('/revenue/weekly', auth, isAdmin, async (req, res) => {
-    try {
-        // Get last 7 days
-        const days = 7;
-        const labels = [];
-        const data = [];
-        
-        // Generate last 7 days
-        for (let i = days - 1; i >= 0; i--) {
-            const date = new Date();
-            date.setDate(date.getDate() - i);
-            date.setHours(0, 0, 0, 0);
-            
-            const nextDate = new Date(date);
-            nextDate.setDate(nextDate.getDate() + 1);
-            
-            // Get day name
-            const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-            labels.push(dayNames[date.getDay()]);
-            
-            // Get revenue for this day
-            const dayOrders = await Order.find({
-                createdAt: { $gte: date, $lt: nextDate },
-                status: 'completed'
-            });
-            
-            const dayRevenue = dayOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
-            data.push(dayRevenue);
-        }
-        
-        res.json({
-            success: true,
-            labels,
-            data
-        });
-        
-    } catch (error) {
-        console.error('Get weekly revenue error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Server error'
-        });
-    }
-});
-
-// @route   GET /api/admin/tables
-// @desc    Get all tables
-// @access  Private (Admin)
-router.get('/tables', auth, isAdmin, async (req, res) => {
-    try {
-        const tables = await Table.find()
-            .sort({ tableNumber: 1 })
-            .select('tableNumber capacity status location currentOrder');
-        
-        const stats = {
-            total: tables.length,
-            available: tables.filter(t => t.status === 'available').length,
-            occupied: tables.filter(t => t.status === 'occupied').length,
-            reserved: tables.filter(t => t.status === 'reserved').length
-        };
-        
-        res.json({
-            success: true,
-            tables,
-            stats
-        });
-        
-    } catch (error) {
-        console.error('Get tables error:', error);
         res.status(500).json({
             success: false,
             message: 'Server error'

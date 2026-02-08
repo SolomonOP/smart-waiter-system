@@ -22,6 +22,7 @@ const CONFIG = {
         ADMIN_MENU_ITEM: (id) => `/api/admin/menu/${id}`,
         ADMIN_MENU_AVAILABILITY: (id) => `/api/admin/menu/${id}/availability`,
         ADMIN_TABLES: '/api/admin/tables',
+        ADMIN_TABLES_BULK: '/api/admin/tables/bulk',
         ADMIN_TABLES_REMOVE: '/api/admin/tables/remove',
         ADMIN_STAFF: '/api/admin/staff',
         ADMIN_STAFF_MEMBER: (id) => `/api/admin/staff/${id}`,
