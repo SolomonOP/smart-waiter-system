@@ -968,26 +968,38 @@
         };
 
         const API = {
-            get: async (url) => {
-                try {
-                    const token = Auth.getToken();
-                    const response = await fetch(CONFIG.BACKEND_URL + url, {
-                        headers: {
-                            'Authorization': `Bearer ${token}`,
-                            'Content-Type': 'application/json'
-                        }
-                    });
-                    
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}`);
-                    }
-                    
-                    return response.json();
-                } catch (error) {
-                    console.error('API GET Error:', error);
-                    throw error;
+    get: async (url) => {
+        try {
+            const token = Auth.getToken();
+            const fullUrl = CONFIG.BACKEND_URL + url;
+            console.log('🔍 [API.get] Fetching from:', fullUrl);
+            
+            const response = await fetch(fullUrl, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
                 }
-            },
+            });
+            
+            console.log('🔍 [API.get] Response status:', response.status);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            
+            const data = await response.json();
+            console.log('🔍 [API.get] Response data:', {
+                success: data.success,
+                count: data.count,
+                ordersLength: data.orders?.length || 0
+            });
+            
+            return data;
+        } catch (error) {
+            console.error('❌ [API.get] Error:', error);
+            throw error;
+        }
+    },
             post: async (url, data) => {
                 try {
                     const token = Auth.getToken();
@@ -1447,36 +1459,70 @@ function initSocket() {
         async function loadOrders() {
     try {
         Loading.show();
-        console.log('🔍 loadOrders() called');
-        console.log('🔍 Using URL:', CONFIG.BACKEND_URL + CONFIG.API_ENDPOINTS.CHEF_ORDERS);
+        console.log('🔍 [loadOrders] STARTED');
+        console.log('🔍 [loadOrders] Using endpoint:', CONFIG.API_ENDPOINTS.CHEF_ORDERS);
+        console.log('🔍 [loadOrders] Current orders length before fetch:', orders.length);
         
         const response = await API.get(CONFIG.API_ENDPOINTS.CHEF_ORDERS);
-        console.log('🔍 API Response:', response);
+        console.log('🔍 [loadOrders] API Response received:', {
+            success: response.success,
+            count: response.count,
+            ordersLength: response.orders?.length || 0
+        });
         
         if (response.success) {
             orders = response.orders || [];
-            console.log('✅ Orders loaded:', orders.length, 'orders');
-            if (orders.length > 0) {
-                console.log('📋 Sample order:', {
+            console.log('✅ [loadOrders] Orders array updated:', {
+                newLength: orders.length,
+                firstOrder: orders[0] ? {
                     id: orders[0]._id,
                     orderNumber: orders[0].orderNumber,
-                    status: orders[0].status,
-                    tableNumber: orders[0].tableNumber
-                });
-            }
+                    status: orders[0].status
+                } : 'No orders'
+            });
+            
+            // Check if renderOrdersByStatus is called
+            console.log('🔍 [loadOrders] Calling renderOrdersByStatus...');
             renderOrdersByStatus();
         } else {
-            console.error('❌ API returned success: false');
+            console.error('❌ [loadOrders] API returned success: false', response);
         }
         
         Loading.hide();
+        console.log('✅ [loadOrders] COMPLETED');
         
     } catch (error) {
         Loading.hide();
-        console.error('❌ loadOrders error:', error);
+        console.error('❌ [loadOrders] Error:', error);
         ErrorHandler.handle(error, 'loadOrders');
     }
 }
+
+// After your loadOrders() function, add:
+window.testFix = function() {
+    console.log('🛠️ Testing fix...');
+    
+    // Manually fetch and set orders
+    fetch('https://smart-waiter-backend.onrender.com/api/chef/orders', {
+        headers: {
+            'Authorization': 'Bearer ' + localStorage.getItem('token')
+        }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            orders = data.orders;
+            console.log('✅ Manually set orders:', orders.length);
+            console.log('First order status:', orders[0]?.status);
+            renderOrdersByStatus();
+        }
+    });
+};
+
+// Run it
+setTimeout(() => {
+    window.testFix();
+}, 1000);
 
         function renderOrdersByStatus() {
     const statusGroups = {
