@@ -1870,7 +1870,7 @@
     }
 }
         
-        async function saveTable() {
+       async function saveTable() {
     try {
         Loading.show('Saving table...');
         
@@ -1881,9 +1881,15 @@
         data.tableNumber = parseInt(data.tableNumber);
         data.capacity = parseInt(data.capacity);
         
+        // FIX: Convert location to lowercase to match enum
+        if (data.location) {
+            data.location = data.location.toLowerCase().trim();
+        } else {
+            data.location = 'near entrance'; // Default value
+        }
+        
         // Ensure required fields
         if (!data.section) data.section = 'main';
-        if (!data.location) data.location = 'Near entrance';
         
         console.log('📦 Saving table:', data);
         

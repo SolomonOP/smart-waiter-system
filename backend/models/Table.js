@@ -3,10 +3,8 @@ const mongoose = require('mongoose');
 const TableSchema = new mongoose.Schema({
     tableNumber: {
         type: Number,
-        required: [true, 'Table number is required'],
-        unique: true,
-        min: [1, 'Table number must be at least 1'],
-        max: [999, 'Table number cannot exceed 999']
+        required: true,
+        unique: true
     },
     tableName: {
         type: String,
@@ -15,39 +13,35 @@ const TableSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: {
-            values: ['available', 'occupied', 'reserved', 'maintenance', 'cleaning'],
-            message: 'Please select a valid table status'
-        },
+        enum: ['available', 'occupied', 'reserved', 'maintenance', 'cleaning'],
         default: 'available'
     },
     capacity: {
         type: Number,
-        required: [true, 'Capacity is required'],
-        min: [1, 'Capacity must be at least 1'],
-        max: [20, 'Capacity cannot exceed 20'],
-        default: 4
+        required: true,
+        min: 1,
+        max: 20
     },
     location: {
         type: String,
-        enum: ['indoor', 'outdoor', 'terrace', 'private', 'vip'],
-        default: 'indoor'
+        default: 'near entrance'
     },
     section: {
         type: String,
-        trim: true,
-        maxlength: [50, 'Section cannot exceed 50 characters']
+        enum: ['main', 'terrace', 'private', 'outdoor'],
+        default: 'main'
     },
     qrCode: {
         type: String,
-        required: true
+        default: '' // Make it optional with default
     },
     qrCodeData: {
         type: String
     },
-    currentOrder: {
+   currentOrder: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Order'
+        ref: 'Order',
+        default: null
     },
     currentCustomer: {
         type: mongoose.Schema.Types.ObjectId,
