@@ -11,9 +11,7 @@ const securityMiddleware = require('./middleware/security');
 const app = express();
 const server = http.createServer(app);
 
-// In your app.js or server.js, add:
-const chefRoutes = require('./routes/chef');
-app.use('/api/chef', chefRoutes);
+
 
 // Make sure JWT secret is available
 if (!process.env.JWT_SECRET) {
