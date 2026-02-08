@@ -1873,10 +1873,10 @@
                             ${table.section ? FormatUtils.capitalize(table.section) : 'N/A'}
                         </div>
                         <div class="d-flex justify-content-center">
-                            <button class="btn btn-sm btn-outline-primary me-1" onclick="editTable('${table._id}', event)">
+                            <button class="btn btn-sm btn-outline-primary me-1" onclick="editTableHandler('${table._id}', event)">
                                 <i class="bi bi-pencil"></i>
                             </button>
-                            <button class="btn btn-sm btn-outline-danger" onclick="deleteTable('${table._id}', event)">
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteTableHandler('${table._id}', event)">
                                 <i class="bi bi-trash"></i>
                             </button>
                         </div>
@@ -2641,15 +2641,15 @@
         document.addEventListener('DOMContentLoaded', initApp);
         
         // Prevent event bubbling for table actions
-        function editTable(tableId, event) {
-            if (event) event.stopPropagation();
-            editTable(tableId);
-        }
-        
-        function deleteTable(tableId, event) {
-            if (event) event.stopPropagation();
-            deleteTable(tableId);
-        }
+        function editTableHandler(tableId, event) {
+    if (event) event.stopPropagation();
+    editTable(tableId); // This calls the actual editTable function
+}
+
+function deleteTableHandler(tableId, event) {
+    if (event) event.stopPropagation();
+    deleteTable(tableId); // This calls the actual deleteTable function
+}
     </script>
 </body>
 </html>
