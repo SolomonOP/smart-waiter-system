@@ -171,6 +171,48 @@ socket.on('order-update', (data) => {
     console.log(`🪑 Socket ${socket.id} joined table: ${tableNumber}`);
   });
 
+  // In server.js socket connection
+socket.on('chef-ready-order', (data) => {
+    console.log('📋 Order ready for billing:', data.orderNumber);
+    // Notify ALL chefs
+    io.to('chef-dashboard').emit('order-ready-broadcast', {
+        orderId: data.orderId,
+        orderNumber: data.orderNumber,
+        tableNumber: data.tableNumber,
+        chefName: data.chefName,
+        timestamp: new Date().toISOString(),
+        message: `Order #${data.orderNumber} is ready for billing`
+    });
+});
+
+socket.on('order-completed-by-chef', (data) => {
+    console.log('✅ Order completed by chef:', data.orderNumber);
+    // Remove from all chefs' current orders
+    io.to('chef-dashboard').emit('order-removed', {
+        orderId: data.orderId,
+        message: 'Order completed and removed'
+    });
+});
+
+// In your frontend JavaScript socket connection
+socket.on('order-ready-broadcast', (data) => {
+    console.log('Broadcast order ready:', data);
+    Toast.show(`Order #${data.orderNumber} from Table ${data.tableNumber} is ready for billing`, 'info');
+    loadOrders(); // Refresh orders list
+});
+
+socket.on('order-removed', (data) => {
+    console.log('Order removed:', data);
+    Toast.show('Order completed and removed from current orders', 'success');
+    loadOrders(); // Refresh orders list
+});
+
+socket.on('order-ready-update', (data) => {
+    console.log('Order ready update:', data);
+    Toast.show(`Order #${data.orderNumber} is ready for billing! Check ready orders.`, 'warning');
+    loadOrders(); // Refresh orders list
+});
+
   // Handle custom events from frontend
   socket.on('new-order', (data) => {
     console.log('📦 New order via socket:', data);

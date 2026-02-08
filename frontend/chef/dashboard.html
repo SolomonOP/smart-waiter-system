@@ -395,6 +395,47 @@
             100% { transform: rotate(360deg); }
         }
         
+        .btn-complete-prep {
+    background: #9b59b6;
+    color: white;
+    border: none;
+}
+
+.btn-complete-prep:hover {
+    background: #8e44ad;
+    transform: scale(1.05);
+}
+
+.btn-download {
+    background: #3498db;
+    color: white;
+    border: none;
+}
+
+.btn-download:hover {
+    background: #2980b9;
+    transform: scale(1.05);
+}
+
+.btn-success {
+    background: var(--success);
+    color: white;
+    border: none;
+}
+
+.btn-success:hover {
+    background: #219653;
+    transform: scale(1.05);
+}
+
+.border-danger {
+    border-color: #e74c3c !important;
+}
+
+.text-muted {
+    opacity: 0.7;
+}
+
         .empty-state {
             text-align: center;
             padding: 40px 20px;
@@ -1332,143 +1373,226 @@
         }
 
         function renderOrdersByStatus() {
-            const statusGroups = {
-                'pending': document.getElementById('pendingOrdersList'),
-                'preparing': document.getElementById('preparingOrdersList'),
-                'ready': document.getElementById('readyOrdersList'),
-                'completed': document.getElementById('completedOrdersList')
-            };
+    const statusGroups = {
+        'pending': document.getElementById('pendingOrdersList'),
+        'preparing': document.getElementById('preparingOrdersList'),
+        'ready': document.getElementById('readyOrdersList'),
+        'completed': document.getElementById('completedOrdersList')
+    };
 
-            // Clear all containers
-            Object.values(statusGroups).forEach(container => {
-                container.innerHTML = '';
-            });
+    // Clear all containers
+    Object.values(statusGroups).forEach(container => {
+        container.innerHTML = '';
+    });
 
-            if (!orders || orders.length === 0) {
-                Object.values(statusGroups).forEach(container => {
-                    container.innerHTML = `
-                        <div class="col-12">
-                            <div class="empty-state">
-                                <i class="fas fa-clipboard-list"></i>
-                                <h5>No orders</h5>
-                                <p>Orders will appear here as they come in</p>
-                            </div>
+    if (!orders || orders.length === 0) {
+        Object.values(statusGroups).forEach(container => {
+            container.innerHTML = `
+                <div class="col-12">
+                    <div class="empty-state">
+                        <i class="fas fa-clipboard-list"></i>
+                        <h5>No orders</h5>
+                        <p>Orders will appear here as they come in</p>
+                    </div>
+                </div>
+            `;
+        });
+        return;
+    }
+
+    // Group orders by status
+    const groupedOrders = {
+        'pending': [],
+        'preparing': [],
+        'ready': [],
+        'completed': []
+    };
+
+    orders.forEach(order => {
+        if (groupedOrders[order.status]) {
+            groupedOrders[order.status].push(order);
+        } else if (order.status === 'confirmed') {
+            groupedOrders['pending'].push(order);
+        }
+    });
+
+    // Render each group
+    Object.keys(groupedOrders).forEach(status => {
+        const container = statusGroups[status];
+        const ordersList = groupedOrders[status];
+
+        if (ordersList.length === 0) {
+            container.innerHTML = `
+                <div class="col-12">
+                    <div class="alert alert-light text-center">
+                        <i class="fas fa-info-circle me-2"></i>
+                        No ${status} orders
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        let html = '';
+        ordersList.forEach(order => {
+            const statusColor = getStatusColor(order.status);
+            const customerEmail = order.customer?.email || order.customerEmail || 'No email';
+            
+            html += `
+                <div class="col-md-6 col-lg-4 mb-4">
+                    <div class="card h-100 order-card order-${order.status}" data-order-id="${order._id}">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0">Order #${order.orderNumber || 'N/A'}</h6>
+                            <span class="badge" style="background-color: ${statusColor}">
+                                ${order.status.toUpperCase()}
+                            </span>
                         </div>
-                    `;
-                });
-                return;
-            }
-
-            // Group orders by status
-            const groupedOrders = {
-                'pending': [],
-                'preparing': [],
-                'ready': [],
-                'completed': []
-            };
-
-            orders.forEach(order => {
-                if (groupedOrders[order.status]) {
-                    groupedOrders[order.status].push(order);
-                } else if (order.status === 'confirmed') {
-                    groupedOrders['pending'].push(order);
-                }
-            });
-
-            // Render each group
-            Object.keys(groupedOrders).forEach(status => {
-                const container = statusGroups[status];
-                const ordersList = groupedOrders[status];
-
-                if (ordersList.length === 0) {
-                    container.innerHTML = `
-                        <div class="col-12">
-                            <div class="alert alert-light text-center">
-                                <i class="fas fa-info-circle me-2"></i>
-                                No ${status} orders
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <small class="text-muted d-block">
+                                    <i class="fas fa-chair me-1"></i>Table ${order.tableNumber}
+                                </small>
+                                <small class="text-muted d-block">
+                                    <i class="fas fa-clock me-1"></i>${FormatUtils.formatTime(order.createdAt)}
+                                </small>
+                                <small class="text-muted d-block">
+                                    <i class="fas fa-user me-1"></i>${order.customerName}
+                                </small>
+                                <small class="text-muted d-block">
+                                    <i class="fas fa-envelope me-1"></i>${customerEmail}
+                                </small>
                             </div>
-                        </div>
-                    `;
-                    return;
-                }
-
-                let html = '';
-                ordersList.forEach(order => {
-                    const statusColor = getStatusColor(order.status);
-                    
-                    html += `
-                        <div class="col-md-6 col-lg-4 mb-4">
-                            <div class="card h-100 order-card order-${order.status}" data-order-id="${order._id}">
-                                <div class="card-header d-flex justify-content-between align-items-center">
-                                    <h6 class="mb-0">Order #${order.orderNumber || 'N/A'}</h6>
-                                    <span class="badge" style="background-color: ${statusColor}">
-                                        ${order.status.toUpperCase()}
-                                    </span>
+                            
+                            <div class="order-items mb-3">
+                                <h6 class="small mb-2">Items:</h6>
+                                ${order.items && order.items.length > 0 ? 
+                                    order.items.map(item => `
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <span class="small">${item.quantity}x ${item.name}</span>
+                                            <span class="small text-muted">${FormatUtils.formatCurrency(item.price)}</span>
+                                        </div>
+                                    `).join('') : 
+                                    '<div class="text-muted">No items</div>'
+                                }
+                            </div>
+                            
+                            ${order.specialInstructions ? `
+                                <div class="mb-3">
+                                    <h6 class="small mb-1">Instructions:</h6>
+                                    <p class="small text-muted mb-0">${order.specialInstructions}</p>
                                 </div>
-                                <div class="card-body">
-                                    <div class="mb-3">
-                                        <small class="text-muted d-block">
-                                            <i class="fas fa-chair me-1"></i>Table ${order.tableNumber}
-                                        </small>
-                                        <small class="text-muted d-block">
-                                            <i class="fas fa-clock me-1"></i>${FormatUtils.formatTime(order.createdAt)}
-                                        </small>
-                                        ${order.customerName ? `
-                                            <small class="text-muted d-block">
-                                                <i class="fas fa-user me-1"></i>${order.customerName}
-                                            </small>
-                                        ` : ''}
-                                    </div>
-                                    
-                                    <div class="order-items mb-3">
-                                        <h6 class="small mb-2">Items:</h6>
-                                        ${order.items && order.items.length > 0 ? 
-                                            order.items.map(item => `
-                                                <div class="d-flex justify-content-between align-items-center mb-1">
-                                                    <span class="small">${item.quantity}x ${item.name}</span>
-                                                    <span class="small text-muted">${FormatUtils.formatCurrency(item.price)}</span>
-                                                </div>
-                                            `).join('') : 
-                                            '<div class="text-muted">No items</div>'
-                                        }
-                                    </div>
-                                    
-                                    ${order.specialInstructions ? `
-                                        <div class="mb-3">
-                                            <h6 class="small mb-1">Instructions:</h6>
-                                            <p class="small text-muted mb-0">${order.specialInstructions}</p>
+                            ` : ''}
+                            
+                            <div class="d-flex justify-content-between align-items-center mt-auto">
+                                <h5 class="mb-0">${FormatUtils.formatCurrency(order.totalAmount || 0)}</h5>
+                                <div>
+                                    ${order.status === 'pending' || order.status === 'confirmed' ? `
+                                        <button class="btn btn-accept btn-sm" onclick="acceptOrder('${order._id}')">
+                                            <i class="fas fa-check me-1"></i>Accept
+                                        </button>
+                                    ` : ''}
+                                    ${order.status === 'preparing' ? `
+                                        <button class="btn btn-complete-prep btn-sm" onclick="completePreparation('${order._id}')">
+                                            <i class="fas fa-check-double me-1"></i>Complete Prep
+                                        </button>
+                                    ` : ''}
+                                    ${order.status === 'ready' ? `
+                                        <div class="btn-group">
+                                            <button class="btn btn-download btn-sm" onclick="downloadBill('${order._id}')">
+                                                <i class="fas fa-download me-1"></i>Bill
+                                            </button>
+                                            <button class="btn btn-success btn-sm" onclick="finalCompleteOrder('${order._id}')">
+                                                <i class="fas fa-check-circle me-1"></i>Complete
+                                            </button>
                                         </div>
                                     ` : ''}
-                                    
-                                    <div class="d-flex justify-content-between align-items-center mt-auto">
-                                        <h5 class="mb-0">${FormatUtils.formatCurrency(order.totalAmount || 0)}</h5>
-                                        <div>
-                                            ${order.status === 'pending' || order.status === 'confirmed' ? `
-                                                <button class="btn btn-accept btn-sm" onclick="acceptOrder('${order._id}')">
-                                                    <i class="fas fa-check me-1"></i>Accept
-                                                </button>
-                                            ` : ''}
-                                            ${order.status === 'preparing' ? `
-                                                <button class="btn btn-ready btn-sm" onclick="markAsReady('${order._id}')">
-                                                    <i class="fas fa-check-double me-1"></i>Ready
-                                                </button>
-                                            ` : ''}
-                                            ${order.status === 'ready' ? `
-                                                <button class="btn btn-complete btn-sm" onclick="completeOrder('${order._id}')">
-                                                    <i class="fas fa-check-circle me-1"></i>Complete
-                                                </button>
-                                            ` : ''}
-                                        </div>
-                                    </div>
                                 </div>
                             </div>
                         </div>
-                    `;
-                });
+                    </div>
+                </div>
+            `;
+        });
 
-                container.innerHTML = html;
-            });
+        container.innerHTML = html;
+    });
+}
+
+// Add these new functions to your JavaScript:
+
+async function completePreparation(orderId) {
+    try {
+        Loading.show('Marking order as ready...');
+        
+        const response = await API.post(`${CONFIG.API_ENDPOINTS.CHEF_UPDATE_ORDER}/${orderId}/complete-prep`, {});
+        
+        if (response.success) {
+            Toast.show('Order marked as ready for billing! All chefs notified.', 'success');
+            await Promise.all([loadDashboard(), loadOrders()]);
         }
+        
+        Loading.hide();
+        
+    } catch (error) {
+        Loading.hide();
+        ErrorHandler.handle(error, 'completePreparation');
+    }
+}
+
+async function downloadBill(orderId) {
+    try {
+        const token = Auth.getToken();
+        const response = await fetch(`${CONFIG.BACKEND_URL}/api/chef/orders/${orderId}/bill`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to download bill');
+        }
+        
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `receipt-${orderId}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        Toast.show('Bill downloaded successfully!', 'success');
+        
+    } catch (error) {
+        console.error('Download bill error:', error);
+        Toast.show('Failed to download bill', 'error');
+    }
+}
+
+async function finalCompleteOrder(orderId) {
+    try {
+        if (!confirm('Are you sure you want to complete this order? This will send the bill to customer email.')) {
+            return;
+        }
+        
+        Loading.show('Completing order...');
+        
+        const response = await API.post(`${CONFIG.API_ENDPOINTS.CHEF_UPDATE_ORDER}/${orderId}/final-complete`, {});
+        
+        if (response.success) {
+            Toast.show('Order completed! Bill sent to customer email.', 'success');
+            await Promise.all([loadDashboard(), loadOrders()]);
+        }
+        
+        Loading.hide();
+        
+    } catch (error) {
+        Loading.hide();
+        ErrorHandler.handle(error, 'finalCompleteOrder');
+    }
+}
+
 
         async function acceptOrder(orderId) {
             try {
@@ -1548,67 +1672,46 @@
         }
 
         function renderMenuItems(items) {
-            const container = document.getElementById('menuItemsGrid');
-            container.innerHTML = '';
-            
-            if (!items || items.length === 0) {
-                container.innerHTML = `
-                    <div class="col-12">
-                        <div class="empty-state">
-                            <i class="fas fa-utensils"></i>
-                            <h5>No menu items</h5>
-                            <p>Add menu items from the admin panel</p>
-                        </div>
-                    </div>
-                `;
-                return;
-            }
-            
-            items.forEach(item => {
-                const col = document.createElement('div');
-                col.className = 'col-md-4 mb-4';
-                col.innerHTML = `
-                    <div class="card menu-item-card h-100">
-                        <div class="position-relative">
-                            ${item.image ? 
-                                `<img src="${item.image}" class="card-img-top" alt="${item.name}" style="height: 180px; object-fit: cover;">` : 
-                                `<div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 180px;">
-                                    <i class="fas fa-utensils fa-3x text-muted"></i>
-                                </div>`
-                            }
-                            <span class="position-absolute top-0 end-0 m-2 badge ${item.available ? 'bg-success' : 'bg-danger'}">
-                                ${item.available ? 'Available' : 'Unavailable'}
-                            </span>
-                        </div>
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                <h5 class="card-title mb-0">${item.name}</h5>
-                                <span class="badge bg-primary">${FormatUtils.formatCategory(item.category)}</span>
-                            </div>
-                            <p class="card-text text-muted small mb-3">${item.description || 'No description available'}</p>
-                            <div class="d-flex justify-content-between align-items-center">
-                                <h4 class="text-primary mb-0">${FormatUtils.formatCurrency(item.price)}</h4>
-                                <div>
-                                    <div class="form-check form-switch">
-                                        <input class="form-check-input" type="checkbox" 
-                                               id="toggle-${item._id}"
-                                               ${item.available ? 'checked' : ''}
-                                               onchange="updateMenuItemStatus('${item._id}', this.checked)">
-                                        <label class="form-check-label" for="toggle-${item._id}"></label>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="mt-3">
-                                <small class="text-muted">
-                                    <i class="fas fa-clock me-1"></i> ${item.preparationTime || 'N/A'} mins
-                                </small>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                container.appendChild(col);
-            });
-        }
+    const container = document.getElementById('menuItemsGrid');
+    container.innerHTML = '';
+    
+    if (!items || items.length === 0) {
+        container.innerHTML = `
+            <div class="col-12">
+                <div class="empty-state">
+                    <i class="fas fa-utensils"></i>
+                    <h5>No menu items</h5>
+                    <p>Add menu items from the admin panel</p>
+                </div>
+            </div>
+        `;
+        return;
+    }
+    
+    // Separate available and unavailable items
+    const availableItems = items.filter(item => item.available);
+    const unavailableItems = items.filter(item => !item.available);
+    
+    let html = '';
+    
+    // Show available items first
+    if (availableItems.length > 0) {
+        html += '<div class="col-12"><h5 class="mb-3 text-success"><i class="fas fa-check-circle me-2"></i>Available Items</h5></div>';
+        availableItems.forEach(item => {
+            html += renderMenuItemCard(item);
+        });
+    }
+    
+    // Show unavailable items in a separate section
+    if (unavailableItems.length > 0) {
+        html += '<div class="col-12 mt-4"><h5 class="mb-3 text-danger"><i class="fas fa-times-circle me-2"></i>Unavailable Items</h5></div>';
+        unavailableItems.forEach(item => {
+            html += renderMenuItemCard(item);
+        });
+    }
+    
+    container.innerHTML = html;
+}
 
         async function updateMenuItemStatus(itemId, isAvailable) {
             try {
@@ -1631,6 +1734,50 @@
             }
         }
 
+        function renderMenuItemCard(item) {
+    return `
+        <div class="col-md-4 mb-4">
+            <div class="card menu-item-card h-100 ${!item.available ? 'border-danger border-2' : ''}">
+                <div class="position-relative">
+                    ${item.image ? 
+                        `<img src="${item.image}" class="card-img-top" alt="${item.name}" style="height: 180px; object-fit: cover;">` : 
+                        `<div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 180px;">
+                            <i class="fas fa-utensils fa-3x text-muted"></i>
+                        </div>`
+                    }
+                    <span class="position-absolute top-0 end-0 m-2 badge ${item.available ? 'bg-success' : 'bg-danger'}">
+                        ${item.available ? 'Available' : 'Unavailable'}
+                    </span>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h5 class="card-title mb-0 ${!item.available ? 'text-muted' : ''}">${item.name}</h5>
+                        <span class="badge bg-primary">${FormatUtils.formatCategory(item.category)}</span>
+                    </div>
+                    <p class="card-text ${!item.available ? 'text-muted' : 'text-muted'} small mb-3">${item.description || 'No description available'}</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h4 class="text-primary mb-0">${FormatUtils.formatCurrency(item.price)}</h4>
+                        <div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" 
+                                       id="toggle-${item._id}"
+                                       ${item.available ? 'checked' : ''}
+                                       onchange="updateMenuItemStatus('${item._id}', this.checked)">
+                                <label class="form-check-label" for="toggle-${item._id}"></label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <small class="text-muted">
+                            <i class="fas fa-clock me-1"></i> ${item.preparationTime || 'N/A'} mins
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
         function searchMenuItems() {
             const searchTerm = document.getElementById('menuSearch').value.toLowerCase();
             
@@ -1650,22 +1797,34 @@
         }
 
         function filterMenu(filterType) {
-            let filteredItems = [];
-            
-            switch(filterType) {
-                case 'available':
-                    filteredItems = menuItems.filter(item => item.available);
-                    break;
-                case 'unavailable':
-                    filteredItems = menuItems.filter(item => !item.available);
-                    break;
-                default:
-                    filteredItems = menuItems;
-            }
-            
-            document.getElementById('menuItemsGrid').innerHTML = '';
-            renderMenuItems(filteredItems);
-        }
+    let filteredItems = [];
+    
+    switch(filterType) {
+        case 'available':
+            filteredItems = menuItems.filter(item => item.available);
+            break;
+        case 'unavailable':
+            filteredItems = menuItems.filter(item => !item.available);
+            break;
+        default:
+            filteredItems = menuItems;
+    }
+    
+    document.getElementById('menuItemsGrid').innerHTML = '';
+    if (filteredItems.length === 0) {
+        document.getElementById('menuItemsGrid').innerHTML = `
+            <div class="col-12">
+                <div class="empty-state">
+                    <i class="fas fa-utensils"></i>
+                    <h5>No menu items found</h5>
+                    <p>Try a different filter</p>
+                </div>
+            </div>
+        `;
+    } else {
+        renderMenuItems(filteredItems);
+    }
+}
 
         function filterByCategory(category) {
             const buttons = document.querySelectorAll('.btn-outline-primary');

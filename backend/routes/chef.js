@@ -3,6 +3,8 @@ const router = express.Router();
 const { check, validationResult } = require('express-validator');
 const auth = require('../middleware/auth');
 const { Order, MenuItem, Table, User } = require('../models');
+const PDFDocument = require('pdfkit');
+const nodemailer = require('nodemailer');
 
 // Middleware to check if user is a chef
 const isChef = (req, res, next) => {
@@ -13,6 +15,163 @@ const isChef = (req, res, next) => {
         });
     }
     next();
+};
+
+// Create PDF bill
+const createPDFBill = (order) => {
+    return new Promise((resolve, reject) => {
+        try {
+            const doc = new PDFDocument({ margin: 50 });
+            const chunks = [];
+            
+            doc.on('data', chunk => chunks.push(chunk));
+            doc.on('end', () => {
+                const pdfBuffer = Buffer.concat(chunks);
+                resolve(pdfBuffer);
+            });
+            
+            // Restaurant header
+            doc.fontSize(24).text('SMART WAITER RESTAURANT', { align: 'center' });
+            doc.moveDown(0.5);
+            doc.fontSize(12).text('123 Restaurant Street, Food City', { align: 'center' });
+            doc.fontSize(12).text('Phone: (123) 456-7890 | Email: info@smartwaiter.com', { align: 'center' });
+            doc.moveDown();
+            
+            // Order details
+            doc.fontSize(16).text('ORDER RECEIPT', { align: 'center' });
+            doc.moveDown();
+            
+            doc.fontSize(12);
+            doc.text(`Order Number: ${order.orderNumber}`);
+            doc.text(`Table Number: ${order.tableNumber}`);
+            doc.text(`Customer: ${order.customerName}`);
+            doc.text(`Date: ${new Date(order.createdAt).toLocaleDateString()}`);
+            doc.text(`Time: ${new Date(order.createdAt).toLocaleTimeString()}`);
+            doc.moveDown();
+            
+            // Items table header
+            doc.text('ITEMS', { underline: true });
+            doc.moveDown(0.5);
+            
+            // Items table
+            let yPos = doc.y;
+            doc.font('Helvetica-Bold');
+            doc.text('Item', 50, yPos);
+            doc.text('Qty', 300, yPos);
+            doc.text('Price', 350, yPos);
+            doc.text('Total', 400, yPos);
+            
+            doc.font('Helvetica');
+            yPos += 20;
+            
+            order.items.forEach(item => {
+                doc.text(item.name, 50, yPos, { width: 240 });
+                doc.text(item.quantity.toString(), 300, yPos);
+                doc.text(`$${item.price.toFixed(2)}`, 350, yPos);
+                doc.text(`$${(item.price * item.quantity).toFixed(2)}`, 400, yPos);
+                yPos += 20;
+                
+                // Add special instructions if any
+                if (item.specialInstructions) {
+                    doc.fontSize(10).text(`  Note: ${item.specialInstructions}`, 60, yPos, { width: 280 });
+                    yPos += 20;
+                    doc.fontSize(12);
+                }
+            });
+            
+            doc.moveDown(2);
+            
+            // Totals
+            const totalsY = doc.y;
+            doc.text(`Subtotal:`, 300, totalsY);
+            doc.text(`$${order.subtotal.toFixed(2)}`, 400, totalsY);
+            
+            doc.text(`Tax (10%):`, 300, totalsY + 20);
+            doc.text(`$${order.tax.toFixed(2)}`, 400, totalsY + 20);
+            
+            doc.text(`Service Charge (5%):`, 300, totalsY + 40);
+            doc.text(`$${order.serviceCharge.toFixed(2)}`, 400, totalsY + 40);
+            
+            if (order.discount > 0) {
+                doc.text(`Discount:`, 300, totalsY + 60);
+                doc.text(`-$${order.discount.toFixed(2)}`, 400, totalsY + 60);
+            }
+            
+            doc.font('Helvetica-Bold');
+            doc.text(`Total Amount:`, 300, totalsY + 80);
+            doc.text(`$${order.totalAmount.toFixed(2)}`, 400, totalsY + 80);
+            
+            doc.moveDown(3);
+            doc.font('Helvetica');
+            doc.fontSize(10).text('Thank you for dining with us!', { align: 'center' });
+            doc.text('Please visit us again soon!', { align: 'center' });
+            doc.moveDown();
+            doc.text(`Chef: ${order.chefName || 'Kitchen Staff'}`, { align: 'center' });
+            doc.text(`Order Status: ${order.status.toUpperCase()}`, { align: 'center' });
+            
+            doc.end();
+            
+        } catch (error) {
+            reject(error);
+        }
+    });
+};
+
+// Send email with bill
+const sendBillEmail = async (order, pdfBuffer) => {
+    try {
+        // Create transporter
+        const transporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: {
+                user: process.env.EMAIL_USER,
+                pass: process.env.EMAIL_PASS
+            }
+        });
+        
+        const mailOptions = {
+            from: `"Smart Waiter Restaurant" <${process.env.EMAIL_USER}>`,
+            to: order.customerEmail || 'customer@example.com',
+            subject: `Your Order Receipt - ${order.orderNumber}`,
+            text: `Thank you for dining with us!\n\nOrder Number: ${order.orderNumber}\nTable: ${order.tableNumber}\nTotal: $${order.totalAmount.toFixed(2)}\n\nPlease find your receipt attached.\n\nWe hope to see you again soon!`,
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <h2 style="color: #2c3e50;">Thank you for dining with us!</h2>
+                    <p>Your order has been completed successfully.</p>
+                    
+                    <div style="background: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0;">
+                        <h3 style="margin-top: 0;">Order Details</h3>
+                        <p><strong>Order Number:</strong> ${order.orderNumber}</p>
+                        <p><strong>Table Number:</strong> ${order.tableNumber}</p>
+                        <p><strong>Customer Name:</strong> ${order.customerName}</p>
+                        <p><strong>Total Amount:</strong> $${order.totalAmount.toFixed(2)}</p>
+                        <p><strong>Status:</strong> ${order.status.toUpperCase()}</p>
+                        <p><strong>Chef:</strong> ${order.chefName || 'Kitchen Staff'}</p>
+                    </div>
+                    
+                    <p>Please find your detailed receipt attached to this email.</p>
+                    <p>We hope to see you again soon!</p>
+                    <br>
+                    <p>Best regards,<br>
+                    <strong>Smart Waiter Restaurant</strong></p>
+                </div>
+            `,
+            attachments: [
+                {
+                    filename: `receipt-${order.orderNumber}.pdf`,
+                    content: pdfBuffer,
+                    contentType: 'application/pdf'
+                }
+            ]
+        };
+        
+        await transporter.sendMail(mailOptions);
+        console.log(`Email sent for order ${order.orderNumber}`);
+        
+    } catch (error) {
+        console.error('Email sending error:', error);
+        throw error;
+    }
 };
 
 // @route   GET /api/chef/orders
@@ -33,7 +192,7 @@ router.get('/orders', auth, isChef, async (req, res) => {
         const orders = await Order.find(query)
             .sort({ createdAt: -1 })
             .populate('items.menuItem', 'name category preparationTime')
-            .populate('customer', 'firstName lastName')
+            .populate('customer', 'firstName lastName email')
             .populate('assignedChef', 'firstName lastName');
         
         res.json({
@@ -72,6 +231,7 @@ router.get('/orders/stats', auth, isChef, async (req, res) => {
             pending: todayOrders.filter(o => o.status === 'pending' || o.status === 'confirmed').length,
             preparing: todayOrders.filter(o => o.status === 'preparing').length,
             ready: todayOrders.filter(o => o.status === 'ready').length,
+            completed: todayOrders.filter(o => o.status === 'completed').length,
             totalToday: todayOrders.length
         };
         
@@ -157,10 +317,10 @@ router.post('/orders/:id/accept', auth, isChef, async (req, res) => {
     }
 });
 
-// @route   POST /api/chef/orders/:id/ready
-// @desc    Mark order as ready
+// @route   POST /api/chef/orders/:id/complete-prep
+// @desc    Complete preparation and mark as ready
 // @access  Private (Chef)
-router.post('/orders/:id/ready', auth, isChef, async (req, res) => {
+router.post('/orders/:id/complete-prep', auth, isChef, async (req, res) => {
     try {
         const order = await Order.findById(req.params.id);
         
@@ -174,7 +334,7 @@ router.post('/orders/:id/ready', auth, isChef, async (req, res) => {
         if (order.status !== 'preparing') {
             return res.status(400).json({
                 success: false,
-                message: `Order cannot be marked as ready in ${order.status} status`
+                message: `Order cannot be completed in ${order.status} status`
             });
         }
         
@@ -197,15 +357,18 @@ router.post('/orders/:id/ready', auth, isChef, async (req, res) => {
         
         await order.save();
         
-        // Real-time notification
+        // Real-time notification to ALL chefs
         const io = req.app.get('io');
         if (io) {
-            io.emit('order-status-update', {
+            // Notify all chefs
+            io.to('chef-dashboard').emit('order-ready-update', {
                 orderId: order._id,
                 orderNumber: order.orderNumber,
+                tableNumber: order.tableNumber,
                 status: order.status,
-                message: 'Order is ready!',
-                timestamp: new Date().toISOString()
+                chefName: order.chefName,
+                timestamp: new Date().toISOString(),
+                message: 'Order is ready for billing!'
             });
             
             // Notify specific table
@@ -218,7 +381,7 @@ router.post('/orders/:id/ready', auth, isChef, async (req, res) => {
         
         res.json({
             success: true,
-            message: 'Order marked as ready',
+            message: 'Order marked as ready for billing',
             order: {
                 id: order._id,
                 orderNumber: order.orderNumber,
@@ -229,7 +392,7 @@ router.post('/orders/:id/ready', auth, isChef, async (req, res) => {
         });
         
     } catch (error) {
-        console.error('Mark order ready error:', error);
+        console.error('Complete prep error:', error);
         res.status(500).json({
             success: false,
             message: 'Server error'
@@ -237,12 +400,47 @@ router.post('/orders/:id/ready', auth, isChef, async (req, res) => {
     }
 });
 
-// @route   POST /api/chef/orders/:id/complete
-// @desc    Mark order as completed (served)
+// @route   GET /api/chef/orders/:id/bill
+// @desc    Download bill as PDF
 // @access  Private (Chef)
-router.post('/orders/:id/complete', auth, isChef, async (req, res) => {
+router.get('/orders/:id/bill', auth, isChef, async (req, res) => {
     try {
-        const order = await Order.findById(req.params.id);
+        const order = await Order.findById(req.params.id)
+            .populate('customer', 'firstName lastName email');
+        
+        if (!order) {
+            return res.status(404).json({
+                success: false,
+                message: 'Order not found'
+            });
+        }
+        
+        // Create PDF bill
+        const pdfBuffer = await createPDFBill(order);
+        
+        // Set response headers
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="receipt-${order.orderNumber}.pdf"`);
+        res.setHeader('Content-Length', pdfBuffer.length);
+        
+        res.send(pdfBuffer);
+        
+    } catch (error) {
+        console.error('Download bill error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to generate bill'
+        });
+    }
+});
+
+// @route   POST /api/chef/orders/:id/final-complete
+// @desc    Final complete order with email
+// @access  Private (Chef)
+router.post('/orders/:id/final-complete', auth, isChef, async (req, res) => {
+    try {
+        const order = await Order.findById(req.params.id)
+            .populate('customer', 'firstName lastName email');
         
         if (!order) {
             return res.status(404).json({
@@ -256,6 +454,19 @@ router.post('/orders/:id/complete', auth, isChef, async (req, res) => {
                 success: false,
                 message: `Order cannot be completed in ${order.status} status`
             });
+        }
+        
+        // Create PDF bill first
+        const pdfBuffer = await createPDFBill(order);
+        
+        // Send email with bill
+        if (order.customer?.email) {
+            try {
+                await sendBillEmail(order, pdfBuffer);
+            } catch (emailError) {
+                console.error('Email sending failed:', emailError);
+                // Continue with order completion even if email fails
+            }
         }
         
         // Update order
@@ -293,18 +504,26 @@ router.post('/orders/:id/complete', auth, isChef, async (req, res) => {
         // Real-time notification
         const io = req.app.get('io');
         if (io) {
+            // Notify customer
+            io.to(`table:${order.tableNumber}`).emit('order-completed', {
+                message: 'Thank you for dining with us! Your bill has been sent to your email.',
+                status: order.status,
+                orderId: order._id
+            });
+            
+            // Notify chefs
             io.emit('order-status-update', {
                 orderId: order._id,
                 orderNumber: order.orderNumber,
                 status: order.status,
-                message: 'Order completed',
+                message: 'Order completed successfully',
                 timestamp: new Date().toISOString()
             });
         }
         
         res.json({
             success: true,
-            message: 'Order marked as completed',
+            message: 'Order completed successfully. Bill sent to customer email.',
             order: {
                 id: order._id,
                 orderNumber: order.orderNumber,
@@ -314,7 +533,7 @@ router.post('/orders/:id/complete', auth, isChef, async (req, res) => {
         });
         
     } catch (error) {
-        console.error('Complete order error:', error);
+        console.error('Final complete error:', error);
         res.status(500).json({
             success: false,
             message: 'Server error'
@@ -471,11 +690,11 @@ router.post('/service-requests/:id/complete', auth, isChef, async (req, res) => 
 });
 
 // @route   GET /api/chef/menu
-// @desc    Get menu items for chef
+// @desc    Get menu items for chef (including unavailable)
 // @access  Private (Chef)
 router.get('/menu', auth, isChef, async (req, res) => {
     try {
-        const { category, available } = req.query;
+        const { category, available, showUnavailable = 'true' } = req.query;
         
         let query = {};
         
@@ -483,12 +702,13 @@ router.get('/menu', auth, isChef, async (req, res) => {
             query.category = category;
         }
         
+        // Show both available and unavailable items by default
         if (available !== undefined) {
             query.available = available === 'true';
         }
         
         const menuItems = await MenuItem.find(query)
-            .sort({ category: 1, name: 1 });
+            .sort({ available: -1, category: 1, name: 1 }); // Show available items first
         
         res.json({
             success: true,
@@ -584,7 +804,7 @@ router.post('/orders/new', auth, isChef, [
             });
         }
         
-        const { tableNumber, items, specialInstructions, customerName } = req.body;
+        const { tableNumber, items, specialInstructions, customerName, customerEmail } = req.body;
         
         console.log('Creating new order for table:', tableNumber);
         console.log('Items:', items);
@@ -667,6 +887,7 @@ router.post('/orders/new', auth, isChef, [
             orderNumber,
             tableNumber,
             customerName: customerName || 'Walk-in Customer',
+            customerEmail: customerEmail || null,
             items: orderItems,
             subtotal,
             tax,
@@ -756,6 +977,7 @@ router.get('/dashboard-stats', auth, isChef, async (req, res) => {
             pending: todayOrders.filter(o => o.status === 'pending' || o.status === 'confirmed').length,
             preparing: todayOrders.filter(o => o.status === 'preparing').length,
             ready: todayOrders.filter(o => o.status === 'ready').length,
+            completed: todayOrders.filter(o => o.status === 'completed').length,
             totalToday: todayOrders.length
         };
         
@@ -765,7 +987,8 @@ router.get('/dashboard-stats', auth, isChef, async (req, res) => {
         })
         .sort({ createdAt: -1 })
         .limit(5)
-        .populate('items.menuItem', 'name');
+        .populate('items.menuItem', 'name')
+        .populate('customer', 'firstName lastName email');
         
         // Get service requests from orders
         const ordersWithRequests = await Order.find({
