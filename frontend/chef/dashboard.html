@@ -278,23 +278,23 @@
         </div>
         <ul class="sidebar-menu">
             <li>
-                <a href="#" class="active" onclick="showSection('dashboard')">
-                    <i class="fas fa-tachometer-alt icon"></i>
-                    <span class="menu-text">Dashboard</span>
-                </a>
-            </li>
-            <li>
-                <a href="#" onclick="showSection('menu-management')">
-                    <i class="fas fa-utensils icon"></i>
-                    <span class="menu-text">Menu Management</span>
-                </a>
-            </li>
-            <li>
-                <a href="#" onclick="showSection('new-order')">
-                    <i class="fas fa-plus-circle icon"></i>
-                    <span class="menu-text">New Order</span>
-                </a>
-            </li>
+        <a href="#" class="active" onclick="showSection('dashboard')">
+            <i class="fas fa-tachometer-alt icon"></i>
+            <span class="menu-text">Dashboard</span>
+        </a>
+    </li>
+    <li>
+        <a href="#" onclick="showSection('menuManagement')">
+            <i class="fas fa-utensils icon"></i>
+            <span class="menu-text">Menu Management</span>
+        </a>
+    </li>
+    <li>
+        <a href="#" onclick="showSection('newOrder')">
+            <i class="fas fa-plus-circle icon"></i>
+            <span class="menu-text">New Order</span>
+        </a>
+    </li>
             <li>
                 <a href="#" onclick="logout()">
                     <i class="fas fa-sign-out-alt icon"></i>
@@ -343,7 +343,8 @@
                     <button class="btn btn-primary me-2" onclick="loadDashboard()">
                         <i class="fas fa-sync-alt me-1"></i> Refresh
                     </button>
-                    <button class="btn btn-success" onclick="showSection('new-order')">
+                    <button class="btn btn-success" onclick="showSection('newOrder')">
+
                         <i class="fas fa-plus me-1"></i> New Order
                     </button>
                 </div>
@@ -580,13 +581,14 @@
                     
                     socket.on('connect', () => {
                         console.log('Socket connected successfully');
-                        showNotification('Live updates connected', 'success');
+                        Toast.show('Live updates connected', 'success');
                         showAutoRefreshIndicator(true);
                     });
                     
                     socket.on('disconnect', () => {
                         console.log('Socket disconnected');
-                        showNotification('Live updates disconnected', 'warning');
+                        Toast.show('Live updates disconnected', 'warning');
+
                         showAutoRefreshIndicator(false);
                     });
                     
@@ -687,40 +689,46 @@
         };
 
         const Toast = {
-            show: (message, type = 'info') => {
-                const toastContainer = document.querySelector('.toast-container');
-                if (!toastContainer) {
-                    // Create toast container if it doesn't exist
-                    const container = document.createElement('div');
-                    container.className = 'toast-container position-fixed top-0 end-0 p-3';
-                    container.style.zIndex = '9999';
-                    document.body.appendChild(container);
-                }
-                
-                const toastId = 'toast-' + Date.now();
-                
-                const typeClasses = {
-                    success: 'bg-success text-white',
-                    error: 'bg-danger text-white',
-                    warning: 'bg-warning text-dark',
-                    info: 'bg-info text-white'
-                };
-                
-                const toastHtml = `
-                    <div id="${toastId}" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
-                        <div class="toast-header ${typeClasses[type] || 'bg-primary text-white'}">
-                            <strong class="me-auto">Chef Dashboard</strong>
-                            <small>Just now</small>
-                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
-                        </div>
-                        <div class="toast-body">
-                            ${message}
-                        </div>
-                    </div>
-                `;
-                
-                toastContainer.insertAdjacentHTML('beforeend', toastHtml);
-                const toastElement = document.getElementById(toastId);
+    show: (message, type = 'info') => {
+        // Ensure we have a toast container
+        let toastContainer = document.querySelector('.toast-container');
+        
+        // Create container if it doesn't exist
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
+            toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+            toastContainer.style.cssText = 'z-index: 9999;';
+            document.body.appendChild(toastContainer);
+        }
+        
+        const toastId = 'toast-' + Date.now();
+        
+        const typeClasses = {
+            success: 'bg-success text-white',
+            error: 'bg-danger text-white',
+            warning: 'bg-warning text-dark',
+            info: 'bg-info text-white'
+        };
+        
+        const toastHtml = `
+            <div id="${toastId}" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="toast-header ${typeClasses[type] || 'bg-primary text-white'}">
+                    <strong class="me-auto">Chef Dashboard</strong>
+                    <small>Just now</small>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+                </div>
+                <div class="toast-body">
+                    ${message}
+                </div>
+            </div>
+        `;
+        
+        // Safely insert HTML
+        if (toastContainer && toastContainer.insertAdjacentHTML) {
+            toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+            
+            const toastElement = document.getElementById(toastId);
+            if (toastElement) {
                 const toast = new bootstrap.Toast(toastElement, { 
                     delay: 3000,
                     autohide: true
@@ -732,7 +740,12 @@
                     toastElement.remove();
                 });
             }
-        };
+        } else {
+            // Fallback: use alert for very old browsers
+            console.log(`Toast: ${type} - ${message}`);
+        }
+    }
+};
 
         const Loading = {
             show: (message = 'Loading...') => {
@@ -873,14 +886,14 @@
             
             if (socket) {
                 // New order received
-                socket.on('new-order', (order) => {
-                    console.log('New order received:', order);
-                    addNotification(`New order #${order.orderNumber} for table ${order.tableNumber}`, 'info');
-                    if (AppState.currentSection === 'dashboard') {
-                        loadDashboard();
-                    }
-                });
-                
+socket.on('new-order', (order) => {
+    console.log('New order received:', order);
+    addNotification(`New order #${order.orderNumber} for table ${order.tableNumber}`, 'info');
+    Toast.show(`New order #${order.orderNumber} for table ${order.tableNumber}`, 'info');
+    if (AppState.currentSection === 'dashboard') {
+        loadDashboard();
+    }
+});                
                 // Order status change
                 socket.on('status-update', (data) => {
                     console.log('Order status changed:', data);
@@ -920,45 +933,77 @@
         }
         
         // Show section
-        async function showSection(sectionId) {
-            // Update state
-            AppState.currentSection = sectionId;
-            
-            // Hide all sections
-            document.querySelectorAll('.section-content').forEach(section => {
-                section.style.display = 'none';
-            });
-            
-            // Show selected section
-            document.getElementById(`${sectionId}Section`).style.display = 'block';
-            
-            // Update active menu
-            document.querySelectorAll('.sidebar-menu a').forEach(link => {
-                link.classList.remove('active');
-            });
-            event.target.closest('a').classList.add('active');
-            
-            // Load data for section
-            try {
-                Loading.show('Loading...');
-                
-                switch(sectionId) {
-                    case 'dashboard':
-                        await loadDashboard();
-                        break;
-                    case 'menu-management':
-                        await loadMenuItems();
-                        break;
-                    case 'new-order':
-                        await loadMenuForNewOrder();
-                        break;
+        // Show section
+async function showSection(sectionId) {
+    try {
+        // Update state
+        AppState.currentSection = sectionId;
+        
+        // Hide all sections
+        const sections = document.querySelectorAll('.section-content');
+        if (sections && sections.length > 0) {
+            sections.forEach(section => {
+                if (section && section.style) {
+                    section.style.display = 'none';
                 }
-            } catch (error) {
-                Toast.show(`Failed to load ${sectionId} data`, 'error');
-            } finally {
-                Loading.hide();
+            });
+        }
+        
+        // Show selected section
+        const targetSection = document.getElementById(`${sectionId}Section`);
+        if (targetSection && targetSection.style) {
+            targetSection.style.display = 'block';
+        } else {
+            console.error(`Section ${sectionId}Section not found`);
+            Toast.show('Error loading section', 'error');
+            return;
+        }
+        
+        // Update active menu
+        const links = document.querySelectorAll('.sidebar-menu a');
+        if (links && links.length > 0) {
+            links.forEach(link => {
+                if (link.classList) {
+                    link.classList.remove('active');
+                }
+            });
+            
+            // Find and activate the clicked link
+            if (event && event.target) {
+                const link = event.target.closest('a');
+                if (link && link.classList) {
+                    link.classList.add('active');
+                }
             }
         }
+        
+        // Load data for section
+        Loading.show('Loading...');
+        
+        try {
+            switch(sectionId) {
+                case 'dashboard':
+                    await loadDashboard();
+                    break;
+                case 'menu-management':
+                    await loadMenuItems();
+                    break;
+                case 'new-order':
+                    await loadMenuForNewOrder();
+                    break;
+                default:
+                    console.warn(`No data loader for section: ${sectionId}`);
+            }
+        } finally {
+            Loading.hide();
+        }
+        
+    } catch (error) {
+        console.error('Error in showSection:', error);
+        Toast.show(`Failed to load ${sectionId} data`, 'error');
+        Loading.hide();
+    }
+}
         
         // Toggle notifications
         function toggleNotifications() {
@@ -1914,10 +1959,7 @@
             alert(`Chef Profile:\n\nName: ${user.firstName} ${user.lastName}\nEmail: ${user.email}\nRole: ${user.role}`);
         }
         
-        // Show notification
-        function showNotification(message, type = 'info') {
-            Toast.show(message, type);
-        }
+        
         
         // Logout
         function logout() {
@@ -1953,5 +1995,7 @@
         window.viewProfile = viewProfile;
         window.logout = logout;
     </script>
+    <!-- Add this line before </body> -->
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9999;"></div>
 </body>
 </html>
