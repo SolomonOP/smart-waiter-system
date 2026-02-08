@@ -898,16 +898,16 @@
             BACKEND_URL: 'https://smart-waiter-backend.onrender.com',
             API_ENDPOINTS: {
                 CHEF_ORDERS: '/api/chef/orders',
-                CHEF_UPDATE_ORDER: '/api/chef/order',
+                CHEF_UPDATE_ORDER: '/api/chef/orders',
                 CHEF_MENU: '/api/chef/menu',
-                CHEF_CREATE_ORDER: '/api/chef/walkin-order',
+                CHEF_CREATE_ORDER: '/api/chef/orders/new',
                 SERVICE_REQUESTS: '/api/chef/service-requests',
-                CHEF_STATS: '/api/chef/stats',
-                CHEF_REPORTS: '/api/chef/reports'
+                CHEF_STATS: '/api/chef/orders/stats',
+                CHEF_REPORTS: '/api/chef/performance'
             },
             SOCKET_EVENTS: {
                 NEW_ORDER: 'new-order',
-                ORDER_UPDATE: 'status-update',
+                ORDER_UPDATE: 'order-status-update',
                 SERVICE_REQUEST: 'service-request',
                 DISCONNECT: 'disconnect',
                 RECONNECT: 'reconnect'
@@ -1235,114 +1235,180 @@
 
         // Dashboard Functions
         async function loadDashboard() {
-            try {
-                Loading.show();
-                
-                const [statsData, ordersData] = await Promise.all([
-                    API.get(CONFIG.API_ENDPOINTS.CHEF_STATS),
-                    API.get(CONFIG.API_ENDPOINTS.CHEF_ORDERS)
-                ]);
-                
-                // Update statistics
-                if (statsData.success) {
-                    const stats = statsData.stats;
-                    document.getElementById('pendingCount').textContent = stats.pending || 0;
-                    document.getElementById('preparingCount').textContent = stats.preparing || 0;
-                    document.getElementById('readyCount').textContent = stats.ready || 0;
-                    document.getElementById('totalCount').textContent = stats.totalToday || 0;
-                    
-                    // Update progress bars
-                    const total = Math.max(stats.totalToday || 1, 1);
-                    document.getElementById('pendingProgress').style.width = `${(stats.pending || 0) / total * 100}%`;
-                    document.getElementById('preparingProgress').style.width = `${(stats.preparing || 0) / total * 100}%`;
-                    document.getElementById('readyProgress').style.width = `${(stats.ready || 0) / total * 100}%`;
-                    document.getElementById('totalProgress').style.width = '100%';
-                    
-                    // Update notification badges
-                    document.getElementById('pendingOrdersBadge').textContent = stats.pending || 0;
-                }
-                
-                // Update recent orders
-                if (ordersData.success) {
-                    orders = ordersData.orders || [];
-                    updateRecentOrders(orders.slice(0, 5));
-                    updateRecentActivity(orders);
-                }
-                
-                Loading.hide();
-                
-            } catch (error) {
-                Loading.hide();
-                ErrorHandler.handle(error, 'loadDashboard');
-            }
+    try {
+        Loading.show();
+        
+        // Get stats from correct endpoint
+        let statsData = null;
+        try {
+            statsData = await API.get(CONFIG.API_ENDPOINTS.CHEF_STATS);
+        } catch (error) {
+            console.log('Stats endpoint failed, calculating from orders...');
+            // Fallback: calculate stats from orders
+            statsData = { 
+                success: true, 
+                stats: await calculateStatsFromOrders() 
+            };
         }
+        
+        // Get orders
+        let ordersData;
+        try {
+            ordersData = await API.get(CONFIG.API_ENDPOINTS.CHEF_ORDERS);
+        } catch (error) {
+            console.error('Failed to get orders:', error);
+            ordersData = { success: true, orders: [] };
+        }
+        
+        // Update statistics
+        if (statsData.success) {
+            const stats = statsData.stats;
+            
+            // Check if stats are nested in 'today' property
+            if (stats.today) {
+                document.getElementById('pendingCount').textContent = stats.pending || 0;
+                document.getElementById('preparingCount').textContent = stats.preparing || stats.today.preparing || 0;
+                document.getElementById('readyCount').textContent = stats.ready || 0;
+                document.getElementById('totalCount').textContent = stats.totalToday || stats.today.total || 0;
+            } else {
+                // Direct stats structure
+                document.getElementById('pendingCount').textContent = stats.pending || 0;
+                document.getElementById('preparingCount').textContent = stats.preparing || 0;
+                document.getElementById('readyCount').textContent = stats.ready || 0;
+                document.getElementById('totalCount').textContent = stats.totalToday || 0;
+            }
+            
+            // Update progress bars
+            const total = Math.max(stats.totalToday || stats.today?.total || 1, 1);
+            const pending = stats.pending || 0;
+            const preparing = stats.preparing || stats.today?.preparing || 0;
+            const ready = stats.ready || 0;
+            
+            document.getElementById('pendingProgress').style.width = `${(pending / total * 100)}%`;
+            document.getElementById('preparingProgress').style.width = `${(preparing / total * 100)}%`;
+            document.getElementById('readyProgress').style.width = `${(ready / total * 100)}%`;
+            document.getElementById('totalProgress').style.width = '100%';
+            
+            // Update notification badges
+            document.getElementById('pendingOrdersBadge').textContent = pending;
+        }
+        
+        // Update recent orders
+        if (ordersData.success) {
+            orders = ordersData.orders || [];
+            updateRecentOrders(orders.slice(0, 5));
+            updateRecentActivity(orders);
+        }
+        
+        Loading.hide();
+        
+    } catch (error) {
+        Loading.hide();
+        ErrorHandler.handle(error, 'loadDashboard');
+    }
+}
+
+// Helper function to calculate stats from orders
+async function calculateStatsFromOrders() {
+    try {
+        const ordersData = await API.get(CONFIG.API_ENDPOINTS.CHEF_ORDERS);
+        if (!ordersData.success || !ordersData.orders) {
+            return { pending: 0, preparing: 0, ready: 0, totalToday: 0 };
+        }
+        
+        // Filter today's orders
+        const today = new Date().toISOString().split('T')[0];
+        const todayOrders = ordersData.orders.filter(order => {
+            const orderDate = new Date(order.createdAt).toISOString().split('T')[0];
+            return orderDate === today;
+        });
+        
+        // Calculate stats
+        const stats = {
+            pending: todayOrders.filter(o => o.status === 'pending').length,
+            preparing: todayOrders.filter(o => o.status === 'preparing').length,
+            ready: todayOrders.filter(o => o.status === 'ready').length,
+            totalToday: todayOrders.length
+        };
+        
+        return stats;
+    } catch (error) {
+        console.error('Error calculating stats:', error);
+        return { pending: 0, preparing: 0, ready: 0, totalToday: 0 };
+    }
+}
 
         function updateRecentOrders(recentOrders) {
-            const container = document.getElementById('recentOrders');
-            
-            if (!recentOrders || recentOrders.length === 0) {
-                container.innerHTML = `
-                    <div class="empty-state">
-                        <i class="fas fa-clipboard-list"></i>
-                        <h5>No recent orders</h5>
-                        <p>Orders will appear here as they come in</p>
+    const container = document.getElementById('recentOrders');
+    
+    if (!recentOrders || recentOrders.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-clipboard-list"></i>
+                <h5>No recent orders</h5>
+                <p>Orders will appear here as they come in</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    recentOrders.forEach(order => {
+        const statusClass = `order-${order.status}`;
+        const statusColor = getStatusColor(order.status);
+        
+        // Check if items is an array and has proper structure
+        const itemsHtml = order.items && Array.isArray(order.items) 
+            ? order.items.map(item => `
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span>${item.quantity}x ${item.name}</span>
+                    <span class="text-muted">$${(item.price * item.quantity).toFixed(2)}</span>
+                </div>
+            `).join('') 
+            : '<div class="text-muted">No items</div>';
+        
+        html += `
+            <div class="order-card ${statusClass} mb-3 p-3" data-order-id="${order._id}">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <h6 class="mb-1">Order #${order.orderNumber || 'N/A'}</h6>
+                        <small class="text-muted">
+                            Table ${order.tableNumber} • ${FormatUtils.formatTime(order.createdAt)}
+                        </small>
                     </div>
-                `;
-                return;
-            }
-            
-            let html = '';
-            recentOrders.forEach(order => {
-                const statusClass = `order-${order.status}`;
-                const statusColor = getStatusColor(order.status);
-                
-                html += `
-                    <div class="order-card ${statusClass} mb-3 p-3" data-order-id="${order._id}">
-                        <div class="d-flex justify-content-between align-items-start mb-2">
-                            <div>
-                                <h6 class="mb-1">Order #${order.orderNumber || 'N/A'}</h6>
-                                <small class="text-muted">
-                                    Table ${order.tableNumber} • ${FormatUtils.formatTime(order.createdAt)}
-                                </small>
-                            </div>
-                            <span class="badge badge-status" style="background-color: ${statusColor}">
-                                ${order.status.toUpperCase()}
-                            </span>
-                        </div>
-                        <div class="order-items mb-3">
-                            ${order.items ? order.items.map(item => `
-                                <div class="d-flex justify-content-between align-items-center mb-1">
-                                    <span>${item.quantity}x ${item.name}</span>
-                                    <span class="text-muted">${FormatUtils.formatCurrency(item.price * item.quantity)}</span>
-                                </div>
-                            `).join('') : ''}
-                        </div>
-                        <div class="d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0">${FormatUtils.formatCurrency(order.totalAmount || 0)}</h5>
-                            <div>
-                                ${order.status === 'pending' ? `
-                                    <button class="btn btn-accept btn-sm" onclick="acceptOrder('${order._id}')">
-                                        <i class="fas fa-check me-1"></i>Accept
-                                    </button>
-                                ` : ''}
-                                ${order.status === 'preparing' ? `
-                                    <button class="btn btn-ready btn-sm" onclick="markAsReady('${order._id}')">
-                                        <i class="fas fa-check-double me-1"></i>Ready
-                                    </button>
-                                ` : ''}
-                                ${order.status === 'ready' ? `
-                                    <button class="btn btn-complete btn-sm" onclick="completeOrder('${order._id}')">
-                                        <i class="fas fa-check-circle me-1"></i>Complete
-                                    </button>
-                                ` : ''}
-                            </div>
-                        </div>
+                    <span class="badge badge-status" style="background-color: ${statusColor}">
+                        ${order.status ? order.status.toUpperCase() : 'UNKNOWN'}
+                    </span>
+                </div>
+                <div class="order-items mb-3">
+                    ${itemsHtml}
+                </div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">$${order.totalAmount ? order.totalAmount.toFixed(2) : '0.00'}</h5>
+                    <div>
+                        ${order.status === 'pending' || order.status === 'confirmed' ? `
+                            <button class="btn btn-accept btn-sm" onclick="acceptOrder('${order._id}')">
+                                <i class="fas fa-check me-1"></i>Accept
+                            </button>
+                        ` : ''}
+                        ${order.status === 'preparing' ? `
+                            <button class="btn btn-ready btn-sm" onclick="markAsReady('${order._id}')">
+                                <i class="fas fa-check-double me-1"></i>Ready
+                            </button>
+                        ` : ''}
+                        ${order.status === 'ready' ? `
+                            <button class="btn btn-complete btn-sm" onclick="completeOrder('${order._id}')">
+                                <i class="fas fa-check-circle me-1"></i>Complete
+                            </button>
+                        ` : ''}
                     </div>
-                `;
-            });
-            
-            container.innerHTML = html;
-        }
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
 
         function updateRecentActivity(orders) {
             const container = document.getElementById('recentActivity');
@@ -1551,120 +1617,94 @@
         }
 
         async function acceptOrder(orderId) {
-            try {
-                Loading.show('Accepting order...');
-                
-                const response = await API.put(`${CONFIG.API_ENDPOINTS.CHEF_UPDATE_ORDER}/${orderId}/status`, {
-                    status: 'preparing',
-                    chefId: user._id,
-                    chefName: `${user.firstName} ${user.lastName}`
-                });
-                
-                if (response.success) {
-                    Toast.show('Order accepted successfully!', 'success');
-                    
-                    // Emit socket event
-                    if (socket) {
-                        socket.emit('order-update', {
-                            orderId: orderId,
-                            status: 'preparing',
-                            chefName: `${user.firstName} ${user.lastName}`
-                        });
-                    }
-                    
-                    // Refresh data
-                    await Promise.all([loadDashboard(), loadOrders()]);
-                }
-                
-                Loading.hide();
-                
-            } catch (error) {
-                Loading.hide();
-                ErrorHandler.handle(error, 'acceptOrder');
-            }
+    try {
+        Loading.show('Accepting order...');
+        
+        const response = await API.post(`${CONFIG.API_ENDPOINTS.CHEF_UPDATE_ORDER}/${orderId}/accept`, {
+            // Your backend doesn't need extra data for accept
+        });
+        
+        if (response.success) {
+            Toast.show('Order accepted successfully!', 'success');
+            
+            // Refresh data
+            await Promise.all([loadDashboard(), loadOrders()]);
         }
+        
+        Loading.hide();
+        
+    } catch (error) {
+        Loading.hide();
+        ErrorHandler.handle(error, 'acceptOrder');
+    }
+}
 
-        async function markAsReady(orderId) {
-            try {
-                Loading.show('Marking order as ready...');
-                
-                const response = await API.put(`${CONFIG.API_ENDPOINTS.CHEF_UPDATE_ORDER}/${orderId}/status`, {
-                    status: 'ready'
-                });
-                
-                if (response.success) {
-                    Toast.show('Order marked as ready!', 'success');
-                    
-                    // Emit socket event
-                    if (socket) {
-                        socket.emit('order-update', {
-                            orderId: orderId,
-                            status: 'ready'
-                        });
-                    }
-                    
-                    // Refresh data
-                    await Promise.all([loadDashboard(), loadOrders()]);
-                }
-                
-                Loading.hide();
-                
-            } catch (error) {
-                Loading.hide();
-                ErrorHandler.handle(error, 'markAsReady');
-            }
+async function markAsReady(orderId) {
+    try {
+        Loading.show('Marking order as ready...');
+        
+        const response = await API.post(`${CONFIG.API_ENDPOINTS.CHEF_UPDATE_ORDER}/${orderId}/ready`, {
+            // Your backend doesn't need extra data for ready
+        });
+        
+        if (response.success) {
+            Toast.show('Order marked as ready!', 'success');
+            
+            // Refresh data
+            await Promise.all([loadDashboard(), loadOrders()]);
         }
+        
+        Loading.hide();
+        
+    } catch (error) {
+        Loading.hide();
+        ErrorHandler.handle(error, 'markAsReady');
+    }
+}
 
-        async function completeOrder(orderId) {
-            try {
-                Loading.show('Completing order...');
-                
-                const response = await API.put(`${CONFIG.API_ENDPOINTS.CHEF_UPDATE_ORDER}/${orderId}/status`, {
-                    status: 'completed'
-                });
-                
-                if (response.success) {
-                    Toast.show('Order completed successfully!', 'success');
-                    
-                    // Emit socket event
-                    if (socket) {
-                        socket.emit('order-update', {
-                            orderId: orderId,
-                            status: 'completed'
-                        });
-                    }
-                    
-                    // Refresh data
-                    await Promise.all([loadDashboard(), loadOrders()]);
-                }
-                
-                Loading.hide();
-                
-            } catch (error) {
-                Loading.hide();
-                ErrorHandler.handle(error, 'completeOrder');
-            }
+async function completeOrder(orderId) {
+    try {
+        Loading.show('Completing order...');
+        
+        const response = await API.post(`${CONFIG.API_ENDPOINTS.CHEF_UPDATE_ORDER}/${orderId}/complete`, {
+            // Your backend doesn't need extra data for complete
+        });
+        
+        if (response.success) {
+            Toast.show('Order completed successfully!', 'success');
+            
+            // Refresh data
+            await Promise.all([loadDashboard(), loadOrders()]);
         }
+        
+        Loading.hide();
+        
+    } catch (error) {
+        Loading.hide();
+        ErrorHandler.handle(error, 'completeOrder');
+    }
+}
 
         // Menu Management Functions
         async function loadMenuItems() {
-            try {
-                Loading.show();
-                
-                const response = await API.get(CONFIG.API_ENDPOINTS.CHEF_MENU);
-                
-                if (response.success) {
-                    menuItems = response.menuItems || response.items || [];
-                    renderMenuItems(menuItems);
-                }
-                
-                Loading.hide();
-                
-            } catch (error) {
-                Loading.hide();
-                ErrorHandler.handle(error, 'loadMenuItems');
-            }
+    try {
+        Loading.show();
+        
+        // Load only available items by default
+        const response = await API.get(CONFIG.API_ENDPOINTS.CHEF_MENU + '?available=true');
+        
+        if (response.success) {
+            menuItems = response.menuItems || [];
+            renderMenuItems(menuItems);
         }
+        
+        Loading.hide();
+        
+    } catch (error) {
+        Loading.hide();
+        ErrorHandler.handle(error, 'loadMenuItems');
+    }
+}
 
         function renderMenuItems(items) {
             const container = document.getElementById('menuItemsGrid');
@@ -1729,33 +1769,25 @@
 
         // Update menu item status function (FIXED VERSION)
         async function updateMenuItemStatus(itemId, isAvailable) {
-            try {
-                Loading.show('Updating menu item...');
-                
-                const response = await API.put(
-                    `${CONFIG.API_ENDPOINTS.CHEF_MENU}/${itemId}/availability`,
-                    { available: isAvailable }
-                );
-                
-                if (response.success) {
-                    Toast.show(`Menu item ${isAvailable ? 'enabled' : 'disabled'} successfully!`, 'success');
-                    await loadMenuItems(); // Refresh the list
-                    
-                    // Emit socket event for real-time updates
-                    if (socket) {
-                        socket.emit('menu-update', {
-                            itemId: itemId,
-                            available: isAvailable
-                        });
-                    }
-                }
-                
-                Loading.hide();
-            } catch (error) {
-                Loading.hide();
-                ErrorHandler.handle(error, 'updateMenuItemStatus');
-            }
+    try {
+        Loading.show('Updating menu item...');
+        
+        const response = await API.put(
+            `${CONFIG.API_ENDPOINTS.CHEF_MENU}/${itemId}/availability`,
+            { available: isAvailable }
+        );
+        
+        if (response.success) {
+            Toast.show(`Menu item ${isAvailable ? 'enabled' : 'disabled'} successfully!`, 'success');
+            await loadMenuItems(); // Refresh the list
         }
+        
+        Loading.hide();
+    } catch (error) {
+        Loading.hide();
+        ErrorHandler.handle(error, 'updateMenuItemStatus');
+    }
+}
 
         async function searchMenuItems() {
             const searchTerm = document.getElementById('menuSearch').value.toLowerCase();
@@ -1908,45 +1940,46 @@
         }
 
         async function assignServiceRequest(requestId) {
-            try {
-                Loading.show('Assigning request...');
-                
-                const response = await API.put(`${CONFIG.API_ENDPOINTS.SERVICE_REQUESTS}/${requestId}/assign`, {
-                    chefId: user._id,
-                    chefName: `${user.firstName} ${user.lastName}`
-                });
-                
-                if (response.success) {
-                    Toast.show('Service request assigned to you!', 'success');
-                    await loadServiceRequests();
-                }
-                
-                Loading.hide();
-                
-            } catch (error) {
-                Loading.hide();
-                ErrorHandler.handle(error, 'assignServiceRequest');
-            }
+    try {
+        Loading.show('Assigning request...');
+        
+        const response = await API.post(`${CONFIG.API_ENDPOINTS.SERVICE_REQUESTS}/${requestId}/accept`, {
+            // Your backend doesn't need extra data
+        });
+        
+        if (response.success) {
+            Toast.show('Service request assigned to you!', 'success');
+            await loadServiceRequests();
         }
+        
+        Loading.hide();
+        
+    } catch (error) {
+        Loading.hide();
+        ErrorHandler.handle(error, 'assignServiceRequest');
+    }
+}
 
-        async function completeServiceRequest(requestId) {
-            try {
-                Loading.show('Completing request...');
-                
-                const response = await API.put(`${CONFIG.API_ENDPOINTS.SERVICE_REQUESTS}/${requestId}/complete`);
-                
-                if (response.success) {
-                    Toast.show('Service request completed!', 'success');
-                    await loadServiceRequests();
-                }
-                
-                Loading.hide();
-                
-            } catch (error) {
-                Loading.hide();
-                ErrorHandler.handle(error, 'completeServiceRequest');
-            }
+async function completeServiceRequest(requestId) {
+    try {
+        Loading.show('Completing request...');
+        
+        const response = await API.post(`${CONFIG.API_ENDPOINTS.SERVICE_REQUESTS}/${requestId}/complete`, {
+            // Your backend doesn't need extra data
+        });
+        
+        if (response.success) {
+            Toast.show('Service request completed!', 'success');
+            await loadServiceRequests();
         }
+        
+        Loading.hide();
+        
+    } catch (error) {
+        Loading.hide();
+        ErrorHandler.handle(error, 'completeServiceRequest');
+    }
+}
 
         function getServiceIcon(type) {
             switch(type) {
@@ -2119,94 +2152,101 @@
             document.getElementById('walkinTotal').textContent = total.toFixed(2);
         }
 
-        // Submit New Order function (FIXED VERSION)
         async function submitNewOrder() {
-            try {
-                Loading.show('Placing order...');
-                
-                // Get form data
-                const tableNumber = parseInt(document.getElementById('walkinTableNumber').value);
-                
-                // Validate table number
-                if (!tableNumber || tableNumber < 1) {
-                    Toast.show('Please enter a valid table number', 'error');
-                    Loading.hide();
-                    return;
+    try {
+        Loading.show('Placing order...');
+        
+        // Get form data
+        const tableNumber = parseInt(document.getElementById('walkinTableNumber').value);
+        
+        // Validate table number
+        if (!tableNumber || tableNumber < 1) {
+            Toast.show('Please enter a valid table number', 'error');
+            Loading.hide();
+            return;
+        }
+        
+        // Collect order items with correct field names for backend
+        const items = [];
+        selectedMenuItems.forEach(item => {
+            items.push({
+                itemId: item.id, // Backend expects itemId, not menuItem
+                name: item.name,
+                price: item.price,
+                quantity: item.quantity
+            });
+        });
+        
+        if (items.length === 0) {
+            Toast.show('Please add at least one item to the order', 'warning');
+            Loading.hide();
+            return;
+        }
+        
+        const orderData = {
+            tableNumber: tableNumber,
+            items: items,
+            specialInstructions: document.getElementById('walkinSpecialInstructions')?.value || '',
+            customerName: document.getElementById('walkinCustomerName')?.value || 'Walk-in Customer'
+            // Don't send chefId/chefName - backend gets it from token
+        };
+        
+        console.log('Submitting walk-in order:', orderData);
+        
+        const response = await API.post(CONFIG.API_ENDPOINTS.CHEF_CREATE_ORDER, orderData);
+        
+        if (response.success) {
+            Toast.show('Walk-in order created successfully!', 'success');
+            
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('walkinOrderModal'));
+            if (modal) modal.hide();
+            
+            // Reset form
+            document.getElementById('walkinOrderForm').reset();
+            selectedMenuItems.clear();
+            
+            // Refresh dashboard
+            await Promise.all([loadDashboard(), loadOrders()]);
+        }
+        
+        Loading.hide();
+    } catch (error) {
+        Loading.hide();
+        console.error('Order creation error:', error);
+        
+        let errorMessage = 'Failed to create order. ';
+        
+        // Try to parse error message
+        try {
+            const errorMatch = error.message.match(/\{.*\}/);
+            if (errorMatch) {
+                const errorJson = JSON.parse(errorMatch[0]);
+                if (errorJson.message) {
+                    errorMessage = errorJson.message;
+                } else if (errorJson.errors && Array.isArray(errorJson.errors)) {
+                    errorMessage = errorJson.errors.map(e => e.msg).join(', ');
                 }
-                
-                // Collect order items
-                const items = [];
-                selectedMenuItems.forEach(item => {
-                    items.push({
-                        itemId: item.id,
-                        name: item.name,
-                        price: item.price,
-                        quantity: item.quantity
-                    });
-                });
-                
-                if (items.length === 0) {
-                    Toast.show('Please add at least one item to the order', 'warning');
-                    Loading.hide();
-                    return;
+            }
+        } catch (parseError) {
+            // Use original error message
+            if (error.message.includes('400')) {
+                if (error.message.includes('Table not found')) {
+                    errorMessage = 'Table not found or inactive.';
+                } else if (error.message.includes('unavailable')) {
+                    errorMessage = 'Some menu items are unavailable.';
                 }
-                
-                const orderData = {
-                    tableNumber: tableNumber,
-                    items: items,
-                    specialInstructions: document.getElementById('walkinSpecialInstructions')?.value || '',
-                    customerName: document.getElementById('walkinCustomerName')?.value || '',
-                    chefId: user._id,
-                    chefName: `${user.firstName} ${user.lastName}`
-                };
-                
-                console.log('Submitting walk-in order:', orderData);
-                
-                const response = await API.post(CONFIG.API_ENDPOINTS.CHEF_CREATE_ORDER, orderData);
-                
-                if (response.success) {
-                    Toast.show('Walk-in order created successfully!', 'success');
-                    
-                    // Close modal
-                    const modal = bootstrap.Modal.getInstance(document.getElementById('walkinOrderModal'));
-                    if (modal) modal.hide();
-                    
-                    // Reset form
-                    document.getElementById('walkinOrderForm').reset();
-                    selectedMenuItems.clear();
-                    
-                    // Refresh dashboard
-                    await Promise.all([loadDashboard(), loadOrders()]);
-                    
-                    // Emit socket event
-                    if (socket) {
-                        socket.emit('new-order', {
-                            orderId: response.order._id,
-                            tableNumber: tableNumber,
-                            orderNumber: response.order.orderNumber,
-                            status: 'pending'
-                        });
-                    }
-                }
-                
-                Loading.hide();
-            } catch (error) {
-                Loading.hide();
-                console.error('Order creation error:', error);
-                
-                let errorMessage = 'Failed to create order. ';
-                if (error.message.includes('400') && error.message.includes('Table not found')) {
-                    errorMessage = 'Table not found. Please enter a valid table number.';
-                } else if (error.message.includes('401')) {
-                    errorMessage += 'Session expired. Please login again.';
-                    setTimeout(() => Auth.logout(), 2000);
-                } else {
-                    errorMessage += error.message;
-                }
-                
-                Toast.show(errorMessage, 'error');
+            } else if (error.message.includes('401')) {
+                errorMessage = 'Session expired. Please login again.';
+                setTimeout(() => Auth.logout(), 2000);
+            } else if (error.message.includes('404')) {
+                errorMessage = 'Order creation endpoint not found.';
             }
         }
+        
+        Toast.show(errorMessage, 'error');
+    }
+}
 
         // Reports Functions
         async function loadReports() {
@@ -2283,6 +2323,37 @@
                 }
             });
         }
+
+        // Add this function to test all endpoints
+async function testAllEndpoints() {
+    console.log('Testing backend endpoints...');
+    
+    const endpoints = [
+        '/api/chef/orders',
+        '/api/chef/orders/stats',
+        '/api/chef/menu',
+        '/api/chef/service-requests',
+        '/api/chef/performance'
+    ];
+    
+    for (const endpoint of endpoints) {
+        try {
+            const response = await fetch(CONFIG.BACKEND_URL + endpoint, {
+                headers: {
+                    'Authorization': `Bearer ${Auth.getToken()}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            const data = await response.json();
+            console.log(`${endpoint}: ${response.status} - ${data.success ? '✅' : '❌'}`);
+            
+        } catch (error) {
+            console.log(`${endpoint}: ❌ ERROR - ${error.message}`);
+        }
+    }
+}
+
 
         function renderTopItems(topItems) {
             const container = document.getElementById('topItemsList');
