@@ -542,6 +542,7 @@
                 CHEF_MENU: '/api/chef/menu',
                 CHEF_MENU_UPDATE: (id) => `/api/chef/menu/${id}`,
                 CHEF_SERVICE_REQUESTS: '/api/chef/service-requests',
+                CHEF_SERVICE_REQUEST_ASSIGN: (id) => `/api/chef/service-requests/${id}/assign`,
                 CHEF_NEW_ORDER: '/api/chef/orders/new'
             }
         };
@@ -982,18 +983,19 @@ async function showSection(sectionId) {
         
         try {
             switch(sectionId) {
-                case 'dashboard':
-                    await loadDashboard();
-                    break;
-                case 'menu-management':
-                    await loadMenuItems();
-                    break;
-                case 'new-order':
-                    await loadMenuForNewOrder();
-                    break;
-                default:
-                    console.warn(`No data loader for section: ${sectionId}`);
-            }
+    case 'dashboard':
+        await loadDashboard();
+        break;
+    case 'menuManagement':
+        await loadMenuItems();
+        break;
+    case 'newOrder':
+        await loadMenuForNewOrder();
+        break;
+    default:
+        console.warn(`No data loader for section: ${sectionId}`);
+        Toast.show(`No data loader for section: ${sectionId}`, 'warning');
+}
         } finally {
             Loading.hide();
         }
@@ -1429,29 +1431,30 @@ async function showSection(sectionId) {
         }
         
         async function assignServiceRequest(requestId, event) {
-            if (event) event.stopPropagation();
-            
-            try {
-                Loading.show('Assigning request...');
-                const user = Auth.getUser();
-                
-                await API.post(`/api/chef/service-requests/${requestId}/assign`, { chefId: user._id });
-                
-                // Remove from local data
-                serviceRequests = serviceRequests.filter(r => r._id !== requestId);
-                
-                // Refresh display
-                displayServiceRequests();
-                
-                Toast.show('Service request assigned to you', 'info');
-                
-            } catch (error) {
-                console.error('Error assigning request:', error);
-                Toast.show(error.message || 'Failed to assign request', 'error');
-            } finally {
-                Loading.hide();
-            }
-        }
+    if (event) event.stopPropagation();
+    
+    try {
+        Loading.show('Assigning request...');
+        const user = Auth.getUser();
+        
+        // Use the correct endpoint
+        await API.post(CONFIG.API_ENDPOINTS.CHEF_SERVICE_REQUEST_ASSIGN(requestId), { chefId: user._id });
+        
+        // Remove from local data
+        serviceRequests = serviceRequests.filter(r => r._id !== requestId);
+        
+        // Refresh display
+        displayServiceRequests();
+        
+        Toast.show('Service request assigned to you', 'info');
+        
+    } catch (error) {
+        console.error('Error assigning request:', error);
+        Toast.show(error.message || 'Failed to assign request', 'error');
+    } finally {
+        Loading.hide();
+    }
+}
         
         // Menu management
         async function loadMenuItems() {
