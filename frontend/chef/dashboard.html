@@ -1553,22 +1553,20 @@ setTimeout(() => {
     }
 
     // DEBUG: Log all orders and their status
-console.log('🔍 DEBUG: All orders status:');
-console.table(orders.map((order, index) => ({
-    '#': index + 1,
-    'Order #': order.orderNumber,
-    'Status': order.status,
-    'Table': order.tableNumber,
-    'Customer': order.customerName,
-    'Total': order.totalAmount,
-    'Has Items': order.items?.length || 0,
-    'isPreparing?': order.status === 'preparing'
-})));
+    console.log('🔍 DEBUG: All orders status:');
+    console.table(orders.map((order, index) => ({
+        '#': index + 1,
+        'Order #': order.orderNumber,
+        'Status': order.status,
+        'Table': order.tableNumber,
+        'Customer': order.customerName,
+        'Total': order.totalAmount,
+        'Has Items': order.items?.length || 0,
+        'isPreparing?': order.status === 'preparing'
+    })));
 
-// Also log the raw orders array
-console.log('📦 Raw orders array:', JSON.stringify(orders, null, 2));
-
-    // Rest of your function remains the same...
+    // Also log the raw orders array
+    console.log('📦 Raw orders array:', JSON.stringify(orders, null, 2));
 
     // Group orders by status
     const groupedOrders = {
@@ -1656,30 +1654,27 @@ console.log('📦 Raw orders array:', JSON.stringify(orders, null, 2));
                             <div class="d-flex justify-content-between align-items-center mt-auto">
                                 <h5 class="mb-0">${FormatUtils.formatCurrency(order.totalAmount || 0)}</h5>
                                 <div>
-                                    
-    ${order.status === 'pending' || order.status === 'confirmed' ? `
-        <button class="btn btn-accept btn-sm" onclick="acceptOrder('${order._id}')">
-            <i class="fas fa-check me-1"></i>Accept
-        </button>
-    ` : ''}
-    
-    ${order.status === 'preparing' ? `
-        <button class="btn btn-complete-prep btn-sm" onclick="completePreparation('${order._id}')">
-            <i class="fas fa-check-double me-1"></i>Complete Prep
-        </button>
-    ` : ''}
-    
-    ${order.status === 'ready' ? `
-        <div class="btn-group">
-            <button class="btn btn-download btn-sm" onclick="downloadBill('${order._id}')">
-                <i class="fas fa-download me-1"></i>Bill
-            </button>
-            <button class="btn btn-success btn-sm" onclick="finalCompleteOrder('${order._id}')">
-                <i class="fas fa-check-circle me-1"></i>Complete
-            </button>
-        </div>
-    ` : ''}
-</div>
+                                    ${order.status === 'pending' || order.status === 'confirmed' ? `
+                                        <button class="btn btn-accept btn-sm" onclick="acceptOrder('${order._id}')">
+                                            <i class="fas fa-check me-1"></i>Accept
+                                        </button>
+                                    ` : ''}
+                                    ${order.status === 'preparing' ? `
+                                        <button class="btn btn-complete-prep btn-sm" onclick="completePreparation('${order._id}')">
+                                            <i class="fas fa-check-double me-1"></i>Complete Prep
+                                        </button>
+                                    ` : ''}
+                                    ${order.status === 'ready' ? `
+                                        <div class="btn-group">
+                                            <button class="btn btn-download btn-sm" onclick="downloadBill('${order._id}')">
+                                                <i class="fas fa-download me-1"></i>Bill
+                                            </button>
+                                            <button class="btn btn-success btn-sm" onclick="finalCompleteOrder('${order._id}')">
+                                                <i class="fas fa-check-circle me-1"></i>Complete
+                                            </button>
+                                        </div>
+                                    ` : ''}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1687,21 +1682,10 @@ console.log('📦 Raw orders array:', JSON.stringify(orders, null, 2));
             `;
         });
 
-        // Add this at the end of your renderOrdersByStatus() function, just before container.innerHTML = html;
-console.log('🔧 Rendering HTML for status:', status);
-console.log('🔧 Sample order buttons HTML:', html.substring(0, 500)); // First 500 chars
-
-// Also add a test button that shows for all orders
-html = html.replace('</div>', `
-    <div class="mt-2">
-        <button class="btn btn-sm btn-secondary" onclick="console.log('Test Order:', ${JSON.stringify({id: order._id, status: order.status, orderNumber: order.orderNumber})})">
-            Test (${order.status})
-        </button>
-    </div>
-</div>`);
-
-        container.innerHTML = html;
+        console.log('🔧 Rendering HTML for status:', status);
+        console.log('🔧 Sample order buttons HTML:', html.substring(0, 500));
         
+        container.innerHTML = html;
     });
 }
 
