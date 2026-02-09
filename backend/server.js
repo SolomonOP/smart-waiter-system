@@ -154,6 +154,26 @@ io.on('connection', (socket) => {
     socket.join('chef-dashboard');
 });
 
+// In your socket.io connection handler
+socket.on('service-request-acknowledge', (data) => {
+    console.log('Chef acknowledged service request:', data);
+    io.to(`table:${data.tableNumber}`).emit('service-request-updated', {
+        requestId: data.requestId,
+        status: 'acknowledged',
+        chefName: data.chefName,
+        timestamp: new Date().toISOString()
+    });
+});
+
+socket.on('service-request-complete', (data) => {
+    console.log('Chef completed service request:', data);
+    io.to(`table:${data.tableNumber}`).emit('service-request-completed', {
+        requestId: data.requestId,
+        message: `Your ${data.type} request has been completed`,
+        timestamp: new Date().toISOString()
+    });
+});
+
 // For order status updates
 socket.on('order-update', (data) => {
     console.log('🔄 Order update from socket:', data);

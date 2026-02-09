@@ -1,78 +1,34 @@
 const mongoose = require('mongoose');
 
 const TableSchema = new mongoose.Schema({
-    // In your Table model, add this field:
-serviceRequests: [{
-    type: {
-        type: String,
-        enum: ['water', 'cleaning', 'bill', 'cutlery', 'napkin', 'extra_sauce', 'other', 'chef_attention'],
-        required: true
-    },
-    tableNumber: {
-        type: Number,
-        required: true
-    },
-    description: {
-        type: String,
-        maxlength: [200, 'Description cannot exceed 200 characters']
-    },
-    customerName: String,
-    status: {
-        type: String,
-        enum: ['pending', 'acknowledged', 'completed', 'cancelled'],
-        default: 'pending'
-    },
-    assignedTo: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User'
-    },
-    completedAt: Date,
-    createdAt: {
-        type: Date,
-        default: Date.now
-    }
-}],
     tableNumber: {
         type: Number,
         required: true,
         unique: true
     },
-    tableName: {
-        type: String,
-        trim: true,
-        maxlength: [50, 'Table name cannot exceed 50 characters']
-    },
-    status: {
-        type: String,
-        enum: ['available', 'occupied', 'reserved', 'maintenance', 'cleaning'],
-        default: 'available'
-    },
     capacity: {
         type: Number,
         required: true,
-        min: 1,
-        max: 20
+        min: [1, 'Capacity must be at least 1']
     },
     location: {
         type: String,
-        default: 'near entrance'
+        enum: ['indoor', 'outdoor', 'patio', 'bar', 'private'],
+        default: 'indoor'
     },
-    section: {
+    section: String,
+    status: {
         type: String,
-        enum: ['main', 'terrace', 'private', 'outdoor'],
-        default: 'main'
+        enum: ['available', 'occupied', 'reserved', 'cleaning', 'maintenance'],
+        default: 'available'
     },
-    qrCode: {
-        type: String,
-        default: '' // Make it optional with default
+    isActive: {
+        type: Boolean,
+        default: true
     },
-    qrCodeData: {
-        type: String
-    },
-   currentOrder: {
+    currentOrder: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Order',
-        default: null
+        ref: 'Order'
     },
     currentCustomer: {
         type: mongoose.Schema.Types.ObjectId,
@@ -80,22 +36,53 @@ serviceRequests: [{
     },
     customerName: String,
     occupiedAt: Date,
-    reservedUntil: Date,
-    notes: {
-        type: String,
-        maxlength: [500, 'Notes cannot exceed 500 characters']
-    },
-    isActive: {
-        type: Boolean,
-        default: true
-    },
-    createdAt: {
-        type: Date,
-        default: Date.now
-    },
-    updatedAt: {
-        type: Date,
-        default: Date.now
+    
+    // ADD THIS SECTION FOR SERVICE REQUESTS
+    serviceRequests: [{
+        type: {
+            type: String,
+            enum: ['water', 'cleaning', 'bill', 'cutlery', 'napkin', 'extra_sauce', 'other', 'chef_attention'],
+            required: true
+        },
+        tableNumber: {
+            type: Number,
+            required: true
+        },
+        description: {
+            type: String,
+            maxlength: [200, 'Description cannot exceed 200 characters']
+        },
+        customerName: String,
+        customerId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
+        },
+        status: {
+            type: String,
+            enum: ['pending', 'acknowledged', 'in-progress', 'completed', 'cancelled'],
+            default: 'pending'
+        },
+        assignedTo: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
+        },
+        priority: {
+            type: String,
+            enum: ['low', 'normal', 'high', 'urgent'],
+            default: 'normal'
+        },
+        notes: String,
+        completedAt: Date,
+        acknowledgedAt: Date,
+        createdAt: {
+            type: Date,
+            default: Date.now
+        }
+    }],
+    
+    metadata: {
+        lastCleaned: Date,
+        notes: String
     }
 }, {
     timestamps: true,
@@ -103,31 +90,26 @@ serviceRequests: [{
     toObject: { virtuals: true }
 });
 
-// Virtual for occupancy duration
-TableSchema.virtual('occupancyDuration').get(function() {
-    if (this.status === 'occupied' && this.occupiedAt) {
-        return Math.round((Date.now() - this.occupiedAt) / 60000); // minutes
-    }
-    return null;
+// Virtual for pending service requests count
+TableSchema.virtual('pendingRequests').get(function() {
+    if (!this.serviceRequests) return 0;
+    return this.serviceRequests.filter(req => req.status === 'pending').length;
 });
 
-// Pre-save middleware to generate QR code
-TableSchema.pre('save', function(next) {
-    if (this.isNew || this.isModified('tableNumber')) {
-        const baseUrl = process.env.BASE_URL || 'https://smart-waiter.onrender.com';
-        this.qrCodeData = `${baseUrl}/table/${this.tableNumber}`;
-        this.qrCode = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(this.qrCodeData)}`;
-    }
-    
-    this.updatedAt = Date.now();
-    next();
+// Virtual for active service requests
+TableSchema.virtual('activeRequests').get(function() {
+    if (!this.serviceRequests) return [];
+    return this.serviceRequests.filter(req => 
+        ['pending', 'acknowledged', 'in-progress'].includes(req.status)
+    );
 });
 
 // Indexes
 TableSchema.index({ tableNumber: 1 }, { unique: true });
 TableSchema.index({ status: 1 });
-TableSchema.index({ location: 1, capacity: 1 });
-TableSchema.index({ section: 1 });
+TableSchema.index({ location: 1 });
 TableSchema.index({ isActive: 1 });
+TableSchema.index({ 'serviceRequests.status': 1 });
+TableSchema.index({ 'serviceRequests.createdAt': -1 });
 
 module.exports = mongoose.model('Table', TableSchema);

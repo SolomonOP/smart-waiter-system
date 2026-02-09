@@ -390,6 +390,8 @@ router.post('/service-request', auth, [
         
         // Get user info
         let customer = customerName;
+        let customerId = req.userId;
+        
         if (!customer) {
             const user = await User.findById(req.userId);
             customer = user ? user.firstName + ' ' + user.lastName : 'Customer';
@@ -404,100 +406,56 @@ router.post('/service-request', auth, [
             });
         }
         
-        // Find any order for this table (current or recent)
-        let order = await Order.findOne({ 
-            tableNumber: parseInt(tableNumber),
-            status: { $nin: ['completed', 'cancelled', 'rejected'] }
-        }).sort({ createdAt: -1 });
-        
-        // If no active order, don't create a new one - just add to table
-        if (!order) {
-            // Instead of creating an order, just add service request directly to table
-            const serviceRequest = {
-                type: type,
-                tableNumber: parseInt(tableNumber),
-                description: description || `${type} service requested by ${customer}`,
-                status: 'pending',
-                createdAt: new Date(),
-                customerName: customer
-            };
-            
-            // Store in table's serviceRequests
-            if (!table.serviceRequests) {
-                table.serviceRequests = [];
-            }
-            
-            table.serviceRequests.push(serviceRequest);
-            await table.save();
-            
-            console.log('Service request saved to table:', serviceRequest);
-            
-            // Real-time notification
-            const io = req.app.get('io');
-            if (io) {
-                const requestId = table.serviceRequests[table.serviceRequests.length - 1]._id;
-                
-                // Notify chefs
-                io.to('role:chef').emit('new-service-request', {
-                    requestId: requestId,
-                    type: type,
-                    tableNumber: tableNumber,
-                    description: serviceRequest.description,
-                    customerName: customer,
-                    timestamp: new Date().toISOString()
-                });
-                
-                // Notify the specific table
-                io.to(`table:${tableNumber}`).emit('service-request-confirmation', {
-                    type: type,
-                    tableNumber: tableNumber,
-                    message: 'Your service request has been received',
-                    estimatedResponse: '5-10 minutes'
-                });
-            }
-            
-            return res.json({
-                success: true,
-                message: 'Service request sent successfully',
-                requestId: table.serviceRequests[table.serviceRequests.length - 1]._id,
-                request: serviceRequest
+        if (!table.isActive) {
+            return res.status(400).json({
+                success: false,
+                message: `Table ${tableNumber} is not active`
             });
         }
         
-        // If there's an active order, add service request to it
+        // Create service request object
         const serviceRequest = {
             type: type,
             tableNumber: parseInt(tableNumber),
-            description: description || `${type} service requested by ${customer}`,
+            description: description || `${getServiceTypeName(type)} request from table ${tableNumber}`,
+            customerName: customer,
+            customerId: customerId,
             status: 'pending',
+            priority: getServicePriority(type),
             createdAt: new Date()
         };
         
-        // Add to order's serviceRequests array
-        if (!order.serviceRequests) {
-            order.serviceRequests = [];
+        // Add to table's serviceRequests array
+        if (!table.serviceRequests) {
+            table.serviceRequests = [];
         }
         
-        order.serviceRequests.push(serviceRequest);
-        await order.save();
+        table.serviceRequests.push(serviceRequest);
+        await table.save();
         
-        console.log('Service request saved to order:', serviceRequest);
-        console.log('Order serviceRequests:', order.serviceRequests);
+        const savedRequest = table.serviceRequests[table.serviceRequests.length - 1];
+        console.log('Service request saved to table:', savedRequest);
         
         // Real-time notification
         const io = req.app.get('io');
         if (io) {
-            const requestId = order.serviceRequests[order.serviceRequests.length - 1]._id;
-            
             // Notify chefs
             io.to('role:chef').emit('new-service-request', {
-                requestId: requestId,
+                requestId: savedRequest._id,
                 type: type,
                 tableNumber: tableNumber,
-                description: serviceRequest.description,
+                description: savedRequest.description,
                 customerName: customer,
-                orderId: order._id,
-                orderNumber: order.orderNumber,
+                priority: savedRequest.priority,
+                timestamp: new Date().toISOString()
+            });
+            
+            // Notify admins
+            io.to('role:admin').emit('service-request-created', {
+                requestId: savedRequest._id,
+                type: type,
+                tableNumber: tableNumber,
+                customerName: customer,
                 timestamp: new Date().toISOString()
             });
             
@@ -506,6 +464,7 @@ router.post('/service-request', auth, [
                 type: type,
                 tableNumber: tableNumber,
                 message: 'Your service request has been received',
+                requestId: savedRequest._id,
                 estimatedResponse: '5-10 minutes'
             });
         }
@@ -513,8 +472,16 @@ router.post('/service-request', auth, [
         res.json({
             success: true,
             message: 'Service request sent successfully',
-            requestId: order.serviceRequests[order.serviceRequests.length - 1]._id,
-            request: serviceRequest
+            request: {
+                id: savedRequest._id,
+                type: savedRequest.type,
+                tableNumber: savedRequest.tableNumber,
+                description: savedRequest.description,
+                status: savedRequest.status,
+                priority: savedRequest.priority,
+                createdAt: savedRequest.createdAt,
+                estimatedResponse: '5-10 minutes'
+            }
         });
         
     } catch (error) {
@@ -527,6 +494,30 @@ router.post('/service-request', auth, [
         });
     }
 });
+
+// Helper functions
+function getServiceTypeName(type) {
+    const typeNames = {
+        'water': 'Water Refill',
+        'cleaning': 'Table Cleaning',
+        'bill': 'Bill Payment',
+        'cutlery': 'Cutlery Request',
+        'napkin': 'Napkin Request',
+        'extra_sauce': 'Extra Sauce',
+        'other': 'Other Service'
+    };
+    return typeNames[type] || type;
+}
+
+function getServicePriority(type) {
+    const priorityMap = {
+        'bill': 'high',       // Bill payment is high priority
+        'water': 'normal',    // Water refill is normal
+        'cleaning': 'normal', // Cleaning is normal
+        'other': 'low'        // Other services are low priority
+    };
+    return priorityMap[type] || 'normal';
+}
 
 // @route   POST /api/customer/cancel-order/:id
 // @desc    Cancel an order

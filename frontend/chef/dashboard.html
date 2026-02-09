@@ -1290,6 +1290,28 @@ socket.on('order-finished', async (data) => {
     await loadOrders();
 });
 
+// In your initSocket() function, add these listeners:
+socket.on('service-request-confirmation', (data) => {
+    console.log('Service request confirmation:', data);
+    if (data.tableNumber === currentTable) {
+        Toast.show(`Service request sent! ${data.message}`, 'success');
+    }
+});
+
+socket.on('service-request-acknowledged', (data) => {
+    console.log('Service request acknowledged:', data);
+    if (data.tableNumber === currentTable) {
+        Toast.show(`${data.message} by ${data.chefName}`, 'info');
+    }
+});
+
+socket.on('service-request-completed', (data) => {
+    console.log('Service request completed:', data);
+    if (data.tableNumber === currentTable) {
+        Toast.show(data.message, 'success');
+    }
+});
+
 // Add these socket event handlers
 socket.on('order-removed-from-dashboard', async (data) => {
     Toast.show(`Order #${data.orderNumber} removed from dashboard`, 'info');

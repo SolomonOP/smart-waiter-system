@@ -1178,4 +1178,234 @@ router.get('/dashboard-stats', auth, isChef, async (req, res) => {
     }
 });
 
+// @route   GET /api/chef/service-requests
+// @desc    Get all pending service requests
+// @access  Private (Chef)
+router.get('/service-requests', auth, async (req, res) => {
+    try {
+        // Check if user is chef or admin
+        if (req.userRole !== 'chef' && req.userRole !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                message: 'Not authorized'
+            });
+        }
+        
+        // Get tables with pending service requests
+        const tables = await Table.find({
+            'serviceRequests.status': 'pending',
+            isActive: true
+        })
+        .select('tableNumber status serviceRequests')
+        .sort({ 'serviceRequests.createdAt': 1 });
+        
+        // Extract and flatten service requests
+        const serviceRequests = [];
+        tables.forEach(table => {
+            table.serviceRequests.forEach(request => {
+                if (request.status === 'pending') {
+                    serviceRequests.push({
+                        _id: request._id,
+                        type: request.type,
+                        tableNumber: table.tableNumber,
+                        description: request.description,
+                        customerName: request.customerName,
+                        priority: request.priority,
+                        createdAt: request.createdAt,
+                        tableStatus: table.status
+                    });
+                }
+            });
+        });
+        
+        // Sort by priority and creation time
+        serviceRequests.sort((a, b) => {
+            const priorityOrder = { 'urgent': 0, 'high': 1, 'normal': 2, 'low': 3 };
+            if (priorityOrder[a.priority] !== priorityOrder[b.priority]) {
+                return priorityOrder[a.priority] - priorityOrder[b.priority];
+            }
+            return new Date(a.createdAt) - new Date(b.createdAt);
+        });
+        
+        res.json({
+            success: true,
+            count: serviceRequests.length,
+            serviceRequests: serviceRequests
+        });
+        
+    } catch (error) {
+        console.error('Get service requests error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error'
+        });
+    }
+});
+
+// @route   PUT /api/chef/service-requests/:requestId/acknowledge
+// @desc    Acknowledge a service request
+// @access  Private (Chef)
+router.put('/service-requests/:requestId/acknowledge', auth, async (req, res) => {
+    try {
+        // Check if user is chef or admin
+        if (req.userRole !== 'chef' && req.userRole !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                message: 'Not authorized'
+            });
+        }
+        
+        const { requestId } = req.params;
+        
+        // Find table with this service request
+        const table = await Table.findOne({
+            'serviceRequests._id': requestId
+        });
+        
+        if (!table) {
+            return res.status(404).json({
+                success: false,
+                message: 'Service request not found'
+            });
+        }
+        
+        // Update the specific service request
+        const serviceRequest = table.serviceRequests.id(requestId);
+        if (!serviceRequest) {
+            return res.status(404).json({
+                success: false,
+                message: 'Service request not found'
+            });
+        }
+        
+        serviceRequest.status = 'acknowledged';
+        serviceRequest.assignedTo = req.userId;
+        serviceRequest.acknowledgedAt = new Date();
+        
+        await table.save();
+        
+        // Real-time notification
+        const io = req.app.get('io');
+        if (io) {
+            io.to(`table:${table.tableNumber}`).emit('service-request-acknowledged', {
+                requestId: requestId,
+                type: serviceRequest.type,
+                tableNumber: table.tableNumber,
+                message: `Your ${getServiceTypeName(serviceRequest.type)} request has been acknowledged`,
+                chefName: req.user.firstName + ' ' + req.user.lastName,
+                timestamp: new Date().toISOString()
+            });
+            
+            io.to('role:chef').emit('service-request-updated', {
+                requestId: requestId,
+                tableNumber: table.tableNumber,
+                status: 'acknowledged',
+                assignedTo: req.user.firstName + ' ' + req.user.lastName
+            });
+        }
+        
+        res.json({
+            success: true,
+            message: 'Service request acknowledged',
+            request: {
+                id: serviceRequest._id,
+                type: serviceRequest.type,
+                tableNumber: table.tableNumber,
+                status: serviceRequest.status,
+                assignedTo: req.user.firstName + ' ' + req.user.lastName
+            }
+        });
+        
+    } catch (error) {
+        console.error('Acknowledge service request error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error'
+        });
+    }
+});
+
+// @route   PUT /api/chef/service-requests/:requestId/complete
+// @desc    Complete a service request
+// @access  Private (Chef)
+router.put('/service-requests/:requestId/complete', auth, async (req, res) => {
+    try {
+        // Check if user is chef or admin
+        if (req.userRole !== 'chef' && req.userRole !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                message: 'Not authorized'
+            });
+        }
+        
+        const { requestId } = req.params;
+        const { notes } = req.body;
+        
+        // Find table with this service request
+        const table = await Table.findOne({
+            'serviceRequests._id': requestId
+        });
+        
+        if (!table) {
+            return res.status(404).json({
+                success: false,
+                message: 'Service request not found'
+            });
+        }
+        
+        // Update the specific service request
+        const serviceRequest = table.serviceRequests.id(requestId);
+        if (!serviceRequest) {
+            return res.status(404).json({
+                success: false,
+                message: 'Service request not found'
+            });
+        }
+        
+        serviceRequest.status = 'completed';
+        serviceRequest.completedAt = new Date();
+        if (notes) {
+            serviceRequest.notes = notes;
+        }
+        
+        await table.save();
+        
+        // Real-time notification
+        const io = req.app.get('io');
+        if (io) {
+            io.to(`table:${table.tableNumber}`).emit('service-request-completed', {
+                requestId: requestId,
+                type: serviceRequest.type,
+                tableNumber: table.tableNumber,
+                message: `Your ${getServiceTypeName(serviceRequest.type)} request has been completed`,
+                timestamp: new Date().toISOString()
+            });
+            
+            io.to('role:chef').emit('service-request-removed', {
+                requestId: requestId,
+                tableNumber: table.tableNumber
+            });
+        }
+        
+        res.json({
+            success: true,
+            message: 'Service request completed',
+            request: {
+                id: serviceRequest._id,
+                type: serviceRequest.type,
+                tableNumber: table.tableNumber,
+                status: serviceRequest.status,
+                completedAt: serviceRequest.completedAt
+            }
+        });
+        
+    } catch (error) {
+        console.error('Complete service request error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error'
+        });
+    }
+});
+
 module.exports = router;
