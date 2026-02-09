@@ -1475,32 +1475,41 @@
 
         // Initialize Application
         async function initApp() {
-            try {
-                // Check authentication
-                if (!Auth.check()) return;
-                
-                // Get user info
-                user = Auth.getUser();
-                document.getElementById('chefName').textContent = 
-                    user.firstName ? `${user.firstName} ${user.lastName}` : 'Chef';
-                
-                // Initialize socket
-                initSocket();
-                
-                // Setup event listeners
-                setupEventListeners();
-                
-                // Load initial data
-                await loadDashboard();
-                
-                // Update time
-                updateCurrentTime();
-                setInterval(updateCurrentTime, 60000);
-                
-            } catch (error) {
-                ErrorHandler.handle(error, 'initApp');
-            }
+    try {
+        // Check authentication
+        if (!Auth.check()) return;
+        
+        // Get user info
+        user = Auth.getUser();
+        
+        // CRITICAL: Check if user has chef role
+        if (!user.roles || !user.roles.includes('chef')) {
+            Toast.show('Access denied. Chef role required.', 'error');
+            setTimeout(() => {
+                // Redirect to appropriate portal based on role
+                if (user.roles && user.roles.includes('customer')) {
+                    window.location.href = '../customer/index.html';
+                } else {
+                    Auth.logout();
+                }
+            }, 2000);
+            return;
         }
+        
+        document.getElementById('chefName').textContent = 
+            user.firstName ? `${user.firstName} ${user.lastName}` : 'Chef';
+        
+        // Continue with initialization...
+        initSocket();
+        setupEventListeners();
+        await loadDashboard();
+        updateCurrentTime();
+        setInterval(updateCurrentTime, 60000);
+        
+    } catch (error) {
+        ErrorHandler.handle(error, 'initApp');
+    }
+}
 
         function initSocket() {
     try {
