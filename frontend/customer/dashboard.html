@@ -688,41 +688,25 @@
 
                     socket.on('service-request-acknowledged', (data) => {
     console.log('Service request acknowledged:', data);
-    if (data.tableNumber === currentTable) {
+    
+    // Check if this is for current table
+    if (currentTable && data.tableNumber === currentTable) {
         Toast.show(`${data.message}`, 'info');
         
-        // Update the specific service request in the list
-        if (serviceRequests) {
-            const requestIndex = serviceRequests.findIndex(req => 
-                req._id === data.requestId || req.id === data.requestId
-            );
-            
-            if (requestIndex !== -1) {
-                serviceRequests[requestIndex].status = 'acknowledged';
-                serviceRequests[requestIndex].assignedToName = data.chefName;
-                displayServiceRequests(serviceRequests);
-            }
-        }
+        // Refresh service requests to show updated status
+        setTimeout(() => loadServiceRequests(), 1000);
     }
 });
 
 socket.on('service-request-completed', (data) => {
     console.log('Service request completed:', data);
-    if (data.tableNumber === currentTable) {
+    
+    // Check if this is for current table
+    if (currentTable && data.tableNumber === currentTable) {
         Toast.show(data.message, 'success');
         
-        // Update the specific service request in the list
-        if (serviceRequests) {
-            const requestIndex = serviceRequests.findIndex(req => 
-                req._id === data.requestId || req.id === data.requestId
-            );
-            
-            if (requestIndex !== -1) {
-                serviceRequests[requestIndex].status = 'completed';
-                serviceRequests[requestIndex].completedAt = data.completedAt || new Date();
-                displayServiceRequests(serviceRequests);
-            }
-        }
+        // Refresh service requests to show completed status
+        setTimeout(() => loadServiceRequests(), 1000);
     }
 });
                     
@@ -1713,26 +1697,7 @@ socket.on('service-request-completed', (data) => {
         console.log('Service request response:', response);
         
         if (response.success) {
-            Toast.show(`${getServiceName(type)} request sent to table ${tableNumber}!`, 'success');
-            
-            // Add to local service requests list
-            if (response.request) {
-                // Add to local list
-                if (!serviceRequests) serviceRequests = [];
-                serviceRequests.unshift(response.request);
-                
-                // Update display
-                displayServiceRequests(serviceRequests);
-            }
-            
-            // Emit socket event
-            if (socket) {
-                socket.emit('service-request', {
-                    ...request,
-                    requestId: response.request.id,
-                    status: 'pending'
-                });
-            }
+            Toast.show(`${getServiceName(type)} request sent to table ${tableNumber}! Status: ${response.request.status}`, 'success');
             
             // Refresh service requests after 2 seconds
             setTimeout(() => loadServiceRequests(), 2000);
@@ -1760,6 +1725,7 @@ socket.on('service-request-completed', (data) => {
         Loading.hide();
     }
 }
+
         
         function getServiceName(type) {
             const serviceNames = {
@@ -1882,7 +1848,6 @@ socket.on('service-request-completed', (data) => {
         
     } catch (error) {
         console.error('Error loading service requests:', error);
-        Toast.show('Unable to load service requests: ' + error.message, 'error');
         
         const container = document.getElementById('serviceRequests');
         if (container) {
@@ -1933,8 +1898,8 @@ socket.on('service-request-completed', (data) => {
                     </div>
                     <p class="mb-1"><i class="fas fa-chair me-2"></i>Table: ${request.tableNumber}</p>
                     <p class="mb-1"><i class="fas fa-info-circle me-2"></i>${request.description || 'No description'}</p>
-                    ${request.assignedTo ? `
-                        <p class="mb-1"><i class="fas fa-user-chef me-2"></i>Assigned to: ${request.assignedToName || 'Staff'}</p>
+                    ${request.assignedToName ? `
+                        <p class="mb-1"><i class="fas fa-user-tie me-2"></i>Assigned to: ${request.assignedToName}</p>
                     ` : ''}
                     ${request.completedAt ? `
                         <p class="mb-1"><i class="fas fa-check-circle me-2"></i>Completed: ${new Date(request.completedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>

@@ -1,7 +1,33 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
-const { Table } = require('../models');
+const { Table, User } = require('../models');
+
+// Helper functions
+function getServiceTypeName(type) {
+    const typeNames = {
+        'water': 'Water Refill',
+        'cleaning': 'Table Cleaning',
+        'bill': 'Bill Payment',
+        'cutlery': 'Cutlery Request',
+        'napkin': 'Napkin Request',
+        'extra_sauce': 'Extra Sauce',
+        'other': 'Other Service',
+        'chef_attention': 'Chef Attention'
+    };
+    return typeNames[type] || type;
+}
+
+function getServicePriority(type) {
+    const priorityMap = {
+        'bill': 'high',
+        'chef_attention': 'high',
+        'water': 'normal',
+        'cleaning': 'normal',
+        'other': 'low'
+    };
+    return priorityMap[type] || 'normal';
+}
 
 // @route   GET /api/service-requests/pending
 // @desc    Get all pending service requests for chefs
@@ -346,31 +372,5 @@ router.get('/all', auth, async (req, res) => {
         });
     }
 });
-
-// Helper functions
-function getServiceTypeName(type) {
-    const typeNames = {
-        'water': 'Water Refill',
-        'cleaning': 'Table Cleaning',
-        'bill': 'Bill Payment',
-        'cutlery': 'Cutlery Request',
-        'napkin': 'Napkin Request',
-        'extra_sauce': 'Extra Sauce',
-        'other': 'Other Service',
-        'chef_attention': 'Chef Attention'
-    };
-    return typeNames[type] || type;
-}
-
-function getServicePriority(type) {
-    const priorityMap = {
-        'bill': 'high',
-        'chef_attention': 'high',
-        'water': 'normal',
-        'cleaning': 'normal',
-        'other': 'low'
-    };
-    return priorityMap[type] || 'normal';
-}
 
 module.exports = router;

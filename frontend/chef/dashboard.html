@@ -1282,9 +1282,6 @@
     // Show notification
     Toast.show(`New ${getServiceName(data.type)} request from Table ${data.tableNumber}`, 'warning');
     
-    // Play notification sound (optional)
-    playNotificationSound();
-    
     // Reload service requests
     loadServiceRequests();
     
@@ -1308,6 +1305,9 @@ socket.on('service-request-removed', (data) => {
     // Remove from local lists
     serviceRequests = serviceRequests.filter(req => req._id !== data.requestId);
     renderServiceRequests(serviceRequests);
+    
+    // Reload acknowledged requests
+    loadAcknowledgedRequests();
     
     // Update notification badges
     updateNotificationBadges();
@@ -2394,15 +2394,15 @@ async function completeOrder(orderId) {
         if (response.success) {
             Toast.show('Service request assigned to you!', 'success');
             
-            // Remove from local list
+            // Remove from local pending list
             serviceRequests = serviceRequests.filter(req => req._id !== requestId);
             renderServiceRequests(serviceRequests);
             
             // Update notification badges
             updateNotificationBadges();
             
-            // Show acknowledged requests section if not exists
-            showAcknowledgedRequests();
+            // Load acknowledged requests
+            loadAcknowledgedRequests();
         }
         
         Loading.hide();
@@ -2411,6 +2411,26 @@ async function completeOrder(orderId) {
         Loading.hide();
         console.error('Accept service request error:', error);
         Toast.show(`Failed to assign request: ${error.message}`, 'error');
+    }
+}
+
+async function loadAcknowledgedRequests() {
+    try {
+        const response = await API.get('/api/service-requests/all?status=acknowledged&limit=10');
+        
+        if (response.success && response.serviceRequests.length > 0) {
+            // Filter requests assigned to current user
+            const acknowledgedRequests = response.serviceRequests.filter(req => 
+                req.assignedTo === user.id || 
+                req.assignedToName?.includes(user.firstName)
+            );
+            
+            if (acknowledgedRequests.length > 0) {
+                renderAcknowledgedRequests(acknowledgedRequests);
+            }
+        }
+    } catch (error) {
+        console.error('Load acknowledged requests error:', error);
     }
 }
 
@@ -2437,55 +2457,58 @@ function renderAcknowledgedRequests(requests) {
     
     let html = container.innerHTML;
     
-    html += `
-        <div class="col-12 mt-5">
-            <h5 class="border-bottom pb-2 mb-4">
-                <i class="fas fa-user-check me-2 text-info"></i>Your Assigned Requests
-            </h5>
-        </div>
-    `;
-    
-    requests.forEach(request => {
+    // Only add header if we have acknowledged requests
+    if (requests.length > 0) {
         html += `
-            <div class="col-md-6 col-lg-4 mb-4">
-                <div class="card h-100 border-start border-info border-4">
-                    <div class="card-body">
-                        <div class="d-flex align-items-start mb-3">
-                            <div class="me-3">
-                                <div class="rounded-circle bg-info bg-opacity-10 p-3">
-                                    <i class="${getServiceIcon(request.type)} fa-2x text-info"></i>
+            <div class="col-12 mt-5">
+                <h5 class="border-bottom pb-2 mb-4">
+                    <i class="fas fa-user-check me-2 text-info"></i>Your Assigned Requests
+                </h5>
+            </div>
+        `;
+        
+        requests.forEach(request => {
+            html += `
+                <div class="col-md-6 col-lg-4 mb-4">
+                    <div class="card h-100 border-start border-info border-4">
+                        <div class="card-body">
+                            <div class="d-flex align-items-start mb-3">
+                                <div class="me-3">
+                                    <div class="rounded-circle bg-info bg-opacity-10 p-3">
+                                        <i class="${getServiceIcon(request.type)} fa-2x text-info"></i>
+                                    </div>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1">${getServiceName(request.type)}</h6>
+                                    <p class="text-muted small mb-0">
+                                        <i class="fas fa-chair me-1"></i>Table ${request.tableNumber}
+                                    </p>
+                                    <p class="text-muted small mb-0">
+                                        <i class="fas fa-user me-1"></i>${request.customerName || 'Customer'}
+                                    </p>
+                                    <p class="text-muted small mb-0">
+                                        <i class="fas fa-clock me-1"></i>Assigned ${timeSince(request.acknowledgedAt)} ago
+                                    </p>
                                 </div>
                             </div>
-                            <div class="flex-grow-1">
-                                <h6 class="mb-1">${getServiceName(request.type)}</h6>
-                                <p class="text-muted small mb-0">
-                                    <i class="fas fa-chair me-1"></i>Table ${request.tableNumber}
-                                </p>
-                                <p class="text-muted small mb-0">
-                                    <i class="fas fa-user me-1"></i>${request.customerName || 'Customer'}
-                                </p>
-                                <p class="text-muted small mb-0">
-                                    <i class="fas fa-clock me-1"></i>Assigned ${timeSince(request.acknowledgedAt)} ago
-                                </p>
+                            
+                            <div class="mb-4">
+                                <p class="small mb-2">${request.description || 'No description'}</p>
                             </div>
-                        </div>
-                        
-                        <div class="mb-4">
-                            <p class="small mb-2">${request.description || 'No description'}</p>
-                        </div>
-                        
-                        <div class="d-grid gap-2">
-                            <button class="btn btn-success" onclick="completeServiceRequest('${request._id}')">
-                                <i class="fas fa-check-circle me-2"></i>Mark as Complete
-                            </button>
+                            
+                            <div class="d-grid gap-2">
+                                <button class="btn btn-success" onclick="completeServiceRequest('${request._id}')">
+                                    <i class="fas fa-check-circle me-2"></i>Mark as Complete
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        `;
-    });
-    
-    container.innerHTML = html;
+            `;
+        });
+        
+        container.innerHTML = html;
+    }
 }
 
         async function completeServiceRequest(requestId) {
@@ -2501,9 +2524,11 @@ function renderAcknowledgedRequests(requests) {
         if (response.success) {
             Toast.show('Service request completed!', 'success');
             
-            // Refresh the service requests list
-            await loadServiceRequests();
-            await showAcknowledgedRequests();
+            // Refresh all service request lists
+            await Promise.all([
+                loadServiceRequests(),
+                loadAcknowledgedRequests()
+            ]);
         }
         
         Loading.hide();

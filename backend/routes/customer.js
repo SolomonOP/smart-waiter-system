@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { check, validationResult } = require('express-validator');
 const auth = require('../middleware/auth');
-const mongoose = require('mongoose'); // ADD THIS LINE
+const mongoose = require('mongoose');
 const { MenuItem, Order, Table, User } = require('../models');
 
 // @route   GET /api/customer/menu
@@ -363,16 +363,53 @@ router.get('/orders/:id', auth, async (req, res) => {
     }
 });
 
+// Middleware to validate table
+const validateTable = async (req, res, next) => {
+    try {
+        const { tableNumber } = req.body;
+        
+        if (!tableNumber) {
+            return res.status(400).json({
+                success: false,
+                message: 'Table number is required'
+            });
+        }
+        
+        // Check if table exists (create if doesn't exist)
+        let table = await Table.findOne({ tableNumber: parseInt(tableNumber) });
+        
+        if (!table) {
+            console.log(`Creating new table entry for table ${tableNumber}`);
+            table = new Table({
+                tableNumber: parseInt(tableNumber),
+                status: 'occupied',
+                isActive: true,
+                serviceRequests: []
+            });
+            await table.save({ validateBeforeSave: false });
+        }
+        
+        req.table = table;
+        next();
+    } catch (error) {
+        console.error('Table validation error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error validating table'
+        });
+    }
+};
+
 // @route   POST /api/customer/service-request
-// @desc    Request service (water, cleaning, bill, etc.) - WORKING VERSION
+// @desc    Request service (water, cleaning, bill, etc.)
 // @access  Private
-router.post('/service-request', auth, validateTable, async (req, res) => {
+router.post('/service-request', auth, async (req, res) => {
     console.log('=== SERVICE REQUEST START ===');
     console.log('Request body:', req.body);
     console.log('User ID:', req.userId);
     
     try {
-        const { tableNumber, type, description } = req.body;
+        const { tableNumber, type, description, customerName } = req.body;
         
         // Basic validation
         if (!tableNumber || tableNumber < 1) {
@@ -383,7 +420,7 @@ router.post('/service-request', auth, validateTable, async (req, res) => {
             });
         }
         
-        // Valid service types
+        // Updated valid types to match Table schema
         const validTypes = ['water', 'cleaning', 'bill', 'cutlery', 'napkin', 'extra_sauce', 'other', 'chef_attention'];
         if (!type || !validTypes.includes(type)) {
             console.log('Invalid service type:', type);
@@ -394,20 +431,20 @@ router.post('/service-request', auth, validateTable, async (req, res) => {
         }
         
         // Get customer info
-        let customerName = req.body.customerName;
-        if (!customerName) {
+        let customer = customerName;
+        if (!customer) {
             try {
                 const user = await User.findById(req.userId);
-                customerName = user ? `${user.firstName} ${user.lastName}` : 'Customer';
+                customer = user ? user.firstName + ' ' + user.lastName : 'Customer';
             } catch (userError) {
                 console.log('User lookup error:', userError.message);
-                customerName = 'Customer';
+                customer = 'Customer';
             }
         }
         
-        console.log('Processing service request for table:', tableNumber, 'customer:', customerName);
+        console.log('Processing for table:', tableNumber, 'customer:', customer);
         
-        // Find or create table
+        // Find or create the table
         let table = await Table.findOne({ tableNumber: parseInt(tableNumber) });
         
         if (!table) {
@@ -430,7 +467,7 @@ router.post('/service-request', auth, validateTable, async (req, res) => {
             type: type,
             tableNumber: parseInt(tableNumber),
             description: description || `${getServiceTypeName(type)} request from table ${tableNumber}`,
-            customerName: customerName,
+            customerName: customer,
             customerId: req.userId,
             status: 'pending',
             priority: getServicePriority(type),
@@ -438,46 +475,26 @@ router.post('/service-request', auth, validateTable, async (req, res) => {
             updatedAt: new Date()
         };
         
-        console.log('Adding service request:', serviceRequestData);
+        console.log('Creating service request:', serviceRequestData);
         
         // Add the service request to the table
         table.serviceRequests.push(serviceRequestData);
         
         try {
-            // Save the table
+            // Save with validation disabled for now to avoid issues
             await table.save({ validateBeforeSave: false });
             console.log('Table saved with new service request');
         } catch (saveError) {
-            console.error('Error saving table:', saveError);
-            
-            // Try alternative approach - create separate service request document
-            try {
-                console.log('Trying alternative save method...');
-                await Table.updateOne(
-                    { tableNumber: parseInt(tableNumber) },
-                    { 
-                        $push: { serviceRequests: serviceRequestData },
-                        $set: { 
-                            status: 'occupied',
-                            isActive: true,
-                            updatedAt: new Date()
-                        }
-                    },
-                    { upsert: true }
-                );
-                console.log('Alternative save successful');
-            } catch (updateError) {
-                console.error('Alternative save failed:', updateError);
-                return res.status(500).json({
-                    success: false,
-                    message: 'Failed to save service request',
-                    error: updateError.message
-                });
-            }
+            console.error('Error saving table with service request:', saveError);
+            return res.status(500).json({
+                success: false,
+                message: 'Failed to save service request',
+                error: saveError.message
+            });
         }
         
         const savedRequest = table.serviceRequests[table.serviceRequests.length - 1];
-        console.log('Service request saved successfully:', savedRequest._id);
+        console.log('Service request saved:', savedRequest);
         
         // Real-time notification
         const io = req.app.get('io');
@@ -485,24 +502,22 @@ router.post('/service-request', auth, validateTable, async (req, res) => {
             console.log('Emitting socket events...');
             
             // Notify chefs
-            io.to('chef-dashboard').emit('new-service-request', {
+            io.to('role:chef').emit('new-service-request', {
                 requestId: savedRequest._id,
                 type: type,
                 tableNumber: tableNumber,
                 description: serviceRequestData.description,
-                customerName: customerName,
+                customerName: customer,
                 priority: serviceRequestData.priority,
-                status: 'pending',
-                createdAt: new Date().toISOString()
+                timestamp: new Date().toISOString()
             });
             
             // Notify the specific table
             io.to(`table:${tableNumber}`).emit('service-request-confirmation', {
                 type: type,
                 tableNumber: tableNumber,
-                message: 'Your service request has been received and is pending',
+                message: 'Your service request has been received',
                 requestId: savedRequest._id,
-                status: 'pending',
                 estimatedResponse: '5-10 minutes'
             });
         }
@@ -517,7 +532,6 @@ router.post('/service-request', auth, validateTable, async (req, res) => {
                 type: savedRequest.type,
                 tableNumber: savedRequest.tableNumber,
                 description: savedRequest.description,
-                customerName: savedRequest.customerName,
                 status: savedRequest.status,
                 priority: savedRequest.priority,
                 createdAt: savedRequest.createdAt,
@@ -564,6 +578,7 @@ router.get('/service-requests', auth, async (req, res) => {
                         createdAt: request.createdAt,
                         updatedAt: request.updatedAt,
                         assignedTo: request.assignedTo,
+                        assignedToName: request.assignedToName,
                         completedAt: request.completedAt
                     });
                 }
@@ -597,17 +612,19 @@ function getServiceTypeName(type) {
         'cutlery': 'Cutlery Request',
         'napkin': 'Napkin Request',
         'extra_sauce': 'Extra Sauce',
-        'other': 'Other Service'
+        'other': 'Other Service',
+        'chef_attention': 'Chef Attention'
     };
     return typeNames[type] || type;
 }
 
 function getServicePriority(type) {
     const priorityMap = {
-        'bill': 'high',       // Bill payment is high priority
-        'water': 'normal',    // Water refill is normal
-        'cleaning': 'normal', // Cleaning is normal
-        'other': 'low'        // Other services are low priority
+        'bill': 'high',
+        'chef_attention': 'high',
+        'water': 'normal',
+        'cleaning': 'normal',
+        'other': 'low'
     };
     return priorityMap[type] || 'normal';
 }
@@ -622,26 +639,30 @@ router.get('/debug', async (req, res) => {
         const menuCount = await MenuItem.countDocuments();
         const orderCount = await Order.countDocuments();
         
-        let serviceRequestCount = 0;
-        try {
-            const ServiceRequestModel = mongoose.model('ServiceRequest');
-            serviceRequestCount = await ServiceRequestModel.countDocuments();
-        } catch (error) {
-            // Model might not exist yet
-        }
+        // Get some sample service requests
+        const tablesWithRequests = await Table.find({
+            'serviceRequests.0': { $exists: true }
+        }).select('tableNumber serviceRequests');
         
-        // Get some sample data
+        let serviceRequestCount = 0;
         let recentServiceRequests = [];
-        try {
-            const ServiceRequestModel = mongoose.model('ServiceRequest');
-            recentServiceRequests = await ServiceRequestModel
-                .find()
-                .sort({ createdAt: -1 })
-                .limit(5)
-                .select('type tableNumber customerName status createdAt');
-        } catch (error) {
-            // Model might not exist yet
-        }
+        
+        tablesWithRequests.forEach(table => {
+            serviceRequestCount += table.serviceRequests.length;
+            table.serviceRequests.forEach(req => {
+                recentServiceRequests.push({
+                    type: req.type,
+                    tableNumber: table.tableNumber,
+                    customerName: req.customerName,
+                    status: req.status,
+                    createdAt: req.createdAt
+                });
+            });
+        });
+        
+        // Sort by creation time and limit
+        recentServiceRequests.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        recentServiceRequests = recentServiceRequests.slice(0, 10);
         
         res.json({
             success: true,
