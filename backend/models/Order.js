@@ -27,7 +27,7 @@ const OrderSchema = new mongoose.Schema({
     },
     items: [{
         menuItem: {
-            type: mongoose.Schema.Types.ObjectId,
+            type: mongoose.Schema.Types.Mixed,
             ref: 'MenuItem',
             required: true
         },

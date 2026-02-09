@@ -116,10 +116,22 @@ router.post('/order', auth, [
         
         for (const item of items) {
             try {
-                const menuItem = await MenuItem.findById(item.menuItem);
+                // Convert string ID to ObjectId
+                let menuItemId;
+                try {
+                    menuItemId = new mongoose.Types.ObjectId(item.menuItem);
+                } catch (error) {
+                    console.log(`Invalid ObjectId format: ${item.menuItem}`);
+                    return res.status(400).json({
+                        success: false,
+                        message: `Invalid menu item ID format: ${item.menuItem}`
+                    });
+                }
+                
+                const menuItem = await MenuItem.findById(menuItemId);
                 
                 if (!menuItem) {
-                    console.log(`Menu item not found: ${item.menuItem}`);
+                    console.log(`Menu item not found for ID: ${item.menuItem}`);
                     return res.status(400).json({
                         success: false,
                         message: `Menu item "${item.name || item.menuItem}" not found`
@@ -137,10 +149,11 @@ router.post('/order', auth, [
                 totalAmount += itemTotal;
                 
                 orderItems.push({
-                    menuItem: menuItem._id,
+                    menuItem: menuItemId,
                     name: menuItem.name,
                     price: menuItem.price,
                     quantity: item.quantity,
+                    specialInstructions: item.specialInstructions || '',
                     itemTotal: itemTotal
                 });
                 
@@ -170,8 +183,17 @@ router.post('/order', auth, [
             });
         }
         
+        // Generate order number (simple version)
+        const now = new Date();
+        const year = now.getFullYear().toString().slice(-2);
+        const month = (now.getMonth() + 1).toString().padStart(2, '0');
+        const day = now.getDate().toString().padStart(2, '0');
+        const timestamp = Date.now().toString().slice(-6);
+        const orderNumber = `ORD${year}${month}${day}${timestamp}`;
+        
         // Create order
         const orderData = {
+            orderNumber: orderNumber,
             tableNumber: parseInt(tableNumber),
             customer: req.userId,
             customerName: customerName || 'Customer',
@@ -189,16 +211,26 @@ router.post('/order', auth, [
         
         try {
             await order.save();
-            console.log('Order saved successfully:', order._id);
+            console.log('Order saved successfully:', order._id, order.orderNumber);
         } catch (saveError) {
             console.error('Error saving order:', saveError);
             console.error('Validation errors:', saveError.errors);
-            return res.status(400).json({
-                success: false,
-                message: 'Error saving order',
-                error: saveError.message,
-                details: saveError.errors
-            });
+            console.error('Error name:', saveError.name);
+            console.error('Error code:', saveError.code);
+            
+            // Handle duplicate order number
+            if (saveError.code === 11000) {
+                // Generate new order number and retry
+                const newTimestamp = Date.now().toString().slice(-6);
+                order.orderNumber = `ORD${year}${month}${day}${newTimestamp}`;
+                await order.save();
+            } else {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Error saving order',
+                    error: saveError.message
+                });
+            }
         }
         
         // Update table
@@ -207,6 +239,20 @@ router.post('/order', auth, [
         table.currentCustomer = req.userId;
         table.customerName = customerName;
         await table.save();
+        
+        // Real-time notification
+        const io = req.app.get('io');
+        if (io) {
+            io.to('role:chef').emit('new-order', {
+                orderId: order._id,
+                orderNumber: order.orderNumber,
+                tableNumber: order.tableNumber,
+                items: order.items,
+                customerName: order.customerName,
+                estimatedPrepTime: order.estimatedPrepTime,
+                timestamp: new Date().toISOString()
+            });
+        }
         
         // Send response
         res.status(201).json({
