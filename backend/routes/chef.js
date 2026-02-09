@@ -459,10 +459,10 @@ router.post('/orders/:id/final-complete', auth, isChef, async (req, res) => {
             });
         }
         
-        if (order.status !== 'ready') {
+        if (order.status !== 'finished') {
             return res.status(400).json({
                 success: false,
-                message: `Order cannot be completed in ${order.status} status. Must be 'ready'.`
+                message: `Order cannot be completed in ${order.status} status. Must be 'finished'.`
             });
         }
         
@@ -969,6 +969,73 @@ router.post('/orders/new', auth, isChef, [
             success: false,
             message: 'Server error',
             error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+    }
+});
+
+// Add new endpoint for finishing ready orders
+// @route   POST /api/chef/orders/:id/finish
+// @desc    Chef finishes a ready order (ready -> finished)
+// @access  Private (Chef)
+router.post('/orders/:id/finish', auth, isChef, async (req, res) => {
+    try {
+        const order = await Order.findById(req.params.id);
+        
+        if (!order) {
+            return res.status(404).json({
+                success: false,
+                message: 'Order not found'
+            });
+        }
+        
+        if (order.status !== 'ready') {
+            return res.status(400).json({
+                success: false,
+                message: `Order cannot be finished in ${order.status} status. Must be 'ready'.`
+            });
+        }
+        
+        // Update order to finished status
+        order.status = 'finished';
+        order.finishedAt = new Date();
+        await order.save();
+        
+        // Real-time notification
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('order-status-update', {
+                orderId: order._id,
+                orderNumber: order.orderNumber,
+                status: order.status,
+                chefName: order.chefName,
+                timestamp: new Date().toISOString(),
+                message: 'Order finished and ready for billing'
+            });
+            
+            // Notify specific table
+            io.to(`table:${order.tableNumber}`).emit('order-finished', {
+                message: 'Your order is finished and ready for payment',
+                status: order.status,
+                orderId: order._id
+            });
+        }
+        
+        res.json({
+            success: true,
+            message: 'Order marked as finished. Ready for billing.',
+            order: {
+                id: order._id,
+                orderNumber: order.orderNumber,
+                status: order.status,
+                finishedAt: order.finishedAt
+            }
+        });
+        
+    } catch (error) {
+        console.error('Finish order error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error'
         });
     }
 });
