@@ -494,6 +494,172 @@ router.post('/service-request', auth, [
     }
 });
 
+// @route   POST /api/customer/service-request
+// @desc    Request service (water, cleaning, bill, etc.) - SIMPLE WORKING VERSION
+// @access  Private
+router.post('/service-request', auth, async (req, res) => {
+    console.log('=== SERVICE REQUEST START ===');
+    console.log('Request body:', req.body);
+    console.log('User ID:', req.userId);
+    
+    try {
+        const { tableNumber, type, description, customerName } = req.body;
+        
+        // Basic validation
+        if (!tableNumber || tableNumber < 1) {
+            console.log('Invalid table number');
+            return res.status(400).json({
+                success: false,
+                message: 'Valid table number is required'
+            });
+        }
+        
+        const validTypes = ['water', 'cleaning', 'bill', 'cutlery', 'napkin', 'extra_sauce', 'other'];
+        if (!type || !validTypes.includes(type)) {
+            console.log('Invalid service type:', type);
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid service type'
+            });
+        }
+        
+        // Get customer info
+        let customer = customerName;
+        if (!customer) {
+            try {
+                const user = await User.findById(req.userId);
+                customer = user ? user.firstName + ' ' + user.lastName : 'Customer';
+            } catch (userError) {
+                console.log('User lookup error:', userError.message);
+                customer = 'Customer';
+            }
+        }
+        
+        console.log('Processing for table:', tableNumber, 'customer:', customer);
+        
+        // Create a simple service request document
+        // We'll store it in a separate collection to avoid table validation issues
+        
+        // Define a simple schema for service requests
+        const ServiceRequestSchema = new mongoose.Schema({
+            type: String,
+            tableNumber: Number,
+            description: String,
+            customerName: String,
+            customerId: String,
+            status: { type: String, default: 'pending' },
+            createdAt: { type: Date, default: Date.now }
+        });
+        
+        // Use existing model or create new one
+        let ServiceRequestModel;
+        try {
+            ServiceRequestModel = mongoose.model('ServiceRequest');
+        } catch (error) {
+            ServiceRequestModel = mongoose.model('ServiceRequest', ServiceRequestSchema);
+        }
+        
+        // Create service request
+        const serviceRequestData = {
+            type: type,
+            tableNumber: parseInt(tableNumber),
+            description: description || `${type} request from table ${tableNumber}`,
+            customerName: customer,
+            customerId: req.userId,
+            status: 'pending'
+        };
+        
+        console.log('Creating service request:', serviceRequestData);
+        
+        const serviceRequest = new ServiceRequestModel(serviceRequestData);
+        await serviceRequest.save();
+        
+        console.log('Service request saved with ID:', serviceRequest._id);
+        
+        // Also update table status if needed
+        try {
+            const table = await Table.findOne({ tableNumber: parseInt(tableNumber) });
+            if (table) {
+                // Mark table as needing attention
+                table.status = 'occupied'; // or keep current status
+                await table.save();
+                console.log('Table updated');
+            }
+        } catch (tableError) {
+            console.log('Table update skipped:', tableError.message);
+        }
+        
+        // Real-time notification
+        const io = req.app.get('io');
+        if (io) {
+            console.log('Emitting socket events...');
+            
+            // Notify chefs
+            io.to('role:chef').emit('new-service-request', {
+                requestId: serviceRequest._id,
+                type: type,
+                tableNumber: tableNumber,
+                description: serviceRequest.description,
+                customerName: customer,
+                timestamp: new Date().toISOString()
+            });
+            
+            // Notify admins
+            io.to('role:admin').emit('service-request-created', {
+                requestId: serviceRequest._id,
+                type: type,
+                tableNumber: tableNumber,
+                customerName: customer,
+                timestamp: new Date().toISOString()
+            });
+        }
+        
+        console.log('=== SERVICE REQUEST COMPLETE ===');
+        
+        res.json({
+            success: true,
+            message: 'Service request sent successfully',
+            requestId: serviceRequest._id,
+            request: {
+                id: serviceRequest._id,
+                type: serviceRequest.type,
+                tableNumber: serviceRequest.tableNumber,
+                description: serviceRequest.description,
+                status: serviceRequest.status,
+                createdAt: serviceRequest.createdAt,
+                estimatedResponse: '5-10 minutes'
+            }
+        });
+        
+    } catch (error) {
+        console.error('=== SERVICE REQUEST ERROR ===');
+        console.error('Error:', error);
+        console.error('Error name:', error.name);
+        console.error('Error message:', error.message);
+        
+        // Check if it's a validation error
+        if (error.name === 'ValidationError') {
+            console.error('Validation errors:', error.errors);
+            return res.status(400).json({
+                success: false,
+                message: 'Validation error',
+                errors: error.errors
+            });
+        }
+        
+        // Check if it's a MongoDB error
+        if (error.name === 'MongoError') {
+            console.error('MongoDB error code:', error.code);
+        }
+        
+        res.status(500).json({
+            success: false,
+            message: 'Server error while processing service request',
+            error: error.message
+        });
+    }
+});
+
 // Helper functions
 function getServiceTypeName(type) {
     const typeNames = {

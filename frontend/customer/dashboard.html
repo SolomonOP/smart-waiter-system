@@ -1578,7 +1578,7 @@ async function sendServiceRequest(type, description) {
     }
 }
         
-        // Request service
+        /// Request service - WORKING VERSION
 async function requestService(type) {
     // Always ask for table number in services section
     let targetTable = currentTable;
@@ -1612,24 +1612,72 @@ async function requestService(type) {
         
         console.log('Sending service request:', request);
         
-        const response = await API.post(CONFIG.API_ENDPOINTS.SERVICE_REQUEST, request);
+        // Create a timeout for the request
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
         
-        Toast.show(`${getServiceName(type)} request sent to table ${targetTable}!`, 'success');
-        
-        // Emit socket event
-        if (socket) {
-            socket.emit('service-request', {
-                ...request,
-                requestId: response.requestId
+        try {
+            const token = localStorage.getItem('token');
+            
+            const response = await fetch(CONFIG.BACKEND_URL + CONFIG.API_ENDPOINTS.SERVICE_REQUEST, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(request),
+                signal: controller.signal
             });
+            
+            clearTimeout(timeoutId);
+            
+            console.log('Response status:', response.status);
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Response error:', errorText);
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+            
+            const data = await response.json();
+            console.log('Service request response:', data);
+            
+            if (data.success) {
+                Toast.show(`${getServiceName(type)} request sent to table ${targetTable}!`, 'success');
+                
+                // Emit socket event
+                if (socket) {
+                    socket.emit('service-request', {
+                        ...request,
+                        requestId: data.requestId || data.request?._id
+                    });
+                }
+            } else {
+                throw new Error(data.message || 'Request failed');
+            }
+            
+        } catch (fetchError) {
+            console.error('Fetch error:', fetchError);
+            
+            if (fetchError.name === 'AbortError') {
+                throw new Error('Request timed out. Please try again.');
+            }
+            throw fetchError;
         }
         
     } catch (error) {
         console.error('Service request error:', error);
         
         let errorMessage = 'Failed to send request. ';
-        if (error.message.includes('500') && error.message.includes('orderType')) {
-            errorMessage = 'Service request system updating. Please try again in a moment.';
+        if (error.message.includes('timeout') || error.message.includes('AbortError')) {
+            errorMessage = 'Request timed out. The server might be busy.';
+        } else if (error.message.includes('500')) {
+            errorMessage = 'Server error. Please try again later.';
+        } else if (error.message.includes('401')) {
+            errorMessage = 'Session expired. Please login again.';
+            setTimeout(() => logout(), 2000);
+        } else if (error.message.includes('Table validation failed')) {
+            errorMessage = 'System configuration error. Contact staff.';
         } else {
             errorMessage += error.message;
         }
@@ -1641,13 +1689,17 @@ async function requestService(type) {
 }
         
         function getServiceName(type) {
-            switch(type) {
-                case 'water': return 'Water Refill';
-                case 'cleaning': return 'Table Cleaning';
-                case 'bill': return 'Bill Payment';
-                default: return 'Service';
-            }
-        }
+    const serviceNames = {
+        'water': 'Water Refill',
+        'cleaning': 'Table Cleaning',
+        'bill': 'Bill Payment',
+        'cutlery': 'Cutlery',
+        'napkin': 'Napkins',
+        'extra_sauce': 'Extra Sauce',
+        'other': 'Other Service'
+    };
+    return serviceNames[type] || type;
+}
         
         // Load order status
 async function loadOrderStatus() {
