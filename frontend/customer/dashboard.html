@@ -897,26 +897,34 @@ function refreshOrderDisplay(data) {
         }
         
         // Setup auto-refresh
-        function setupAutoRefresh() {
-            // Clear existing interval
-            if (autoRefreshInterval) {
-                clearInterval(autoRefreshInterval);
+function setupAutoRefresh() {
+    // Clear existing interval
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+    }
+    
+    // Setup auto-refresh every 45 seconds (less frequent to avoid connection issues)
+    autoRefreshInterval = setInterval(async () => {
+        if (currentTable && document.getElementById('services').style.display === 'block') {
+            try {
+                await loadOrderStatus();
+            } catch (error) {
+                console.log('Auto-refresh failed:', error.message);
             }
-            
-            // Setup auto-refresh every 30 seconds for orders
-            autoRefreshInterval = setInterval(async () => {
-                if (currentTable) {
-                    await loadOrderStatus();
-                }
-            }, 30000);
-            
-            // Also refresh menu every 2 minutes
-            setInterval(async () => {
-                if (currentTable && document.getElementById('menu').style.display === 'block') {
-                    await loadMenu();
-                }
-            }, 120000);
         }
+    }, 45000);
+    
+    // Also refresh menu every 3 minutes
+    setInterval(async () => {
+        if (currentTable && document.getElementById('menu').style.display === 'block') {
+            try {
+                await loadMenu();
+            } catch (error) {
+                console.log('Menu refresh failed:', error.message);
+            }
+        }
+    }, 180000);
+}
         
         // Initialize socket
         function initSocket() {
@@ -1567,15 +1575,6 @@ async function requestService(type) {
             return;
         }
         
-        // Check if table exists
-        if (!activeTables.includes(tableNumber)) {
-            const confirmUse = confirm(`Table ${tableNumber} is not in the active list. Continue anyway?`);
-            if (!confirmUse) {
-                Toast.show('Service request cancelled', 'warning');
-                return;
-            }
-        }
-        
         targetTable = tableNumber;
     }
     
@@ -1605,7 +1604,15 @@ async function requestService(type) {
         
     } catch (error) {
         console.error('Service request error:', error);
-        Toast.show(`Failed to send request: ${error.message}`, 'error');
+        
+        let errorMessage = 'Failed to send request. ';
+        if (error.message.includes('500') && error.message.includes('orderType')) {
+            errorMessage = 'Service request system updating. Please try again in a moment.';
+        } else {
+            errorMessage += error.message;
+        }
+        
+        Toast.show(errorMessage, 'error');
     } finally {
         Loading.hide();
     }
@@ -1621,26 +1628,45 @@ async function requestService(type) {
         }
         
         // Load order status
-        async function loadOrderStatus() {
-            if (!currentTable) return;
-            
-            try {
-                const data = await API.get(CONFIG.API_ENDPOINTS.CUSTOMER_ORDERS);
-                
-                // Filter orders for current table
-                const tableOrders = data.orders.filter(order => order.tableNumber === currentTable);
-                currentOrders = tableOrders;
-                
-                displayOrderStatus(currentOrders);
-                
-                // Update last update time
-                lastOrderUpdate = new Date();
-                
-            } catch (error) {
-                console.error('Error loading orders:', error);
-                Toast.show('Unable to load order status', 'error');
-            }
+async function loadOrderStatus() {
+    if (!currentTable) return;
+    
+    try {
+        console.log('Loading orders for table:', currentTable);
+        
+        const data = await API.get(CONFIG.API_ENDPOINTS.CUSTOMER_ORDERS);
+        
+        console.log('Orders loaded:', data);
+        
+        // Filter orders for current table
+        const tableOrders = data.orders ? data.orders.filter(order => order.tableNumber === currentTable) : [];
+        currentOrders = tableOrders;
+        
+        displayOrderStatus(currentOrders);
+        
+        // Update last update time
+        lastOrderUpdate = new Date();
+        
+    } catch (error) {
+        console.error('Error loading orders:', error);
+        
+        // Don't show toast for connection errors during auto-refresh
+        if (!error.message.includes('Failed to fetch') && !error.message.includes('ERR_CONNECTION_CLOSED')) {
+            Toast.show('Unable to load order status: ' + error.message, 'error');
         }
+        
+        // Show placeholder
+        const statusContainer = document.getElementById('orderStatus');
+        if (statusContainer) {
+            statusContainer.innerHTML = `
+                <div class="col-12 text-center text-muted py-4">
+                    <p><i class="fas fa-sync fa-spin me-2"></i>Loading order status...</p>
+                    <p class="small">Connection issue. Retrying...</p>
+                </div>
+            `;
+        }
+    }
+}
         
         function displayOrderStatus(orders) {
             const statusContainer = document.getElementById('orderStatus');

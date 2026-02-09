@@ -1,6 +1,37 @@
 const mongoose = require('mongoose');
 
 const TableSchema = new mongoose.Schema({
+    // In your Table model, add this field:
+serviceRequests: [{
+    type: {
+        type: String,
+        enum: ['water', 'cleaning', 'bill', 'cutlery', 'napkin', 'extra_sauce', 'other', 'chef_attention'],
+        required: true
+    },
+    tableNumber: {
+        type: Number,
+        required: true
+    },
+    description: {
+        type: String,
+        maxlength: [200, 'Description cannot exceed 200 characters']
+    },
+    customerName: String,
+    status: {
+        type: String,
+        enum: ['pending', 'acknowledged', 'completed', 'cancelled'],
+        default: 'pending'
+    },
+    assignedTo: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    },
+    completedAt: Date,
+    createdAt: {
+        type: Date,
+        default: Date.now
+    }
+}],
     tableNumber: {
         type: Number,
         required: true,

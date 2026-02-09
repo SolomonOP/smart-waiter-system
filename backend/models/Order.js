@@ -162,7 +162,7 @@ const OrderSchema = new mongoose.Schema({
     },
     orderType: {
         type: String,
-        enum: ['customer', 'walk-in'],
+        enum: ['customer', 'walk-in','service'],
         default: 'customer'
     },
     createdAt: {

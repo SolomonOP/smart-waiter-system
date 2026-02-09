@@ -410,23 +410,61 @@ router.post('/service-request', auth, [
             status: { $nin: ['completed', 'cancelled', 'rejected'] }
         }).sort({ createdAt: -1 });
         
-        // If no active order, create a service-only order
+        // If no active order, don't create a new one - just add to table
         if (!order) {
-            order = new Order({
-                orderNumber: `SRV${Date.now().toString().slice(-8)}`,
+            // Instead of creating an order, just add service request directly to table
+            const serviceRequest = {
+                type: type,
                 tableNumber: parseInt(tableNumber),
-                customerName: customer,
-                customerEmail: req.user.email || 'service@request.com',
-                items: [],
-                subtotal: 0,
-                totalAmount: 0,
+                description: description || `${type} service requested by ${customer}`,
                 status: 'pending',
-                orderType: 'service'
+                createdAt: new Date(),
+                customerName: customer
+            };
+            
+            // Store in table's serviceRequests
+            if (!table.serviceRequests) {
+                table.serviceRequests = [];
+            }
+            
+            table.serviceRequests.push(serviceRequest);
+            await table.save();
+            
+            console.log('Service request saved to table:', serviceRequest);
+            
+            // Real-time notification
+            const io = req.app.get('io');
+            if (io) {
+                const requestId = table.serviceRequests[table.serviceRequests.length - 1]._id;
+                
+                // Notify chefs
+                io.to('role:chef').emit('new-service-request', {
+                    requestId: requestId,
+                    type: type,
+                    tableNumber: tableNumber,
+                    description: serviceRequest.description,
+                    customerName: customer,
+                    timestamp: new Date().toISOString()
+                });
+                
+                // Notify the specific table
+                io.to(`table:${tableNumber}`).emit('service-request-confirmation', {
+                    type: type,
+                    tableNumber: tableNumber,
+                    message: 'Your service request has been received',
+                    estimatedResponse: '5-10 minutes'
+                });
+            }
+            
+            return res.json({
+                success: true,
+                message: 'Service request sent successfully',
+                requestId: table.serviceRequests[table.serviceRequests.length - 1]._id,
+                request: serviceRequest
             });
-            await order.save();
         }
         
-        // Create service request
+        // If there's an active order, add service request to it
         const serviceRequest = {
             type: type,
             tableNumber: parseInt(tableNumber),
@@ -443,7 +481,7 @@ router.post('/service-request', auth, [
         order.serviceRequests.push(serviceRequest);
         await order.save();
         
-        console.log('Service request saved:', serviceRequest);
+        console.log('Service request saved to order:', serviceRequest);
         console.log('Order serviceRequests:', order.serviceRequests);
         
         // Real-time notification
