@@ -182,7 +182,7 @@ router.get('/orders', auth, isChef, async (req, res) => {
         const { status } = req.query;
         
         let query = {
-            status: { $in: ['pending', 'confirmed', 'preparing', 'ready'] }
+            status: { $in: ['pending', 'confirmed', 'preparing', 'ready', 'finished'] } // Added 'finished'
         };
         
         if (status) {
@@ -346,7 +346,7 @@ router.post('/orders/:id/complete', auth, isChef, async (req, res) => {
             });
         }
         
-        // Update order to ready status
+        // Update order to ready status (NOT finished)
         order.status = 'ready';
         order.readyAt = new Date();
         
@@ -357,33 +357,21 @@ router.post('/orders/:id/complete', auth, isChef, async (req, res) => {
         
         await order.save();
         
-        // Real-time notification to ALL chefs
+        // Real-time notification
         const io = req.app.get('io');
         if (io) {
-            // Notify all chefs that order is ready for billing
-            io.to('chef-dashboard').emit('order-ready-update', {
+            io.emit('order-status-update', {
                 orderId: order._id,
                 orderNumber: order.orderNumber,
-                tableNumber: order.tableNumber,
                 status: order.status,
                 chefName: order.chefName,
                 timestamp: new Date().toISOString(),
-                message: 'Order is ready for billing!'
-            });
-            
-            // Also broadcast to all chefs for immediate updates
-            io.emit('order-ready-broadcast', {
-                orderId: order._id,
-                orderNumber: order.orderNumber,
-                tableNumber: order.tableNumber,
-                chefName: order.chefName,
-                timestamp: new Date().toISOString(),
-                message: `Order #${order.orderNumber} is ready for billing`
+                message: 'Order is ready!'
             });
             
             // Notify specific table
             io.to(`table:${order.tableNumber}`).emit('order-ready', {
-                message: 'Your order is ready! Please wait for server.',
+                message: 'Your order is ready!',
                 status: order.status,
                 orderId: order._id
             });
@@ -391,7 +379,7 @@ router.post('/orders/:id/complete', auth, isChef, async (req, res) => {
         
         res.json({
             success: true,
-            message: 'Order preparation completed! Order marked as ready for billing.',
+            message: 'Order marked as ready',
             order: {
                 id: order._id,
                 orderNumber: order.orderNumber,
@@ -1000,12 +988,8 @@ router.post('/orders/:id/finish', auth, isChef, async (req, res) => {
         }
         
         // Update order to finished status
-        // Use $set to update only specific fields
         order.status = 'finished';
-        // Add finishedAt field if it exists in schema, otherwise skip
-        if (order.schema.paths.finishedAt) {
-            order.finishedAt = new Date();
-        }
+        order.finishedAt = new Date();
         await order.save();
         
         console.log(`✅ Order ${order.orderNumber} marked as finished`);
@@ -1037,7 +1021,7 @@ router.post('/orders/:id/finish', auth, isChef, async (req, res) => {
                 id: order._id,
                 orderNumber: order.orderNumber,
                 status: order.status,
-                finishedAt: order.finishedAt || new Date()
+                finishedAt: order.finishedAt
             }
         });
         
@@ -1047,8 +1031,8 @@ router.post('/orders/:id/finish', auth, isChef, async (req, res) => {
         console.error('Error stack:', error.stack);
         res.status(500).json({
             success: false,
-            message: 'Server error',
-            error: process.env.NODE_ENV === 'development' ? error.message : undefined
+            message: 'Server error: ' + error.message,
+            error: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 });
@@ -1069,18 +1053,19 @@ router.get('/dashboard-stats', auth, isChef, async (req, res) => {
             createdAt: { $gte: today, $lt: tomorrow }
         });
         
-        // Calculate stats
+        // Calculate stats - ADD FINISHED COUNT
         const stats = {
             pending: todayOrders.filter(o => o.status === 'pending' || o.status === 'confirmed').length,
             preparing: todayOrders.filter(o => o.status === 'preparing').length,
             ready: todayOrders.filter(o => o.status === 'ready').length,
+            finished: todayOrders.filter(o => o.status === 'finished').length, // ADD THIS LINE
             completed: todayOrders.filter(o => o.status === 'completed').length,
             totalToday: todayOrders.length
         };
         
-        // Get recent orders (last 5)
+        // Get recent orders (last 5) - INCLUDE FINISHED STATUS
         const recentOrders = await Order.find({
-            status: { $in: ['pending', 'confirmed', 'preparing', 'ready'] }
+            status: { $in: ['pending', 'confirmed', 'preparing', 'ready', 'finished'] } // Added 'finished'
         })
         .sort({ createdAt: -1 })
         .limit(5)
