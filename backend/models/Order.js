@@ -229,15 +229,16 @@ OrderSchema.pre('save', async function(next) {
     if (!this.isNew) return next();
     
     try {
-        const date = new Date();
-        const year = date.getFullYear().toString().slice(-2);
-        const month = (date.getMonth() + 1).toString().padStart(2, '0');
-        const day = date.getDate().toString().padStart(2, '0');
+        const now = new Date();
+        const year = now.getFullYear().toString().slice(-2);
+        const month = (now.getMonth() + 1).toString().padStart(2, '0');
+        const day = now.getDate().toString().padStart(2, '0');
+        
+        // Create date range for today
+        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+        const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
         
         // Get count of today's orders
-        const startOfDay = new Date(date.setHours(0, 0, 0, 0));
-        const endOfDay = new Date(date.setHours(23, 59, 59, 999));
-        
         const count = await this.constructor.countDocuments({
             createdAt: { $gte: startOfDay, $lte: endOfDay }
         });
@@ -245,9 +246,14 @@ OrderSchema.pre('save', async function(next) {
         const sequence = (count + 1).toString().padStart(4, '0');
         this.orderNumber = `ORD${year}${month}${day}${sequence}`;
         
+        console.log(`Generated order number: ${this.orderNumber} (count: ${count})`);
+        
         next();
     } catch (error) {
-        next(error);
+        console.error('Error generating order number:', error);
+        // Fallback order number
+        this.orderNumber = `ORD${Date.now()}`;
+        next();
     }
 });
 

@@ -1,39 +1,55 @@
-// models/ServiceRequest.js
 const mongoose = require('mongoose');
 
-const ServiceRequestSchema = new mongoose.Schema({
-  type: {
-    type: String,
-    enum: ['water', 'cleaning', 'bill', 'assistance'],
-    required: true
-  },
-  tableNumber: {
-    type: Number,
-    required: true
-  },
-  customer: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-  },
-  order: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Order'
-  },
-  status: {
-    type: String,
-    enum: ['pending', 'assigned', 'completed'],
-    default: 'pending'
-  },
-  assignedTo: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-  },
-  notes: String,
-  createdAt: {
-    type: Date,
-    default: Date.now
-  },
-  completedAt: Date
+const serviceRequestSchema = new mongoose.Schema({
+    type: {
+        type: String,
+        enum: ['water', 'chef_attention', 'item_modification', 'special_request', 'cleaning', 'bill'],
+        required: true
+    },
+    table: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Table',
+        required: true
+    },
+    tableNumber: {
+        type: Number,
+        required: true
+    },
+    customer: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    },
+    customerName: {
+        type: String,
+        required: true
+    },
+    order: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Order'
+    },
+    description: {
+        type: String,
+        trim: true
+    },
+    status: {
+        type: String,
+        enum: ['pending', 'assigned', 'completed'],
+        default: 'pending'
+    },
+    assignedTo: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    },
+    assignedToName: {
+        type: String
+    },
+    completedAt: {
+        type: Date
+    },
+    createdAt: {
+        type: Date,
+        default: Date.now
+    }
 });
 
-module.exports = mongoose.model('ServiceRequest', ServiceRequestSchema);
+module.exports = mongoose.model('ServiceRequest', serviceRequestSchema);

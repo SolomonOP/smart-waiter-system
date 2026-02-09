@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { check, validationResult } = require('express-validator');
 const auth = require('../middleware/auth');
-const { Order, MenuItem, Table, User } = require('../models');
+const { Order, MenuItem, Table, User,ServiceRequest } = require('../models');
 const PDFDocument = require('pdfkit');
 const nodemailer = require('nodemailer');
 
@@ -551,31 +551,14 @@ router.post('/orders/:id/final-complete', auth, isChef, async (req, res) => {
 // @access  Private (Chef)
 router.get('/service-requests', auth, isChef, async (req, res) => {
     try {
-        // Get orders with pending service requests
-        const orders = await Order.find({
-            'serviceRequests.status': 'pending'
+        // Get ALL service requests, not just from orders
+        const serviceRequests = await ServiceRequest.find({
+            status: 'pending'
         })
-        .select('orderNumber tableNumber serviceRequests customerName')
+        .populate('table', 'tableNumber')
+        .populate('customer', 'firstName lastName email')
+        .populate('order', 'orderNumber')
         .sort({ createdAt: -1 });
-        
-        // Extract service requests
-        const serviceRequests = [];
-        orders.forEach(order => {
-            order.serviceRequests.forEach(request => {
-                if (request.status === 'pending') {
-                    serviceRequests.push({
-                        id: request._id,
-                        type: request.type,
-                        tableNumber: request.tableNumber,
-                        description: request.description,
-                        orderNumber: order.orderNumber,
-                        customerName: order.customerName,
-                        createdAt: request.createdAt,
-                        orderId: order._id
-                    });
-                }
-            });
-        });
         
         res.json({
             success: true,
@@ -597,19 +580,8 @@ router.get('/service-requests', auth, isChef, async (req, res) => {
 // @access  Private (Chef)
 router.post('/service-requests/:id/accept', auth, isChef, async (req, res) => {
     try {
-        const order = await Order.findOne({
-            'serviceRequests._id': req.params.id
-        });
+        const serviceRequest = await ServiceRequest.findById(req.params.id);
         
-        if (!order) {
-            return res.status(404).json({
-                success: false,
-                message: 'Service request not found'
-            });
-        }
-        
-        // Find the specific service request
-        const serviceRequest = order.serviceRequests.id(req.params.id);
         if (!serviceRequest) {
             return res.status(404).json({
                 success: false,
@@ -626,7 +598,18 @@ router.post('/service-requests/:id/accept', auth, isChef, async (req, res) => {
         
         serviceRequest.status = 'assigned';
         serviceRequest.assignedTo = req.user.id;
-        await order.save();
+        serviceRequest.assignedToName = req.user.firstName + ' ' + req.user.lastName;
+        await serviceRequest.save();
+        
+        // Real-time notification
+        const io = req.app.get('io');
+        if (io) {
+            io.to(`table:${serviceRequest.tableNumber}`).emit('service-request-accepted', {
+                message: `Chef ${serviceRequest.assignedToName} is handling your request`,
+                requestType: serviceRequest.type,
+                requestId: serviceRequest._id
+            });
+        }
         
         res.json({
             success: true,
@@ -648,19 +631,8 @@ router.post('/service-requests/:id/accept', auth, isChef, async (req, res) => {
 // @access  Private (Chef)
 router.post('/service-requests/:id/complete', auth, isChef, async (req, res) => {
     try {
-        const order = await Order.findOne({
-            'serviceRequests._id': req.params.id
-        });
+        const serviceRequest = await ServiceRequest.findById(req.params.id);
         
-        if (!order) {
-            return res.status(404).json({
-                success: false,
-                message: 'Service request not found'
-            });
-        }
-        
-        // Find the specific service request
-        const serviceRequest = order.serviceRequests.id(req.params.id);
         if (!serviceRequest) {
             return res.status(404).json({
                 success: false,
@@ -677,10 +649,20 @@ router.post('/service-requests/:id/complete', auth, isChef, async (req, res) => 
         
         serviceRequest.status = 'completed';
         serviceRequest.completedAt = new Date();
-        await order.save();
+        await serviceRequest.save();
+        
+        // Real-time notification
+        const io = req.app.get('io');
+        if (io) {
+            io.to(`table:${serviceRequest.tableNumber}`).emit('service-request-completed', {
+                message: 'Your service request has been completed',
+                requestType: serviceRequest.type,
+                requestId: serviceRequest._id
+            });
+        }
         
         res.json({
-            success: true,
+            success: false,
             message: 'Service request completed',
             request: serviceRequest
         });
@@ -1171,11 +1153,20 @@ router.get('/dashboard-stats', auth, isChef, async (req, res) => {
         .populate('items.menuItem', 'name')
         .populate('customer', 'firstName lastName email');
         
+        // Get pending service requests
+        const serviceRequests = await ServiceRequest.find({
+            status: 'pending'
+        })
+        .populate('table', 'tableNumber')
+        .populate('customer', 'firstName lastName')
+        .sort({ createdAt: -1 })
+        .limit(5);
+        
         res.json({
             success: true,
             stats,
             recentOrders,
-            serviceRequests: [] // Add if you have service requests
+            serviceRequests // Add service requests here
         });
         
     } catch (error) {

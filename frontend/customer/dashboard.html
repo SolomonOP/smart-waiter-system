@@ -1437,81 +1437,116 @@ function refreshOrderDisplay(data) {
         }
         
         async function placeOrder() {
-            if (!currentTable) {
-                Toast.show('Please select a table first', 'error');
-                return;
-            }
-            
-            if (cart.length === 0) {
-                Toast.show('Your cart is empty', 'error');
-                return;
-            }
-            
-            try {
-                Loading.show('Placing your order...');
-                
-                // Build order object
-                const orderData = {
-                    tableNumber: parseInt(currentTable),
-                    items: cart.map(item => ({
-                        menuItem: item.id,
-                        name: item.name,
-                        price: parseFloat(item.price),
-                        quantity: parseInt(item.quantity)
-                    })),
-                    customerName: user.firstName + ' ' + user.lastName,
-                    customerEmail: user.email,
-                    instructions: document.getElementById('specialInstructions')?.value || ''
-                };
-                
-                console.log('Sending order to:', CONFIG.BACKEND_URL + CONFIG.API_ENDPOINTS.ORDER);
-                
-                const response = await API.post(CONFIG.API_ENDPOINTS.ORDER, orderData);
-                
-                console.log('Order success:', response);
-                
-                Toast.show(`Order #${response.order.orderNumber} placed successfully!`, 'success');
-                
-                // Reset cart
-                cart = [];
-                updateCartDisplay();
-                hideCart();
-                
-                // Load updated order status
-                await loadOrderStatus();
-                
-                // Emit socket event
-                if (socket) {
-                    socket.emit('new-order', {
-                        orderId: response.order._id,
-                        tableNumber: currentTable,
-                        orderNumber: response.order.orderNumber,
-                        status: 'pending'
-                    });
-                }
-                
-            } catch (error) {
-                console.error('Order placement error:', error);
-                
-                let errorMessage = 'Failed to place order. ';
-                
-                if (error.message.includes('400') && error.message.includes('Table not found')) {
-                    errorMessage = `Table ${currentTable} is not active. Please contact staff.`;
-                } else if (error.message.includes('401') || error.message.includes('token')) {
-                    errorMessage += 'Session expired. Please login again.';
-                    setTimeout(() => logout(), 2000);
-                } else if (error.message.includes('NetworkError') || error.message.includes('Failed to fetch')) {
-                    errorMessage += 'Network error. Please check your connection.';
-                } else {
-                    errorMessage += error.message;
-                }
-                
-                Toast.show(errorMessage, 'error');
-                
-            } finally {
-                Loading.hide();
-            }
+    if (!currentTable) {
+        Toast.show('Please select a table first', 'error');
+        return;
+    }
+    
+    if (cart.length === 0) {
+        Toast.show('Your cart is empty', 'error');
+        return;
+    }
+    
+    try {
+        Loading.show('Placing your order...');
+        
+        // Build order object
+        const orderData = {
+            tableNumber: parseInt(currentTable),
+            items: cart.map(item => ({
+                menuItem: item.id, // This should be a valid MongoDB ObjectId
+                name: item.name,
+                price: parseFloat(item.price),
+                quantity: parseInt(item.quantity)
+            })),
+            customerName: user.firstName + ' ' + user.lastName,
+            customerEmail: user.email || 'customer@example.com',
+            instructions: document.getElementById('specialInstructions')?.value || ''
+        };
+        
+        console.log('Order data being sent:', JSON.stringify(orderData, null, 2));
+        
+        const response = await API.post(CONFIG.API_ENDPOINTS.ORDER, orderData);
+        
+        console.log('Order success:', response);
+        
+        Toast.show(`Order #${response.order.orderNumber} placed successfully!`, 'success');
+        
+        // Reset cart
+        cart = [];
+        updateCartDisplay();
+        hideCart();
+        
+        // Load updated order status
+        await loadOrderStatus();
+        
+        // Emit socket event
+        if (socket) {
+            socket.emit('new-order', {
+                orderId: response.order._id,
+                tableNumber: currentTable,
+                orderNumber: response.order.orderNumber,
+                status: 'pending'
+            });
         }
+        
+    } catch (error) {
+        console.error('Order placement error:', error);
+        console.error('Full error:', error);
+        
+        // Show detailed error
+        let errorMessage = 'Failed to place order. ';
+        
+        if (error.message.includes('NetworkError') || error.message.includes('Failed to fetch')) {
+            errorMessage += 'Network error. Please check your connection.';
+        } else if (error.message.includes('500')) {
+            errorMessage += 'Server error. Please try again or contact staff.';
+        } else {
+            errorMessage += error.message;
+        }
+        
+        Toast.show(errorMessage, 'error');
+        
+        // Show debug info
+        console.log('Cart items:', cart);
+        console.log('Current table:', currentTable);
+        console.log('User:', user);
+        
+    } finally {
+        Loading.hide();
+    }
+}
+
+// In your customer frontend JavaScript
+async function sendServiceRequest(type, description) {
+    try {
+        const tableNumber = getCurrentTableNumber(); // You need to get this from somewhere
+        const orderId = getCurrentOrderId(); // Get current order ID if available
+        
+        const response = await fetch('/api/service-request', { // or /api/customer/service-request
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${Auth.getToken()}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                type,
+                description,
+                tableNumber,
+                orderId
+            })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            Toast.show('Service request sent successfully!', 'success');
+        }
+        
+    } catch (error) {
+        console.error('Send service request error:', error);
+        Toast.show('Failed to send service request', 'error');
+    }
+}
         
         // Request service
 async function requestService(type) {

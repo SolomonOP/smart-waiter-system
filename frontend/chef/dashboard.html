@@ -2203,82 +2203,88 @@ async function completeOrder(orderId) {
         }
 
         function renderServiceRequests(requests) {
-            const container = document.getElementById('serviceRequestsList');
-            
-            if (!requests || requests.length === 0) {
-                container.innerHTML = `
-                    <div class="col-12">
-                        <div class="empty-state">
-                            <i class="fas fa-concierge-bell"></i>
-                            <h5>No service requests</h5>
-                            <p>Service requests will appear here</p>
-                        </div>
-                    </div>
-                `;
-                return;
-            }
-            
-            let html = '';
-            requests.forEach(request => {
-                const statusColor = request.status === 'pending' ? 'warning' : 'success';
-                const icon = getServiceIcon(request.type);
-                const serviceName = getServiceName(request.type);
-                
-                html += `
-                    <div class="col-md-6 col-lg-4 mb-4">
-                        <div class="card h-100">
-                            <div class="card-body">
-                                <div class="d-flex align-items-start mb-3">
-                                    <div class="me-3">
-                                        <div class="rounded-circle bg-${statusColor} bg-opacity-10 p-3">
-                                            <i class="${icon} fa-2x text-${statusColor}"></i>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <h6 class="mb-1">${serviceName}</h6>
-                                        <p class="text-muted small mb-0">
-                                            Table ${request.table?.tableNumber || request.tableNumber}
-                                        </p>
-                                    </div>
-                                </div>
-                                
-                                <div class="mb-3">
-                                    <small class="text-muted d-block">
-                                        <i class="fas fa-user me-1"></i>${request.customer?.firstName || 'Guest'}
-                                    </small>
-                                    <small class="text-muted d-block">
-                                        <i class="fas fa-clock me-1"></i>${FormatUtils.formatTime(request.createdAt)}
-                                    </small>
-                                    ${request.description ? `
-                                        <small class="text-muted d-block">
-                                            <i class="fas fa-comment me-1"></i>${request.description}
-                                        </small>
-                                    ` : ''}
-                                </div>
-                                
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <span class="badge bg-${statusColor}">
-                                        ${request.status.toUpperCase()}
-                                    </span>
-                                    
-                                    ${request.status === 'pending' ? `
-                                        <button class="btn btn-sm btn-primary" onclick="acceptServiceRequest('${request._id}')">
-                                            <i class="fas fa-user-check me-1"></i>Accept
-                                        </button>
-                                    ` : `
-                                        <button class="btn btn-sm btn-success" onclick="completeServiceRequest('${request._id}')">
-                                            <i class="fas fa-check me-1"></i>Complete
-                                        </button>
-                                    `}
+    const container = document.getElementById('serviceRequestsList');
+    
+    if (!requests || requests.length === 0) {
+        container.innerHTML = `
+            <div class="col-12">
+                <div class="empty-state">
+                    <i class="fas fa-concierge-bell"></i>
+                    <h5>No service requests</h5>
+                    <p>Service requests will appear here</p>
+                </div>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    requests.forEach(request => {
+        const statusColor = request.status === 'pending' ? 'warning' : 
+                           request.status === 'assigned' ? 'info' : 'success';
+        const icon = getServiceIcon(request.type);
+        const serviceName = getServiceName(request.type);
+        
+        html += `
+            <div class="col-md-6 col-lg-4 mb-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <div class="d-flex align-items-start mb-3">
+                            <div class="me-3">
+                                <div class="rounded-circle bg-${statusColor} bg-opacity-10 p-3">
+                                    <i class="${icon} fa-2x text-${statusColor}"></i>
                                 </div>
                             </div>
+                            <div>
+                                <h6 class="mb-1">${serviceName}</h6>
+                                <p class="text-muted small mb-0">
+                                    Table ${request.tableNumber}
+                                </p>
+                                <p class="text-muted small mb-0">
+                                    Customer: ${request.customerName}
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <small class="text-muted d-block">
+                                <i class="fas fa-clock me-1"></i>${FormatUtils.formatTime(request.createdAt)}
+                            </small>
+                            ${request.description ? `
+                                <small class="text-muted d-block">
+                                    <i class="fas fa-comment me-1"></i>${request.description}
+                                </small>
+                            ` : ''}
+                            ${request.order ? `
+                                <small class="text-muted d-block">
+                                    <i class="fas fa-receipt me-1"></i>Order #${request.order.orderNumber}
+                                </small>
+                            ` : ''}
+                        </div>
+                        
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="badge bg-${statusColor}">
+                                ${request.status.toUpperCase()}
+                            </span>
+                            
+                            ${request.status === 'pending' ? `
+                                <button class="btn btn-sm btn-primary" onclick="acceptServiceRequest('${request._id}')">
+                                    <i class="fas fa-user-check me-1"></i>Accept
+                                </button>
+                            ` : request.status === 'assigned' ? `
+                                <button class="btn btn-sm btn-success" onclick="completeServiceRequest('${request._id}')">
+                                    <i class="fas fa-check me-1"></i>Complete
+                                </button>
+                            ` : ''}
                         </div>
                     </div>
-                `;
-            });
-            
-            container.innerHTML = html;
-        }
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
 
         async function acceptServiceRequest(requestId) {
             try {

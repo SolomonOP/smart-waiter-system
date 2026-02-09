@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { check, validationResult } = require('express-validator');
 const auth = require('../middleware/auth');
+const { Table, ServiceRequest } = require('../models');
 const { MenuItem, Order, Table, User } = require('../models');
 
 // @route   GET /api/customer/menu
@@ -87,39 +88,75 @@ router.get('/menu/:id', async (req, res) => {
 router.post('/order', auth, [
     check('tableNumber', 'Table number is required').isInt({ min: 1 }),
     check('items', 'Items are required').isArray({ min: 1 }),
-    check('items.*.menuItem', 'Menu item ID is required').not().isEmpty(),
+    check('items.*.menuItem', 'Menu item ID is required').isString(),
     check('items.*.quantity', 'Quantity must be at least 1').isInt({ min: 1 })
 ], async (req, res) => {
     try {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
+            console.log('Validation errors:', errors.array());
             return res.status(400).json({
                 success: false,
                 errors: errors.array()
             });
         }
         
-        const { tableNumber, items, specialInstructions, paymentMethod } = req.body;
+        const { tableNumber, items, instructions, customerName, customerEmail } = req.body;
         
-        console.log('Order received for table:', tableNumber);
-        console.log('Items:', items);
+        console.log('=== ORDER REQUEST ===');
+        console.log('Table:', tableNumber);
+        console.log('Items:', JSON.stringify(items, null, 2));
+        console.log('Customer:', customerName, customerEmail);
+        console.log('User ID:', req.userId);
+        console.log('=====================');
         
-        // Get user info
-        let customerEmail, customerName;
+        // Validate menu items exist
+        const orderItems = [];
+        let totalAmount = 0;
         
-        // Simple user handling - remove demo checks
-        if (req.user && req.user.email) {
-            customerEmail = req.user.email;
-            customerName = req.user.firstName + ' ' + req.user.lastName;
-        } else {
-            // Fallback for demo or testing
-            customerEmail = 'customer@example.com';
-            customerName = 'Customer';
+        for (const item of items) {
+            try {
+                const menuItem = await MenuItem.findById(item.menuItem);
+                
+                if (!menuItem) {
+                    console.log(`Menu item not found: ${item.menuItem}`);
+                    return res.status(400).json({
+                        success: false,
+                        message: `Menu item "${item.name || item.menuItem}" not found`
+                    });
+                }
+                
+                if (!menuItem.available) {
+                    return res.status(400).json({
+                        success: false,
+                        message: `${menuItem.name} is currently unavailable`
+                    });
+                }
+                
+                const itemTotal = menuItem.price * item.quantity;
+                totalAmount += itemTotal;
+                
+                orderItems.push({
+                    menuItem: menuItem._id,
+                    name: menuItem.name,
+                    price: menuItem.price,
+                    quantity: item.quantity,
+                    itemTotal: itemTotal
+                });
+                
+            } catch (error) {
+                console.error('Error processing menu item:', error);
+                return res.status(400).json({
+                    success: false,
+                    message: `Error with item: ${item.name || item.menuItem}`
+                });
+            }
         }
         
-        // Check table exists and is active
+        // Check table
         const table = await Table.findOne({ tableNumber: parseInt(tableNumber) });
         if (!table) {
+            console.log(`Table ${tableNumber} not found`);
             return res.status(400).json({
                 success: false,
                 message: `Table ${tableNumber} not found`
@@ -133,78 +170,45 @@ router.post('/order', auth, [
             });
         }
         
-        // Get menu items and validate
-        const orderItems = [];
-        let totalAmount = 0;
+        // Create order
+        const orderData = {
+            tableNumber: parseInt(tableNumber),
+            customer: req.userId,
+            customerName: customerName || 'Customer',
+            customerEmail: customerEmail || 'customer@example.com',
+            items: orderItems,
+            subtotal: totalAmount,
+            totalAmount: totalAmount,
+            specialInstructions: instructions || '',
+            estimatedPrepTime: 15 // Default 15 minutes
+        };
         
-        for (const item of items) {
-            const menuItem = await MenuItem.findById(item.menuItem);
-            
-            if (!menuItem) {
-                return res.status(400).json({
-                    success: false,
-                    message: `Menu item ${item.menuItem} not found`
-                });
-            }
-            
-            if (!menuItem.available) {
-                return res.status(400).json({
-                    success: false,
-                    message: `${menuItem.name} is currently unavailable`
-                });
-            }
-            
-            const itemTotal = menuItem.price * item.quantity;
-            totalAmount += itemTotal;
-            
-            orderItems.push({
-                menuItem: menuItem._id,
-                name: menuItem.name,
-                price: menuItem.price,
-                quantity: item.quantity,
-                specialInstructions: item.specialInstructions || '',
-                itemTotal
+        console.log('Creating order with data:', orderData);
+        
+        const order = new Order(orderData);
+        
+        try {
+            await order.save();
+            console.log('Order saved successfully:', order._id);
+        } catch (saveError) {
+            console.error('Error saving order:', saveError);
+            console.error('Validation errors:', saveError.errors);
+            return res.status(400).json({
+                success: false,
+                message: 'Error saving order',
+                error: saveError.message,
+                details: saveError.errors
             });
         }
         
-        // Create order
-        const order = new Order({
-            tableNumber: parseInt(tableNumber),
-            customer: req.userId,
-            customerName,
-            customerEmail,
-            items: orderItems,
-            subtotal: totalAmount,
-            totalAmount,
-            paymentMethod: paymentMethod || 'pending',
-            specialInstructions,
-            estimatedPrepTime: 15 // Default 15 minutes
-        });
-        
-        await order.save();
-        
-        // Update table status
+        // Update table
         table.status = 'occupied';
         table.currentOrder = order._id;
         table.currentCustomer = req.userId;
         table.customerName = customerName;
-        table.occupiedAt = new Date();
         await table.save();
         
-        // Real-time notification
-        const io = req.app.get('io');
-        if (io) {
-            io.to('role:chef').emit('new-order', {
-                orderId: order._id,
-                orderNumber: order.orderNumber,
-                tableNumber: order.tableNumber,
-                items: order.items,
-                customerName: order.customerName,
-                estimatedPrepTime: order.estimatedPrepTime,
-                timestamp: new Date().toISOString()
-            });
-        }
-        
+        // Send response
         res.status(201).json({
             success: true,
             message: 'Order placed successfully!',
@@ -215,18 +219,20 @@ router.post('/order', auth, [
                 items: order.items,
                 totalAmount: order.totalAmount,
                 status: order.status,
-                estimatedPrepTime: order.estimatedPrepTime,
                 createdAt: order.createdAt
             }
         });
         
     } catch (error) {
-        console.error('Place order error:', error);
-        console.error('Error stack:', error.stack);
+        console.error('=== ORDER PLACEMENT ERROR ===');
+        console.error('Error:', error);
+        console.error('Stack:', error.stack);
+        console.error('=============================');
+        
         res.status(500).json({
             success: false,
             message: 'Server error while placing order',
-            error: process.env.NODE_ENV === 'production' ? undefined : error.message
+            error: error.message
         });
     }
 });
@@ -745,6 +751,64 @@ router.get('/tables', auth, async (req, res) => {
         
     } catch (error) {
         console.error('Get customer tables error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error'
+        });
+    }
+});
+
+// @route   POST /api/customer/service-request
+// @desc    Customer creates a service request
+// @access  Private (Customer)
+router.post('/service-request', auth, async (req, res) => {
+    try {
+        const { type, description, tableNumber, orderId } = req.body;
+        
+        // Find the table
+        const table = await Table.findOne({ tableNumber });
+        if (!table) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Table not found' 
+            });
+        }
+        
+        // Create service request
+        const serviceRequest = new ServiceRequest({
+            type,
+            table: table._id,
+            tableNumber,
+            customer: req.user.id,
+            customerName: req.user.firstName + ' ' + req.user.lastName,
+            order: orderId,
+            description,
+            status: 'pending'
+        });
+        
+        await serviceRequest.save();
+        
+        // Real-time notification to chefs
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('new-service-request', {
+                requestId: serviceRequest._id,
+                type: serviceRequest.type,
+                tableNumber: serviceRequest.tableNumber,
+                customerName: serviceRequest.customerName,
+                description: serviceRequest.description,
+                timestamp: new Date().toISOString()
+            });
+        }
+        
+        res.json({
+            success: true,
+            message: 'Service request sent successfully',
+            request: serviceRequest
+        });
+        
+    } catch (error) {
+        console.error('Create service request error:', error);
         res.status(500).json({
             success: false,
             message: 'Server error'
