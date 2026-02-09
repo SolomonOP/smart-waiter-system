@@ -189,15 +189,15 @@
         }
         
         .btn-ready {
-            background: var(--info);
-            color: white;
-            border: none;
-        }
+    background: var(--success);  /* Changed from --info to --success */
+    color: white;
+    border: none;
+}
         
         .btn-ready:hover {
-            background: #2980b9;
-            transform: scale(1.05);
-        }
+    background: #219653;  /* Darker green */
+    transform: scale(1.05);
+}
         
         .btn-complete {
             background: var(--primary);
@@ -951,6 +951,8 @@
                 CHEF_CREATE_ORDER: '/api/chef/orders/new',
                 SERVICE_REQUESTS: '/api/chef/service-requests',
                 DASHBOARD_STATS: '/api/chef/dashboard-stats',
+                ACCEPT_ORDER: '/api/chef/orders/:id/accept',
+                COMPLETE_ORDER: '/api/chef/orders/:id/complete',
                 COMPLETE_PREP: '/api/chef/orders/:id/complete-prep',
                 DOWNLOAD_BILL: '/api/chef/orders/:id/bill',
                 FINAL_COMPLETE: '/api/chef/orders/:id/final-complete'
@@ -1179,68 +1181,81 @@
         }
 
         function initSocket() {
-            try {
-                socket = io(CONFIG.BACKEND_URL, {
-                    transports: ['websocket', 'polling'],
-                    auth: {
-                        token: Auth.getToken()
-                    }
-                });
-
-                socket.on('connect', () => {
-                    document.getElementById('liveIndicator').style.display = 'block';
-                    Toast.show('Connected to live updates', 'success');
-                    
-                    // Register as chef
-                    socket.emit('register', { 
-                        role: 'chef',
-                        userId: user?.id 
-                    });
-                });
-
-                socket.on('disconnect', () => {
-                    document.getElementById('liveIndicator').style.display = 'none';
-                    Toast.show('Disconnected from live updates', 'warning');
-                });
-
-                // Listen for new orders
-                socket.on('new-order', async (data) => {
-                    Toast.show(`New order from Table ${data.tableNumber}`, 'info');
-                    await loadDashboard();
-                    await loadOrders();
-                });
-
-                // Listen for order status updates
-                socket.on('order-status-update', async (data) => {
-                    Toast.show(`Order #${data.orderNumber} status updated to ${data.status}`, 'info');
-                    await loadDashboard();
-                    await loadOrders();
-                });
-
-                // Listen for order ready broadcast
-                socket.on('order-ready-broadcast', async (data) => {
-                    Toast.show(`Order #${data.orderNumber} from Table ${data.tableNumber} is ready for billing!`, 'warning');
-                    await loadDashboard();
-                    await loadOrders();
-                });
-
-                // Listen for service requests
-                socket.on('new-service-request', async (data) => {
-                    Toast.show(`New service request from Table ${data.tableNumber}`, 'warning');
-                    await loadDashboard();
-                    await loadServiceRequests();
-                });
-
-                // Listen for menu updates
-                socket.on('menu-item-updated', async (data) => {
-                    Toast.show(`Menu item "${data.name}" ${data.available ? 'enabled' : 'disabled'}`, 'info');
-                    await loadMenuItems();
-                });
-
-            } catch (error) {
-                console.error('Socket initialization error:', error);
+    try {
+        socket = io(CONFIG.BACKEND_URL, {
+            transports: ['websocket', 'polling'],
+            auth: {
+                token: Auth.getToken()
             }
-        }
+        });
+
+        socket.on('connect', () => {
+            document.getElementById('liveIndicator').style.display = 'block';
+            Toast.show('Connected to live updates', 'success');
+            
+            // Register as chef
+            socket.emit('register', { 
+                role: 'chef',
+                userId: user?.id 
+            });
+            
+            // Join chef room
+            socket.emit('chef-join', {
+                chefName: user?.firstName ? `${user.firstName} ${user.lastName}` : 'Chef'
+            });
+        });
+
+        socket.on('disconnect', () => {
+            document.getElementById('liveIndicator').style.display = 'none';
+            Toast.show('Disconnected from live updates', 'warning');
+        });
+
+        // Listen for new orders
+        socket.on('new-order', async (data) => {
+            Toast.show(`New order from Table ${data.tableNumber}`, 'info');
+            await loadDashboard();
+            await loadOrders();
+        });
+
+        // Listen for order status updates
+        socket.on('order-status-update', async (data) => {
+            Toast.show(`Order #${data.orderNumber} status updated to ${data.status}`, 'info');
+            await loadDashboard();
+            await loadOrders();
+        });
+
+        // Listen for order ready broadcast (when order is completed by chef)
+        socket.on('order-ready-broadcast', async (data) => {
+            Toast.show(`Order #${data.orderNumber} from Table ${data.tableNumber} is ready for billing!`, 'warning');
+            await loadDashboard();
+            await loadOrders();
+        });
+
+        // Listen for order completion by chef (to remove from list)
+        socket.on('order-completed-by-chef', async (data) => {
+            Toast.show(`Order #${data.orderNumber} has been completed`, 'success');
+            await loadDashboard();
+            await loadOrders();
+        });
+
+        // Listen for service requests
+        socket.on('new-service-request', async (data) => {
+            Toast.show(`New service request from Table ${data.tableNumber}`, 'warning');
+            await loadDashboard();
+            await loadServiceRequests();
+        });
+
+        // Listen for menu updates
+        socket.on('menu-item-updated', async (data) => {
+            Toast.show(`Menu item "${data.name}" ${data.available ? 'enabled' : 'disabled'}`, 'info');
+            await loadMenuItems();
+        });
+
+    } catch (error) {
+        console.error('Socket initialization error:', error);
+    }
+}
+
 
         function setupEventListeners() {
             // Mobile menu toggle
@@ -1336,62 +1351,74 @@
         }
 
         function updateRecentOrders(orders) {
-            const container = document.getElementById('recentOrders');
-            
-            if (!orders || orders.length === 0) {
-                container.innerHTML = `
-                    <div class="empty-state">
-                        <i class="fas fa-clipboard-list"></i>
-                        <h5>No recent orders</h5>
-                        <p>Orders will appear here as they come in</p>
-                    </div>
-                `;
-                return;
-            }
-            
-            let html = '';
-            orders.forEach(order => {
-                const statusClass = `order-${order.status}`;
-                const statusColor = getStatusColor(order.status);
-                
-                html += `
-                    <div class="order-card ${statusClass} mb-3 p-3" data-order-id="${order._id}">
-                        <div class="d-flex justify-content-between align-items-start mb-2">
-                            <div>
-                                <h6 class="mb-1">Order #${order.orderNumber || 'N/A'}</h6>
-                                <small class="text-muted">
-                                    Table ${order.tableNumber} • ${FormatUtils.formatTime(order.createdAt)}
-                                </small>
-                            </div>
-                            <span class="badge badge-status" style="background-color: ${statusColor}">
-                                ${order.status ? order.status.toUpperCase() : 'UNKNOWN'}
-                            </span>
-                        </div>
-                        <div class="order-items mb-3">
-                            ${order.items && order.items.length > 0 ? 
-                                order.items.map(item => `
-                                    <div class="d-flex justify-content-between align-items-center mb-1">
-                                        <span>${item.quantity}x ${item.name}</span>
-                                        <span class="text-muted">${FormatUtils.formatCurrency(item.price * item.quantity)}</span>
-                                    </div>
-                                `).join('') : 
-                                '<div class="text-muted">No items</div>'
-                            }
-                        </div>
-                        <div class="d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0">${FormatUtils.formatCurrency(order.totalAmount || 0)}</h5>
-                            ${order.status === 'pending' ? `
-                                <button class="btn btn-accept btn-sm" onclick="acceptOrder('${order._id}')">
-                                    <i class="fas fa-check me-1"></i>Accept
-                                </button>
-                            ` : ''}
-                        </div>
-                    </div>
-                `;
-            });
-            
-            container.innerHTML = html;
+    const container = document.getElementById('recentOrders');
+    
+    if (!orders || orders.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-clipboard-list"></i>
+                <h5>No recent orders</h5>
+                <p>Orders will appear here as they come in</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    orders.forEach(order => {
+        const statusClass = `order-${order.status}`;
+        const statusColor = getStatusColor(order.status);
+        
+        // Action button for recent orders
+        let actionButton = '';
+        if (order.status === 'pending' || order.status === 'confirmed') {
+            actionButton = `
+                <button class="btn btn-accept btn-sm" onclick="acceptOrder('${order._id}')">
+                    <i class="fas fa-check me-1"></i>Accept
+                </button>
+            `;
+        } else if (order.status === 'preparing') {
+            actionButton = `
+                <button class="btn btn-ready btn-sm" onclick="completeOrder('${order._id}')">
+                    <i class="fas fa-check-double me-1"></i>Complete
+                </button>
+            `;
         }
+        
+        html += `
+            <div class="order-card ${statusClass} mb-3 p-3" data-order-id="${order._id}">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <h6 class="mb-1">Order #${order.orderNumber || 'N/A'}</h6>
+                        <small class="text-muted">
+                            Table ${order.tableNumber} • ${FormatUtils.formatTime(order.createdAt)}
+                        </small>
+                    </div>
+                    <span class="badge badge-status" style="background-color: ${statusColor}">
+                        ${order.status ? order.status.toUpperCase() : 'UNKNOWN'}
+                    </span>
+                </div>
+                <div class="order-items mb-3">
+                    ${order.items && order.items.length > 0 ? 
+                        order.items.map(item => `
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span>${item.quantity}x ${item.name}</span>
+                                <span class="text-muted">${FormatUtils.formatCurrency(item.price * item.quantity)}</span>
+                            </div>
+                        `).join('') : 
+                        '<div class="text-muted">No items</div>'
+                    }
+                </div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">${FormatUtils.formatCurrency(order.totalAmount || 0)}</h5>
+                    ${actionButton}
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
 
         function updateRecentServiceRequests(requests) {
             const container = document.getElementById('recentServiceRequests');
@@ -1523,30 +1550,30 @@
                     // Create action buttons based on status
                     let actionButtonHtml = '';
 
-                    if (order.status === 'pending') {
-                        actionButtonHtml = `
-                            <button class="btn btn-accept" onclick="acceptOrder('${order._id}')">
-                                <i class="fas fa-check me-1"></i>Accept
-                            </button>
-                        `;
-                    } else if (order.status === 'preparing') {
-                        actionButtonHtml = `
-                            <button class="btn btn-complete-prep" onclick="completePreparation('${order._id}')">
-                                <i class="fas fa-check-double me-1"></i>Complete Prep
-                            </button>
-                        `;
-                    } else if (order.status === 'ready') {
-                        actionButtonHtml = `
-                            <div class="btn-group">
-                                <button class="btn btn-download btn-sm" onclick="downloadBill('${order._id}')">
-                                    <i class="fas fa-download me-1"></i>Bill
-                                </button>
-                                <button class="btn btn-success btn-sm" onclick="finalCompleteOrder('${order._id}')">
-                                    <i class="fas fa-check-circle me-1"></i>Complete
-                                </button>
-                            </div>
-                        `;
-                    }
+        if (order.status === 'pending' || order.status === 'confirmed') {
+            actionButtonHtml = `
+                <button class="btn btn-accept" onclick="acceptOrder('${order._id}')">
+                    <i class="fas fa-check me-1"></i>Accept
+                </button>
+            `;
+        } else if (order.status === 'preparing') {
+            actionButtonHtml = `
+                <button class="btn btn-ready" onclick="completeOrder('${order._id}')">
+                    <i class="fas fa-check-double me-1"></i>Complete
+                </button>
+            `;
+        } else if (order.status === 'ready') {
+            actionButtonHtml = `
+                <div class="btn-group">
+                    <button class="btn btn-download btn-sm" onclick="downloadBill('${order._id}')">
+                        <i class="fas fa-download me-1"></i>Bill
+                    </button>
+                    <button class="btn btn-success btn-sm" onclick="finalCompleteOrder('${order._id}')">
+                        <i class="fas fa-check-circle me-1"></i>Final Complete
+                    </button>
+                </div>
+            `;
+        }
                     
                     html += `
                         <div class="col-md-6 col-lg-4 mb-4">
@@ -1612,30 +1639,56 @@
         }
 
         async function acceptOrder(orderId) {
-            try {
-                Loading.show('Accepting order...');
-                
-                const response = await API.post(`${CONFIG.API_ENDPOINTS.CHEF_UPDATE_ORDER}/${orderId}/accept`, {});
-                
-                if (response.success) {
-                    Toast.show('Order accepted successfully!', 'success');
-                    
-                    // Also update the order status to 'preparing' in the frontend immediately
-                    const orderIndex = orders.findIndex(o => o._id === orderId);
-                    if (orderIndex !== -1) {
-                        orders[orderIndex].status = 'preparing';
-                    }
-                    
-                    await Promise.all([loadDashboard(), loadOrders()]);
-                }
-                
-                Loading.hide();
-                
-            } catch (error) {
-                Loading.hide();
-                ErrorHandler.handle(error, 'acceptOrder');
+    try {
+        Loading.show('Accepting order...');
+        
+        const response = await API.post(`${CONFIG.API_ENDPOINTS.ACCEPT_ORDER.replace(':id', orderId)}`, {});
+        
+        if (response.success) {
+            Toast.show('Order accepted! Now in preparation.', 'success');
+            
+            // Update local orders array immediately
+            const orderIndex = orders.findIndex(o => o._id === orderId);
+            if (orderIndex !== -1) {
+                orders[orderIndex].status = 'preparing';
             }
+            
+            await Promise.all([loadDashboard(), loadOrders()]);
         }
+        
+        Loading.hide();
+        
+    } catch (error) {
+        Loading.hide();
+        ErrorHandler.handle(error, 'acceptOrder');
+    }
+}
+
+async function completeOrder(orderId) {
+    try {
+        Loading.show('Completing order preparation...');
+        
+        const response = await API.post(`${CONFIG.API_ENDPOINTS.COMPLETE_ORDER.replace(':id', orderId)}`, {});
+        
+        if (response.success) {
+            Toast.show('Order preparation completed! Marked as ready for billing.', 'success');
+            
+            // Update local orders array immediately
+            const orderIndex = orders.findIndex(o => o._id === orderId);
+            if (orderIndex !== -1) {
+                orders[orderIndex].status = 'ready';
+            }
+            
+            await Promise.all([loadDashboard(), loadOrders()]);
+        }
+        
+        Loading.hide();
+        
+    } catch (error) {
+        Loading.hide();
+        ErrorHandler.handle(error, 'completeOrder');
+    }
+}
 
         async function completePreparation(orderId) {
             try {
@@ -2383,6 +2436,7 @@
         // Make functions available globally
         window.showSection = showSection;
         window.acceptOrder = acceptOrder;
+        window.completeOrder = completeOrder; 
         window.completePreparation = completePreparation;
         window.downloadBill = downloadBill;
         window.finalCompleteOrder = finalCompleteOrder;

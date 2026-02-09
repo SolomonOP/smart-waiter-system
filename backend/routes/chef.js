@@ -250,7 +250,7 @@ router.get('/orders/stats', auth, isChef, async (req, res) => {
 });
 
 // @route   POST /api/chef/orders/:id/accept
-// @desc    Chef accepts an order
+// @desc    Chef accepts an order (changes from pending to preparing)
 // @access  Private (Chef)
 router.post('/orders/:id/accept', auth, isChef, async (req, res) => {
     try {
@@ -270,7 +270,7 @@ router.post('/orders/:id/accept', auth, isChef, async (req, res) => {
             });
         }
         
-        // Update order
+        // Update order to preparing status
         order.status = 'preparing';
         order.assignedChef = req.user.id;
         order.chefName = req.user.firstName + ' ' + req.user.lastName;
@@ -298,7 +298,7 @@ router.post('/orders/:id/accept', auth, isChef, async (req, res) => {
         
         res.json({
             success: true,
-            message: 'Order accepted and preparation started',
+            message: 'Order accepted and moved to preparing status',
             order: {
                 id: order._id,
                 orderNumber: order.orderNumber,
@@ -317,10 +317,10 @@ router.post('/orders/:id/accept', auth, isChef, async (req, res) => {
     }
 });
 
-// @route   POST /api/chef/orders/:id/complete-prep
-// @desc    Complete preparation and mark as ready
+// @route   POST /api/chef/orders/:id/complete
+// @desc    Chef completes preparing order (changes from preparing to ready)
 // @access  Private (Chef)
-router.post('/orders/:id/complete-prep', auth, isChef, async (req, res) => {
+router.post('/orders/:id/complete', auth, isChef, async (req, res) => {
     try {
         const order = await Order.findById(req.params.id);
         
@@ -331,22 +331,22 @@ router.post('/orders/:id/complete-prep', auth, isChef, async (req, res) => {
             });
         }
         
-        if (order.status !== 'preparing' && order.status !== 'confirmed') {
-    return res.status(400).json({
-        success: false,
-        message: `Order cannot be completed in ${order.status} status`
-    });
-}
+        if (order.status !== 'preparing') {
+            return res.status(400).json({
+                success: false,
+                message: `Order cannot be completed in ${order.status} status. Must be in 'preparing' status.`
+            });
+        }
         
         // Check if chef is assigned to this order
         if (order.assignedChef && order.assignedChef.toString() !== req.user.id) {
             return res.status(403).json({
                 success: false,
-                message: 'Not authorized to update this order'
+                message: 'Not authorized to complete this order'
             });
         }
         
-        // Update order
+        // Update order to ready status
         order.status = 'ready';
         order.readyAt = new Date();
         
@@ -360,7 +360,7 @@ router.post('/orders/:id/complete-prep', auth, isChef, async (req, res) => {
         // Real-time notification to ALL chefs
         const io = req.app.get('io');
         if (io) {
-            // Notify all chefs
+            // Notify all chefs that order is ready for billing
             io.to('chef-dashboard').emit('order-ready-update', {
                 orderId: order._id,
                 orderNumber: order.orderNumber,
@@ -369,6 +369,16 @@ router.post('/orders/:id/complete-prep', auth, isChef, async (req, res) => {
                 chefName: order.chefName,
                 timestamp: new Date().toISOString(),
                 message: 'Order is ready for billing!'
+            });
+            
+            // Also broadcast to all chefs for immediate updates
+            io.emit('order-ready-broadcast', {
+                orderId: order._id,
+                orderNumber: order.orderNumber,
+                tableNumber: order.tableNumber,
+                chefName: order.chefName,
+                timestamp: new Date().toISOString(),
+                message: `Order #${order.orderNumber} is ready for billing`
             });
             
             // Notify specific table
@@ -381,7 +391,7 @@ router.post('/orders/:id/complete-prep', auth, isChef, async (req, res) => {
         
         res.json({
             success: true,
-            message: 'Order marked as ready for billing',
+            message: 'Order preparation completed! Order marked as ready for billing.',
             order: {
                 id: order._id,
                 orderNumber: order.orderNumber,
@@ -392,7 +402,7 @@ router.post('/orders/:id/complete-prep', auth, isChef, async (req, res) => {
         });
         
     } catch (error) {
-        console.error('Complete prep error:', error);
+        console.error('Complete order error:', error);
         res.status(500).json({
             success: false,
             message: 'Server error'
@@ -435,7 +445,7 @@ router.get('/orders/:id/bill', auth, isChef, async (req, res) => {
 });
 
 // @route   POST /api/chef/orders/:id/final-complete
-// @desc    Final complete order with email
+// @desc    Final complete order with email (from ready to completed)
 // @access  Private (Chef)
 router.post('/orders/:id/final-complete', auth, isChef, async (req, res) => {
     try {
@@ -452,7 +462,7 @@ router.post('/orders/:id/final-complete', auth, isChef, async (req, res) => {
         if (order.status !== 'ready') {
             return res.status(400).json({
                 success: false,
-                message: `Order cannot be completed in ${order.status} status`
+                message: `Order cannot be completed in ${order.status} status. Must be 'ready'.`
             });
         }
         
@@ -469,7 +479,7 @@ router.post('/orders/:id/final-complete', auth, isChef, async (req, res) => {
             }
         }
         
-        // Update order
+        // Update order to completed status
         order.status = 'completed';
         order.completedAt = new Date();
         order.servedAt = new Date();
@@ -511,13 +521,20 @@ router.post('/orders/:id/final-complete', auth, isChef, async (req, res) => {
                 orderId: order._id
             });
             
-            // Notify chefs
+            // Notify chefs to remove from their lists
             io.emit('order-status-update', {
                 orderId: order._id,
                 orderNumber: order.orderNumber,
                 status: order.status,
                 message: 'Order completed successfully',
                 timestamp: new Date().toISOString()
+            });
+            
+            // Emit specific event to remove order from chefs' dashboards
+            io.emit('order-completed-by-chef', {
+                orderId: order._id,
+                orderNumber: order.orderNumber,
+                message: 'Order completed and removed'
             });
         }
         
