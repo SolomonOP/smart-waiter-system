@@ -232,14 +232,14 @@ const authRoutes = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
 const chefRoutes = require('./routes/chef');
 const customerRoutes = require('./routes/customer');
-const demoRoutes = require('./routes/demo');
+
 
 // Mount routes
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/chef', chefRoutes);
 app.use('/api/customer', customerRoutes);
-app.use('/api/demo', demoRoutes);
+
 
 // Root endpoint
 app.get('/', (req, res) => {

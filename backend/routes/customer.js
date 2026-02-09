@@ -105,7 +105,7 @@ router.post('/order', auth, [
         let user;
         let customerEmail, customerName;
         
-        if (req.userId.includes('@demo.com')) {
+        if (req.user && req.user.isDemo) {
             // Demo user
             customerEmail = req.userId;
             customerName = req.user.firstName + ' ' + req.user.lastName;
@@ -260,7 +260,7 @@ router.get('/orders', auth, async (req, res) => {
         
         let query = {};
         
-        if (req.userId.includes('@demo.com')) {
+        if (req.user && req.user.isDemo) {
             // Demo user - get by email
             query.customerEmail = req.userId;
         } else {
@@ -363,51 +363,59 @@ router.post('/service-request', auth, [
         
         const { tableNumber, type, description } = req.body;
         
-        // Find active order for this table
-        const order = await Order.findOne({
-            tableNumber,
-            status: { $nin: ['completed', 'cancelled', 'rejected'] }
-        }).sort({ createdAt: -1 });
+        // Get user info
+        let customerName;
+        if (req.user && req.user.isDemo){
+            customerName = req.user.firstName + ' ' + req.user.lastName;
+        } else {
+            const user = await User.findById(req.userId);
+            customerName = user ? user.firstName + ' ' + user.lastName : 'Customer';
+        }
         
-        if (!order) {
+        // Check if table exists and is active
+        const table = await Table.findOne({ tableNumber, isActive: true });
+        if (!table) {
             return res.status(400).json({
                 success: false,
-                message: 'No active order found for this table'
+                message: 'Table not found or inactive'
             });
         }
         
-        // Add service request
-        order.serviceRequests.push({
+        // Find any order for this table (not just active ones)
+        const order = await Order.findOne({ tableNumber })
+            .sort({ createdAt: -1 });
+        
+        // Create service request
+        const serviceRequest = {
             type,
             tableNumber,
-            description,
-            status: 'pending'
-        });
-        
-        await order.save();
+            customerName,
+            description: description || `${type} request`,
+            status: 'pending',
+            createdAt: new Date()
+        };
         
         // Real-time notification
         const io = req.app.get('io');
         if (io) {
-            io.to('role:chef').emit('service-request', {
-                requestId: order.serviceRequests[order.serviceRequests.length - 1]._id,
-                type,
-                tableNumber,
-                description,
-                orderNumber: order.orderNumber,
-                timestamp: new Date().toISOString()
+            io.to('role:chef').to('role:admin').emit('new-service-request', {
+                ...serviceRequest,
+                timestamp: new Date().toISOString(),
+                orderNumber: order ? order.orderNumber : 'N/A'
+            });
+            
+            // Also notify the specific table
+            io.to(`table:${tableNumber}`).emit('service-request-sent', {
+                ...serviceRequest,
+                message: 'Your service request has been sent'
             });
         }
         
         res.json({
             success: true,
             message: 'Service request sent successfully',
-            request: {
-                type,
-                tableNumber,
-                status: 'pending',
-                estimatedResponse: '5 minutes'
-            }
+            request: serviceRequest,
+            estimatedResponse: '5-10 minutes'
         });
         
     } catch (error) {
@@ -652,13 +660,18 @@ router.post('/menu/seed', async (req, res) => {
 // @access  Private (Customer)
 router.get('/tables', auth, async (req, res) => {
     try {
-        const tables = await Table.find({ status: 'available' })
-            .sort({ tableNumber: 1 })
-            .select('tableNumber capacity location');
+        // Get all active tables that are not marked as inactive
+        const tables = await Table.find({ 
+            isActive: true,
+            status: { $in: ['available', 'occupied'] }
+        })
+        .sort({ tableNumber: 1 })
+        .select('tableNumber capacity location section status');
         
         res.json({
             success: true,
-            tables
+            count: tables.length,
+            tables: tables
         });
         
     } catch (error) {

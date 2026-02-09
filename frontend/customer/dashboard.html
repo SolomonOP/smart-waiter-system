@@ -599,6 +599,39 @@
                         Toast.show('Live updates connected', 'success');
                         showAutoRefreshIndicator(true);
                     });
+
+                    // Live order status updates from chef
+socket.on('order-status-updated', (data) => {
+    console.log('Live order update from chef:', data);
+    
+    // Check if this is for current table
+    if (data.tableNumber === currentTable) {
+        // Update orders immediately
+        loadOrderStatus();
+        
+        // Show notification
+        showNotification(
+            `Order #${data.orderNumber} is now ${data.status}`,
+            'info'
+        );
+        
+        // Highlight update
+        const orderElement = document.querySelector(`[data-order-id="${data.orderId}"]`);
+        if (orderElement) {
+            orderElement.classList.add('live-update');
+            setTimeout(() => {
+                orderElement.classList.remove('live-update');
+            }, 5000);
+        }
+    }
+});
+
+// Service request confirmation
+socket.on('service-request-sent', (data) => {
+    if (data.tableNumber === currentTable) {
+        Toast.show(`Your ${data.type} request has been acknowledged!`, 'success');
+    }
+});
                     
                     socket.on('disconnect', () => {
                         console.log('Socket disconnected');
@@ -767,6 +800,33 @@
             // Start system initialization
             await initializeSystem();
         }
+
+        // In customer/dashboard.html
+function setupRealTimeUpdates() {
+    if (socket) {
+        // Listen for chef updates
+        socket.on('order-update', (data) => {
+            console.log('Real-time order update:', data);
+            if (data.tableNumber === currentTable) {
+                refreshOrderDisplay(data);
+            }
+        });
+        
+        // Join table room for specific updates
+        socket.emit('join-table', currentTable);
+    }
+}
+
+function refreshOrderDisplay(data) {
+    const orderStatus = document.getElementById('orderStatus');
+    if (!orderStatus) return;
+    
+    // Update specific order or reload all
+    loadOrderStatus();
+    
+    // Show notification
+    Toast.show(`Order #${data.orderNumber} updated: ${data.status}`, 'info');
+}
         
         // Initialize system
         async function initializeSystem() {
@@ -1444,39 +1504,58 @@
         }
         
         // Request service
-        async function requestService(type) {
-            if (!currentTable) {
-                Toast.show('Please select a table first', 'error');
-                return;
-            }
-            
-            try {
-                Loading.show('Sending request...');
-                
-                const request = {
-                    type: type,
-                    tableNumber: parseInt(currentTable),
-                    customerName: user.firstName + ' ' + user.lastName
-                };
-                
-                const response = await API.post(CONFIG.API_ENDPOINTS.SERVICE_REQUEST, request);
-                
-                Toast.show(`${getServiceName(type)} request sent!`, 'success');
-                
-                // Emit socket event
-                if (socket) {
-                    socket.emit('service-request', {
-                        ...request,
-                        requestId: response.requestId
-                    });
-                }
-                
-            } catch (error) {
-                Toast.show('Failed to send request: ' + error.message, 'error');
-            } finally {
-                Loading.hide();
-            }
+async function requestService(type) {
+    if (!currentTable) {
+        // Prompt for table number
+        const tableInput = prompt('Please enter your table number:');
+        if (!tableInput) {
+            Toast.show('Service request cancelled', 'warning');
+            return;
         }
+        
+        const tableNumber = parseInt(tableInput);
+        if (!tableNumber || tableNumber < 1) {
+            Toast.show('Please enter a valid table number', 'error');
+            return;
+        }
+        
+        // Check if table exists
+        if (!activeTables.includes(tableNumber)) {
+            Toast.show(`Table ${tableNumber} is not available`, 'warning');
+            return;
+        }
+        
+        currentTable = tableNumber;
+        await selectTable(tableNumber);
+    }
+    
+    try {
+        Loading.show('Sending request...');
+        
+        const request = {
+            type: type,
+            tableNumber: parseInt(currentTable),
+            customerName: user.firstName + ' ' + user.lastName
+        };
+        
+        const response = await API.post(CONFIG.API_ENDPOINTS.SERVICE_REQUEST, request);
+        
+        Toast.show(`${getServiceName(type)} request sent!`, 'success');
+        
+        // Emit socket event
+        if (socket) {
+            socket.emit('service-request', {
+                ...request,
+                requestId: response.requestId
+            });
+        }
+        
+    } catch (error) {
+        Toast.show('Failed to send request: ' + error.message, 'error');
+    } finally {
+        Loading.hide();
+    }
+}
         
         function getServiceName(type) {
             switch(type) {
