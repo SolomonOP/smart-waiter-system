@@ -93,7 +93,7 @@ const OrderSchema = new mongoose.Schema({
     status: {
         type: String,
         enum: {
-            values: ['pending', 'confirmed', 'preparing', 'ready', 'served', 'completed', 'cancelled', 'rejected'],
+            values: ['pending', 'confirmed', 'preparing', 'ready', 'finished', 'completed', 'cancelled', 'rejected'],
             message: 'Please select a valid status'
         },
         default: 'pending'
@@ -129,10 +129,10 @@ const OrderSchema = new mongoose.Schema({
             maxlength: [200, 'Description cannot exceed 200 characters']
         },
         status: {
-            type: String,
-            enum: ['pending', 'assigned', 'completed', 'cancelled'],
-            default: 'pending'
-        },
+        type: String,
+        enum: ['pending', 'confirmed', 'preparing', 'ready', 'finished', 'completed', 'cancelled', 'rejected'],
+        default: 'pending'
+    },
         assignedTo: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'User'
@@ -168,6 +168,7 @@ const OrderSchema = new mongoose.Schema({
     confirmedAt: Date,
     preparingAt: Date,
     readyAt: Date,
+    finishedAt: Date,
     servedAt: Date,
     completedAt: Date,
     cancelledAt: Date

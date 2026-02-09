@@ -973,20 +973,24 @@ router.post('/orders/new', auth, isChef, [
     }
 });
 
-// Add new endpoint for finishing ready orders
 // @route   POST /api/chef/orders/:id/finish
 // @desc    Chef finishes a ready order (ready -> finished)
 // @access  Private (Chef)
 router.post('/orders/:id/finish', auth, isChef, async (req, res) => {
     try {
+        console.log(`🔧 Processing finish request for order: ${req.params.id}`);
+        
         const order = await Order.findById(req.params.id);
         
         if (!order) {
+            console.log(`❌ Order not found: ${req.params.id}`);
             return res.status(404).json({
                 success: false,
                 message: 'Order not found'
             });
         }
+        
+        console.log(`📊 Current order status: ${order.status}, required: ready`);
         
         if (order.status !== 'ready') {
             return res.status(400).json({
@@ -996,9 +1000,15 @@ router.post('/orders/:id/finish', auth, isChef, async (req, res) => {
         }
         
         // Update order to finished status
+        // Use $set to update only specific fields
         order.status = 'finished';
-        order.finishedAt = new Date();
+        // Add finishedAt field if it exists in schema, otherwise skip
+        if (order.schema.paths.finishedAt) {
+            order.finishedAt = new Date();
+        }
         await order.save();
+        
+        console.log(`✅ Order ${order.orderNumber} marked as finished`);
         
         // Real-time notification
         const io = req.app.get('io');
@@ -1027,15 +1037,18 @@ router.post('/orders/:id/finish', auth, isChef, async (req, res) => {
                 id: order._id,
                 orderNumber: order.orderNumber,
                 status: order.status,
-                finishedAt: order.finishedAt
+                finishedAt: order.finishedAt || new Date()
             }
         });
         
     } catch (error) {
-        console.error('Finish order error:', error);
+        console.error('❌ Finish order error:', error);
+        console.error('Error details:', error.message);
+        console.error('Error stack:', error.stack);
         res.status(500).json({
             success: false,
-            message: 'Server error'
+            message: 'Server error',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
 });
