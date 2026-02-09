@@ -2,7 +2,8 @@ const express = require('express');
 const router = express.Router();
 const { check, validationResult } = require('express-validator');
 const auth = require('../middleware/auth');
-const { MenuItem, Order, Table, User, ServiceRequest } = require('../models');
+const mongoose = require('mongoose'); // ADD THIS LINE
+const { MenuItem, Order, Table, User } = require('../models');
 
 // @route   GET /api/customer/menu
 // @desc    Get available menu items
@@ -11,7 +12,6 @@ router.get('/menu', async (req, res) => {
     try {
         const { category, available = true } = req.query;
         
-        // Build query
         let query = {};
         
         if (available === 'true' || available === true) {
@@ -26,7 +26,6 @@ router.get('/menu', async (req, res) => {
             .sort({ category: 1, name: 1 })
             .limit(100);
         
-        // Also send grouped by category for frontend
         const groupedMenu = {};
         menuItems.forEach(item => {
             if (!groupedMenu[item.category]) {
@@ -47,8 +46,7 @@ router.get('/menu', async (req, res) => {
         console.error('Get menu error:', error);
         res.status(500).json({
             success: false,
-            message: 'Server error loading menu',
-            error: process.env.NODE_ENV === 'production' ? undefined : error.message
+            message: 'Server error loading menu'
         });
     }
 });
@@ -82,58 +80,81 @@ router.get('/menu/:id', async (req, res) => {
 });
 
 // @route   POST /api/customer/order
-// @desc    Place a new order
+// @desc    Place a new order - SIMPLIFIED VERSION
 // @access  Private
-router.post('/order', auth, [
-    check('tableNumber', 'Table number is required').isInt({ min: 1 }),
-    check('items', 'Items are required').isArray({ min: 1 }),
-    check('items.*.menuItem', 'Menu item ID is required').isString(),
-    check('items.*.quantity', 'Quantity must be at least 1').isInt({ min: 1 })
-], async (req, res) => {
+router.post('/order', auth, async (req, res) => {
     try {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-            console.log('Validation errors:', errors.array());
-            return res.status(400).json({
-                success: false,
-                errors: errors.array()
-            });
-        }
-        
         const { tableNumber, items, instructions, customerName, customerEmail } = req.body;
         
         console.log('=== ORDER REQUEST ===');
         console.log('Table:', tableNumber);
         console.log('Items:', JSON.stringify(items, null, 2));
-        console.log('Customer:', customerName, customerEmail);
-        console.log('User ID:', req.userId);
         console.log('=====================');
         
-        // Validate menu items exist
+        // Basic validation
+        if (!tableNumber || tableNumber < 1) {
+            return res.status(400).json({
+                success: false,
+                message: 'Valid table number is required'
+            });
+        }
+        
+        if (!items || !Array.isArray(items) || items.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'At least one item is required'
+            });
+        }
+        
+        // Check table
+        const table = await Table.findOne({ tableNumber: parseInt(tableNumber) });
+        if (!table) {
+            return res.status(400).json({
+                success: false,
+                message: `Table ${tableNumber} not found`
+            });
+        }
+        
+        // Validate and process menu items
         const orderItems = [];
         let totalAmount = 0;
         
         for (const item of items) {
             try {
-                // Convert string ID to ObjectId
-                let menuItemId;
-                try {
-                    menuItemId = new mongoose.Types.ObjectId(item.menuItem);
-                } catch (error) {
-                    console.log(`Invalid ObjectId format: ${item.menuItem}`);
+                // Skip if no menuItem ID
+                if (!item.menuItem) {
                     return res.status(400).json({
                         success: false,
-                        message: `Invalid menu item ID format: ${item.menuItem}`
+                        message: `Menu item ID is missing for "${item.name}"`
                     });
                 }
                 
-                const menuItem = await MenuItem.findById(menuItemId);
+                // Try to find menu item
+                let menuItem;
                 
+                // First try by ID
+                try {
+                    menuItem = await MenuItem.findById(item.menuItem);
+                } catch (idError) {
+                    console.log('ID lookup failed:', idError.message);
+                }
+                
+                // If not found by ID, try by name
+                if (!menuItem && item.name) {
+                    menuItem = await MenuItem.findOne({ 
+                        name: { $regex: new RegExp(item.name, 'i') } 
+                    });
+                    
+                    if (menuItem) {
+                        console.log(`Found menu item by name: ${item.name}`);
+                    }
+                }
+                
+                // If still not found, return error
                 if (!menuItem) {
-                    console.log(`Menu item not found for ID: ${item.menuItem}`);
                     return res.status(400).json({
                         success: false,
-                        message: `Menu item "${item.name || item.menuItem}" not found`
+                        message: `Menu item "${item.name}" not found`
                     });
                 }
                 
@@ -148,11 +169,10 @@ router.post('/order', auth, [
                 totalAmount += itemTotal;
                 
                 orderItems.push({
-                    menuItem: menuItemId,
+                    menuItem: menuItem._id,
                     name: menuItem.name,
                     price: menuItem.price,
                     quantity: item.quantity,
-                    specialInstructions: item.specialInstructions || '',
                     itemTotal: itemTotal
                 });
                 
@@ -160,29 +180,12 @@ router.post('/order', auth, [
                 console.error('Error processing menu item:', error);
                 return res.status(400).json({
                     success: false,
-                    message: `Error with item: ${item.name || item.menuItem}`
+                    message: `Error with item: ${item.name}`
                 });
             }
         }
         
-        // Check table
-        const table = await Table.findOne({ tableNumber: parseInt(tableNumber) });
-        if (!table) {
-            console.log(`Table ${tableNumber} not found`);
-            return res.status(400).json({
-                success: false,
-                message: `Table ${tableNumber} not found`
-            });
-        }
-        
-        if (!table.isActive) {
-            return res.status(400).json({
-                success: false,
-                message: `Table ${tableNumber} is not active`
-            });
-        }
-        
-        // Generate order number (simple version)
+        // Generate order number
         const now = new Date();
         const year = now.getFullYear().toString().slice(-2);
         const month = (now.getMonth() + 1).toString().padStart(2, '0');
@@ -190,45 +193,40 @@ router.post('/order', auth, [
         const timestamp = Date.now().toString().slice(-6);
         const orderNumber = `ORD${year}${month}${day}${timestamp}`;
         
+        // Get customer info
+        const customer = await User.findById(req.userId);
+        
         // Create order
         const orderData = {
             orderNumber: orderNumber,
             tableNumber: parseInt(tableNumber),
             customer: req.userId,
-            customerName: customerName || 'Customer',
-            customerEmail: customerEmail || 'customer@example.com',
+            customerName: customerName || (customer ? customer.firstName + ' ' + customer.lastName : 'Customer'),
+            customerEmail: customerEmail || (customer ? customer.email : 'customer@example.com'),
             items: orderItems,
             subtotal: totalAmount,
             totalAmount: totalAmount,
             specialInstructions: instructions || '',
-            estimatedPrepTime: 15 // Default 15 minutes
+            estimatedPrepTime: 15
         };
         
-        console.log('Creating order with data:', orderData);
+        console.log('Creating order:', orderData);
         
         const order = new Order(orderData);
         
         try {
             await order.save();
-            console.log('Order saved successfully:', order._id, order.orderNumber);
+            console.log('Order saved successfully:', order._id);
         } catch (saveError) {
-            console.error('Error saving order:', saveError);
-            console.error('Validation errors:', saveError.errors);
-            console.error('Error name:', saveError.name);
-            console.error('Error code:', saveError.code);
+            console.error('Save error:', saveError);
             
             // Handle duplicate order number
             if (saveError.code === 11000) {
-                // Generate new order number and retry
                 const newTimestamp = Date.now().toString().slice(-6);
                 order.orderNumber = `ORD${year}${month}${day}${newTimestamp}`;
                 await order.save();
             } else {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Error saving order',
-                    error: saveError.message
-                });
+                throw saveError;
             }
         }
         
@@ -236,7 +234,7 @@ router.post('/order', auth, [
         table.status = 'occupied';
         table.currentOrder = order._id;
         table.currentCustomer = req.userId;
-        table.customerName = customerName;
+        table.customerName = orderData.customerName;
         await table.save();
         
         // Real-time notification
@@ -253,7 +251,6 @@ router.post('/order', auth, [
             });
         }
         
-        // Send response
         res.status(201).json({
             success: true,
             message: 'Order placed successfully!',
@@ -269,10 +266,10 @@ router.post('/order', auth, [
         });
         
     } catch (error) {
-        console.error('=== ORDER PLACEMENT ERROR ===');
+        console.error('=== ORDER ERROR ===');
         console.error('Error:', error);
         console.error('Stack:', error.stack);
-        console.error('=============================');
+        console.error('===================');
         
         res.status(500).json({
             success: false,
@@ -282,61 +279,6 @@ router.post('/order', auth, [
     }
 });
 
-// Generate table buttons
-function generateTableButtons() {
-    const tableButtonsContainer = document.getElementById('tableButtons');
-    if (!tableButtonsContainer) return;
-    
-    tableButtonsContainer.innerHTML = '';
-    
-    // Show status indicators
-    const statusHtml = `
-        <div class="d-flex justify-content-center mb-3">
-            <div class="me-3">
-                <span class="badge bg-success me-1">●</span> Available
-            </div>
-            <div class="me-3">
-                <span class="badge bg-warning me-1">●</span> Occupied
-            </div>
-            <div>
-                <span class="badge bg-secondary me-1">●</span> Reserved
-            </div>
-        </div>
-    `;
-    tableButtonsContainer.innerHTML = statusHtml;
-    
-    // Sort tables numerically
-    const sortedTables = [...activeTables].sort((a, b) => a - b);
-    
-    sortedTables.forEach(tableNum => {
-        // Create button with status indicator
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = `btn btn-outline-primary table-btn ${tableNum === currentTable ? 'active' : ''}`;
-        button.textContent = tableNum;
-        button.onclick = () => selectTable(tableNum);
-        tableButtonsContainer.appendChild(button);
-    });
-    
-    // Add note
-    const note = document.createElement('div');
-    note.className = 'mt-3 text-muted small';
-    note.textContent = 'Click on your table number. You can order from occupied tables too.';
-    tableButtonsContainer.appendChild(note);
-    
-    // Update table input
-    const tableInput = document.getElementById('tableNumber');
-    if (tableInput) {
-        tableInput.value = currentTable;
-    }
-    
-    // Update cart table number
-    const cartTableNumber = document.getElementById('cartTableNumber');
-    if (cartTableNumber) {
-        cartTableNumber.textContent = currentTable;
-    }
-}
-
 // @route   GET /api/customer/orders
 // @desc    Get customer orders
 // @access  Private
@@ -344,14 +286,7 @@ router.get('/orders', auth, async (req, res) => {
     try {
         const { status, limit = 20, page = 1 } = req.query;
         
-        let query = {};
-        
-        if (req.user && req.user.isDemo) {
-            // Demo user - get by email
-            query.customerEmail = req.userId;
-        } else {
-            query.customer = req.userId;
-        }
+        let query = { customer: req.userId };
         
         if (status) {
             query.status = status;
@@ -405,9 +340,7 @@ router.get('/orders/:id', auth, async (req, res) => {
         }
         
         // Check authorization
-        const isAuthorized = req.userId.includes('@demo.com') 
-            ? order.customerEmail === req.userId
-            : order.customer && order.customer.toString() === req.userId;
+        const isAuthorized = order.customer && order.customer.toString() === req.userId;
         
         if (!isAuthorized && req.userRole !== 'admin' && req.userRole !== 'chef') {
             return res.status(403).json({
@@ -447,68 +380,112 @@ router.post('/service-request', auth, [
             });
         }
         
-        const { tableNumber, type, description } = req.body;
+        const { tableNumber, type, description, customerName } = req.body;
+        
+        console.log('=== SERVICE REQUEST ===');
+        console.log('Table:', tableNumber);
+        console.log('Type:', type);
+        console.log('Customer:', customerName);
+        console.log('=======================');
         
         // Get user info
-        let customerName;
-        if (req.user && req.user.isDemo){
-            customerName = req.user.firstName + ' ' + req.user.lastName;
-        } else {
+        let customer = customerName;
+        if (!customer) {
             const user = await User.findById(req.userId);
-            customerName = user ? user.firstName + ' ' + user.lastName : 'Customer';
+            customer = user ? user.firstName + ' ' + user.lastName : 'Customer';
         }
         
-        // Check if table exists and is active
-        const table = await Table.findOne({ tableNumber, isActive: true });
+        // Check if table exists
+        const table = await Table.findOne({ tableNumber: parseInt(tableNumber) });
         if (!table) {
             return res.status(400).json({
                 success: false,
-                message: 'Table not found or inactive'
+                message: `Table ${tableNumber} not found`
             });
         }
         
-        // Find any order for this table (not just active ones)
-        const order = await Order.findOne({ tableNumber })
-            .sort({ createdAt: -1 });
+        // Find any order for this table (current or recent)
+        let order = await Order.findOne({ 
+            tableNumber: parseInt(tableNumber),
+            status: { $nin: ['completed', 'cancelled', 'rejected'] }
+        }).sort({ createdAt: -1 });
+        
+        // If no active order, create a service-only order
+        if (!order) {
+            order = new Order({
+                orderNumber: `SRV${Date.now().toString().slice(-8)}`,
+                tableNumber: parseInt(tableNumber),
+                customerName: customer,
+                customerEmail: req.user.email || 'service@request.com',
+                items: [],
+                subtotal: 0,
+                totalAmount: 0,
+                status: 'pending',
+                orderType: 'service'
+            });
+            await order.save();
+        }
         
         // Create service request
         const serviceRequest = {
-            type,
-            tableNumber,
-            customerName,
-            description: description || `${type} request`,
+            type: type,
+            tableNumber: parseInt(tableNumber),
+            description: description || `${type} service requested by ${customer}`,
             status: 'pending',
             createdAt: new Date()
         };
         
+        // Add to order's serviceRequests array
+        if (!order.serviceRequests) {
+            order.serviceRequests = [];
+        }
+        
+        order.serviceRequests.push(serviceRequest);
+        await order.save();
+        
+        console.log('Service request saved:', serviceRequest);
+        console.log('Order serviceRequests:', order.serviceRequests);
+        
         // Real-time notification
         const io = req.app.get('io');
         if (io) {
-            io.to('role:chef').to('role:admin').emit('new-service-request', {
-                ...serviceRequest,
-                timestamp: new Date().toISOString(),
-                orderNumber: order ? order.orderNumber : 'N/A'
+            const requestId = order.serviceRequests[order.serviceRequests.length - 1]._id;
+            
+            // Notify chefs
+            io.to('role:chef').emit('new-service-request', {
+                requestId: requestId,
+                type: type,
+                tableNumber: tableNumber,
+                description: serviceRequest.description,
+                customerName: customer,
+                orderId: order._id,
+                orderNumber: order.orderNumber,
+                timestamp: new Date().toISOString()
             });
             
-            // Also notify the specific table
-            io.to(`table:${tableNumber}`).emit('service-request-sent', {
-                ...serviceRequest,
-                message: 'Your service request has been sent'
+            // Notify the specific table
+            io.to(`table:${tableNumber}`).emit('service-request-confirmation', {
+                type: type,
+                tableNumber: tableNumber,
+                message: 'Your service request has been received',
+                estimatedResponse: '5-10 minutes'
             });
         }
         
         res.json({
             success: true,
             message: 'Service request sent successfully',
-            request: serviceRequest,
-            estimatedResponse: '5-10 minutes'
+            requestId: order.serviceRequests[order.serviceRequests.length - 1]._id,
+            request: serviceRequest
         });
         
     } catch (error) {
         console.error('Service request error:', error);
+        console.error('Error stack:', error.stack);
         res.status(500).json({
             success: false,
-            message: 'Server error'
+            message: 'Server error while processing service request',
+            error: error.message
         });
     }
 });
@@ -528,9 +505,7 @@ router.post('/cancel-order/:id', auth, async (req, res) => {
         }
         
         // Check authorization
-        const isAuthorized = req.userId.includes('@demo.com') 
-            ? order.customerEmail === req.userId
-            : order.customer && order.customer.toString() === req.userId;
+        const isAuthorized = order.customer && order.customer.toString() === req.userId;
         
         if (!isAuthorized) {
             return res.status(403).json({
@@ -612,9 +587,7 @@ router.post('/feedback/:id', auth, [
         }
         
         // Check authorization
-        const isAuthorized = req.userId.includes('@demo.com') 
-            ? order.customerEmail === req.userId
-            : order.customer && order.customer.toString() === req.userId;
+        const isAuthorized = order.customer && order.customer.toString() === req.userId;
         
         if (!isAuthorized) {
             return res.status(403).json({
@@ -656,7 +629,7 @@ router.post('/feedback/:id', auth, [
     }
 });
 
-// Add to routes/customer.js or create new file routes/seed.js
+// Seed menu (for development)
 router.post('/menu/seed', async (req, res) => {
     try {
         const demoMenu = [
@@ -698,30 +671,10 @@ router.post('/menu/seed', async (req, res) => {
                 available: true,
                 vegetarian: true,
                 image: 'https://images.unsplash.com/photo-1604068549290-dea0e4a305ca?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80'
-            },
-            {
-                name: 'French Fries',
-                description: 'Crispy golden fries with sea salt',
-                price: 4.99,
-                category: 'appetizer',
-                available: true,
-                vegetarian: true,
-                image: 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80'
-            },
-            {
-                name: 'Iced Coffee',
-                description: 'Cold brew coffee with milk and vanilla syrup',
-                price: 3.99,
-                category: 'drink',
-                available: true,
-                image: 'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80'
             }
         ];
 
-        // Clear existing menu
         await MenuItem.deleteMany({});
-        
-        // Add demo menu
         await MenuItem.insertMany(demoMenu);
         
         res.json({
@@ -740,42 +693,12 @@ router.post('/menu/seed', async (req, res) => {
     }
 });
 
-
 // @route   GET /api/customer/tables
 // @desc    Get available tables for customers
 // @access  Private (Customer)
 router.get('/tables', auth, async (req, res) => {
     try {
-        // Get all active tables that are not marked as inactive
-        const tables = await Table.find({ 
-            isActive: true,
-            status: { $in: ['available', 'occupied'] }
-        })
-        .sort({ tableNumber: 1 })
-        .select('tableNumber capacity location section status');
-        
-        res.json({
-            success: true,
-            count: tables.length,
-            tables: tables
-        });
-        
-    } catch (error) {
-        console.error('Get customer tables error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Server error'
-        });
-    }
-});
-
-// @route   GET /api/customer/tables
-// @desc    Get available tables for customers
-// @access  Private (Customer)
-router.get('/tables', auth, async (req, res) => {
-    try {
-        // Get all tables that are active and can accept orders
-        // 'occupied' tables can still accept orders (multiple orders per table)
+        // Get all tables that are active
         const tables = await Table.find({ 
             isActive: true
         })
@@ -796,64 +719,6 @@ router.get('/tables', auth, async (req, res) => {
         
     } catch (error) {
         console.error('Get customer tables error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Server error'
-        });
-    }
-});
-
-// @route   POST /api/customer/service-request
-// @desc    Customer creates a service request
-// @access  Private (Customer)
-router.post('/service-request', auth, async (req, res) => {
-    try {
-        const { type, description, tableNumber, orderId } = req.body;
-        
-        // Find the table
-        const table = await Table.findOne({ tableNumber });
-        if (!table) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Table not found' 
-            });
-        }
-        
-        // Create service request
-        const serviceRequest = new ServiceRequest({
-            type,
-            table: table._id,
-            tableNumber,
-            customer: req.user.id,
-            customerName: req.user.firstName + ' ' + req.user.lastName,
-            order: orderId,
-            description,
-            status: 'pending'
-        });
-        
-        await serviceRequest.save();
-        
-        // Real-time notification to chefs
-        const io = req.app.get('io');
-        if (io) {
-            io.emit('new-service-request', {
-                requestId: serviceRequest._id,
-                type: serviceRequest.type,
-                tableNumber: serviceRequest.tableNumber,
-                customerName: serviceRequest.customerName,
-                description: serviceRequest.description,
-                timestamp: new Date().toISOString()
-            });
-        }
-        
-        res.json({
-            success: true,
-            message: 'Service request sent successfully',
-            request: serviceRequest
-        });
-        
-    } catch (error) {
-        console.error('Create service request error:', error);
         res.status(500).json({
             success: false,
             message: 'Server error'
