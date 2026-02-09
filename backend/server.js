@@ -11,8 +11,6 @@ const securityMiddleware = require('./middleware/security');
 const app = express();
 const server = http.createServer(app);
 
-
-
 // Make sure JWT secret is available
 if (!process.env.JWT_SECRET) {
     console.warn('⚠️  JWT_SECRET not found in environment variables, using default');
@@ -139,10 +137,9 @@ io.on('connection', (socket) => {
     if (data.role) {
       socket.join(`role:${data.role}`);
       console.log(`👤 Socket ${socket.id} registered as ${data.role}`);
-              if (data.role === 'chef') {
-            socket.join('chef-room');
-        }
-
+      if (data.role === 'chef') {
+        socket.join('chef-room');
+      }
     }
     if (data.userId) {
       socket.join(`user:${data.userId}`);
@@ -152,38 +149,38 @@ io.on('connection', (socket) => {
   socket.on('chef-join', (data) => {
     console.log(`👨‍🍳 Chef joined: ${data.chefName || 'Unknown'}`);
     socket.join('chef-dashboard');
-});
+  });
 
-// In your socket.io connection handler
-socket.on('service-request-acknowledge', (data) => {
+  // Service request handling
+  socket.on('service-request-acknowledge', (data) => {
     console.log('Chef acknowledged service request:', data);
     io.to(`table:${data.tableNumber}`).emit('service-request-updated', {
-        requestId: data.requestId,
-        status: 'acknowledged',
-        chefName: data.chefName,
-        timestamp: new Date().toISOString()
+      requestId: data.requestId,
+      status: 'acknowledged',
+      chefName: data.chefName,
+      timestamp: new Date().toISOString()
     });
-});
+  });
 
-socket.on('service-request-complete', (data) => {
+  socket.on('service-request-complete', (data) => {
     console.log('Chef completed service request:', data);
     io.to(`table:${data.tableNumber}`).emit('service-request-completed', {
-        requestId: data.requestId,
-        message: `Your ${data.type} request has been completed`,
-        timestamp: new Date().toISOString()
+      requestId: data.requestId,
+      message: `Your ${data.type} request has been completed`,
+      timestamp: new Date().toISOString()
     });
-});
+  });
 
-// For order status updates
-socket.on('order-update', (data) => {
+  // For order status updates
+  socket.on('order-update', (data) => {
     console.log('🔄 Order update from socket:', data);
     // Notify all chefs
     io.to('chef-dashboard').emit('order-status-updated', data);
     // Notify specific table
     if (data.tableNumber) {
-        io.to(`table:${data.tableNumber}`).emit('order-status-changed', data);
+      io.to(`table:${data.tableNumber}`).emit('order-status-changed', data);
     }
-});
+  });
 
   // Join table-specific room
   socket.on('join-table', (tableNumber) => {
@@ -192,29 +189,27 @@ socket.on('order-update', (data) => {
   });
 
   // In server.js socket connection
-socket.on('chef-ready-order', (data) => {
+  socket.on('chef-ready-order', (data) => {
     console.log('📋 Order ready for billing:', data.orderNumber);
     // Notify ALL chefs
     io.to('chef-dashboard').emit('order-ready-broadcast', {
-        orderId: data.orderId,
-        orderNumber: data.orderNumber,
-        tableNumber: data.tableNumber,
-        chefName: data.chefName,
-        timestamp: new Date().toISOString(),
-        message: `Order #${data.orderNumber} is ready for billing`
+      orderId: data.orderId,
+      orderNumber: data.orderNumber,
+      tableNumber: data.tableNumber,
+      chefName: data.chefName,
+      timestamp: new Date().toISOString(),
+      message: `Order #${data.orderNumber} is ready for billing`
     });
-});
+  });
 
-socket.on('order-completed-by-chef', (data) => {
+  socket.on('order-completed-by-chef', (data) => {
     console.log('✅ Order completed by chef:', data.orderNumber);
     // Remove from all chefs' current orders
     io.to('chef-dashboard').emit('order-removed', {
-        orderId: data.orderId,
-        message: 'Order completed and removed'
+      orderId: data.orderId,
+      message: 'Order completed and removed'
     });
-});
-
-
+  });
 
   // Handle custom events from frontend
   socket.on('new-order', (data) => {
@@ -252,14 +247,14 @@ const authRoutes = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
 const chefRoutes = require('./routes/chef');
 const customerRoutes = require('./routes/customer');
-
+const serviceRequestRoutes = require('./routes/service-requests');
 
 // Mount routes
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/chef', chefRoutes);
 app.use('/api/customer', customerRoutes);
-
+app.use('/api/service-requests', serviceRequestRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -280,12 +275,15 @@ app.get('/', (req, res) => {
         menu: 'GET /api/customer/menu',
         order: 'POST /api/customer/order',
         orders: 'GET /api/customer/orders',
-        serviceRequest: 'POST /api/customer/service-request'
+        serviceRequest: 'POST /api/customer/service-request',
+        tables: 'GET /api/customer/tables',
+        debug: 'GET /api/customer/debug'
       },
       chef: {
         orders: 'GET /api/chef/orders',
         menu: 'GET /api/chef/menu',
-        serviceRequests: 'GET /api/chef/service-requests'
+        serviceRequests: 'GET /api/chef/service-requests',
+        dashboardStats: 'GET /api/chef/dashboard-stats'
       },
       admin: {
         stats: 'GET /api/admin/stats',
@@ -294,6 +292,12 @@ app.get('/', (req, res) => {
         tables: 'GET /api/admin/tables',
         staff: 'GET /api/admin/staff',
         sales: 'GET /api/admin/sales'
+      },
+      serviceRequests: {
+        pending: 'GET /api/service-requests/pending',
+        acknowledge: 'PUT /api/service-requests/:id/acknowledge',
+        complete: 'PUT /api/service-requests/:id/complete',
+        all: 'GET /api/service-requests/all'
       },
       demo: 'GET /api/demo'
     },
@@ -309,7 +313,6 @@ app.get('/', (req, res) => {
     }
   });
 });
-
 
 // Health check endpoint (for Render)
 app.get('/health', (req, res) => {
@@ -413,13 +416,39 @@ app.get('/api/auth/verify', async (req, res) => {
   }
 });
 
+// Test endpoints
+app.get('/api/test', (req, res) => {
+  res.json({ 
+    message: 'Backend is working',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
+app.post('/api/test/login', (req, res) => {
+  console.log('Test login attempt:', req.body);
+  res.json({
+    success: true,
+    message: 'Login endpoint is reachable',
+    data: req.body
+  });
+});
+
 // 404 handler
 app.use('*', (req, res) => {
   res.status(404).json({
     success: false,
     message: 'Endpoint not found',
     path: req.originalUrl,
-    availableEndpoints: ['/api/auth/*', '/api/customer/*', '/api/chef/*', '/api/admin/*', '/health']
+    availableEndpoints: [
+      '/api/auth/*',
+      '/api/customer/*',
+      '/api/chef/*',
+      '/api/admin/*',
+      '/api/service-requests/*',
+      '/health',
+      '/api/test'
+    ]
   });
 });
 
@@ -478,7 +507,8 @@ const startServer = async () => {
       console.log(`   Health: http://localhost:${PORT}/health`);
       console.log(`   Main: http://localhost:${PORT}/`);
       console.log(`   Auth: http://localhost:${PORT}/api/auth/login`);
-      console.log(`   Demo: http://localhost:${PORT}/api/demo`);
+      console.log(`   Customer Debug: http://localhost:${PORT}/api/customer/debug`);
+      console.log(`   Service Requests: http://localhost:${PORT}/api/service-requests/pending`);
       console.log('='.repeat(60));
     });
     
@@ -509,24 +539,4 @@ process.on('uncaughtException', (error) => {
 
 process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-});
-
-// Add this to your backend in a test route
-// In your backend app.js or server.js
-
-app.get('/api/test', (req, res) => {
-    res.json({ 
-        message: 'Backend is working',
-        timestamp: new Date().toISOString(),
-        environment: process.env.NODE_ENV || 'development'
-    });
-});
-
-app.post('/api/test/login', (req, res) => {
-    console.log('Test login attempt:', req.body);
-    res.json({
-        success: true,
-        message: 'Login endpoint is reachable',
-        data: req.body
-    });
 });

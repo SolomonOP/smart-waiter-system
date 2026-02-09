@@ -1408,4 +1408,28 @@ router.put('/service-requests/:requestId/complete', auth, async (req, res) => {
     }
 });
 
+// Helper functions
+function getServiceTypeName(type) {
+    const typeNames = {
+        'water': 'Water Refill',
+        'cleaning': 'Table Cleaning',
+        'bill': 'Bill Payment',
+        'cutlery': 'Cutlery Request',
+        'napkin': 'Napkin Request',
+        'extra_sauce': 'Extra Sauce',
+        'other': 'Other Service'
+    };
+    return typeNames[type] || type;
+}
+
+function getServicePriority(type) {
+    const priorityMap = {
+        'bill': 'high',       // Bill payment is high priority
+        'water': 'normal',    // Water refill is normal
+        'cleaning': 'normal', // Cleaning is normal
+        'other': 'low'        // Other services are low priority
+    };
+    return priorityMap[type] || 'normal';
+}
+
 module.exports = router;

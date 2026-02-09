@@ -364,137 +364,6 @@ router.get('/orders/:id', auth, async (req, res) => {
 });
 
 // @route   POST /api/customer/service-request
-// @desc    Request service (water, cleaning, bill, etc.)
-// @access  Private
-router.post('/service-request', auth, [
-    check('tableNumber', 'Table number is required').isInt({ min: 1 }),
-    check('type', 'Service type is required').isIn(['water', 'cleaning', 'bill', 'cutlery', 'napkin', 'extra_sauce', 'other']),
-    check('description', 'Description cannot exceed 200 characters').optional().isLength({ max: 200 })
-], async (req, res) => {
-    try {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-            return res.status(400).json({
-                success: false,
-                errors: errors.array()
-            });
-        }
-        
-        const { tableNumber, type, description, customerName } = req.body;
-        
-        console.log('=== SERVICE REQUEST ===');
-        console.log('Table:', tableNumber);
-        console.log('Type:', type);
-        console.log('Customer:', customerName);
-        console.log('=======================');
-        
-        // Get user info
-        let customer = customerName;
-        let customerId = req.userId;
-        
-        if (!customer) {
-            const user = await User.findById(req.userId);
-            customer = user ? user.firstName + ' ' + user.lastName : 'Customer';
-        }
-        
-        // Check if table exists
-        const table = await Table.findOne({ tableNumber: parseInt(tableNumber) });
-        if (!table) {
-            return res.status(400).json({
-                success: false,
-                message: `Table ${tableNumber} not found`
-            });
-        }
-        
-        // Create service request object
-        const serviceRequest = {
-            type: type,
-            tableNumber: parseInt(tableNumber),
-            description: description || `${getServiceTypeName(type)} request from table ${tableNumber}`,
-            customerName: customer,
-            customerId: customerId,
-            status: 'pending',
-            priority: getServicePriority(type),
-            createdAt: new Date()
-        };
-        
-        // Add to table's serviceRequests array
-        if (!table.serviceRequests) {
-            table.serviceRequests = [];
-        }
-        
-        table.serviceRequests.push(serviceRequest);
-        
-        try {
-            // Try to save with validation
-            await table.save({ validateBeforeSave: true });
-        } catch (saveError) {
-            console.log('Validation error on save, trying without validation:', saveError.message);
-            
-            // If validation fails, try saving without validation
-            try {
-                await table.save({ validateBeforeSave: false });
-                console.log('Saved without validation');
-            } catch (noValidateError) {
-                console.error('Even save without validation failed:', noValidateError);
-                throw noValidateError;
-            }
-        }
-        
-        const savedRequest = table.serviceRequests[table.serviceRequests.length - 1];
-        console.log('Service request saved to table:', savedRequest);
-        
-        // Real-time notification
-        const io = req.app.get('io');
-        if (io) {
-            // Notify chefs
-            io.to('role:chef').emit('new-service-request', {
-                requestId: savedRequest._id,
-                type: type,
-                tableNumber: tableNumber,
-                description: savedRequest.description,
-                customerName: customer,
-                priority: savedRequest.priority,
-                timestamp: new Date().toISOString()
-            });
-            
-            // Notify the specific table
-            io.to(`table:${tableNumber}`).emit('service-request-confirmation', {
-                type: type,
-                tableNumber: tableNumber,
-                message: 'Your service request has been received',
-                requestId: savedRequest._id,
-                estimatedResponse: '5-10 minutes'
-            });
-        }
-        
-        res.json({
-            success: true,
-            message: 'Service request sent successfully',
-            request: {
-                id: savedRequest._id,
-                type: savedRequest.type,
-                tableNumber: savedRequest.tableNumber,
-                description: savedRequest.description,
-                status: savedRequest.status,
-                priority: savedRequest.priority,
-                createdAt: savedRequest.createdAt,
-                estimatedResponse: '5-10 minutes'
-            }
-        });
-        
-    } catch (error) {
-        console.error('Service request error:', error);
-        console.error('Error stack:', error.stack);
-        res.status(500).json({
-            success: false,
-            message: 'Server error while processing service request',
-            error: error.message
-        });
-    }
-});
-
-// @route   POST /api/customer/service-request
 // @desc    Request service (water, cleaning, bill, etc.) - SIMPLE WORKING VERSION
 // @access  Private
 router.post('/service-request', auth, async (req, res) => {
@@ -548,6 +417,11 @@ router.post('/service-request', auth, async (req, res) => {
             customerName: String,
             customerId: String,
             status: { type: String, default: 'pending' },
+            acknowledgedBy: { type: String },
+            acknowledgedAt: { type: Date },
+            completedBy: { type: String },
+            completedAt: { type: Date },
+            notes: String,
             createdAt: { type: Date, default: Date.now }
         });
         
@@ -611,6 +485,15 @@ router.post('/service-request', auth, async (req, res) => {
                 tableNumber: tableNumber,
                 customerName: customer,
                 timestamp: new Date().toISOString()
+            });
+            
+            // Notify the specific table
+            io.to(`table:${tableNumber}`).emit('service-request-confirmation', {
+                type: type,
+                tableNumber: tableNumber,
+                message: 'Your service request has been received',
+                requestId: serviceRequest._id,
+                estimatedResponse: '5-10 minutes'
             });
         }
         
@@ -683,6 +566,64 @@ function getServicePriority(type) {
     };
     return priorityMap[type] || 'normal';
 }
+
+// @route   GET /api/customer/debug
+// @desc    Debug endpoint
+// @access  Public
+router.get('/debug', async (req, res) => {
+    try {
+        // Test database connection
+        const tableCount = await Table.countDocuments();
+        const menuCount = await MenuItem.countDocuments();
+        const orderCount = await Order.countDocuments();
+        
+        let serviceRequestCount = 0;
+        try {
+            const ServiceRequestModel = mongoose.model('ServiceRequest');
+            serviceRequestCount = await ServiceRequestModel.countDocuments();
+        } catch (error) {
+            // Model might not exist yet
+        }
+        
+        // Get some sample data
+        let recentServiceRequests = [];
+        try {
+            const ServiceRequestModel = mongoose.model('ServiceRequest');
+            recentServiceRequests = await ServiceRequestModel
+                .find()
+                .sort({ createdAt: -1 })
+                .limit(5)
+                .select('type tableNumber customerName status createdAt');
+        } catch (error) {
+            // Model might not exist yet
+        }
+        
+        res.json({
+            success: true,
+            message: 'System debug information',
+            database: {
+                tables: tableCount,
+                menuItems: menuCount,
+                orders: orderCount,
+                serviceRequests: serviceRequestCount,
+                connected: mongoose.connection.readyState === 1
+            },
+            recentServiceRequests: recentServiceRequests,
+            server: {
+                time: new Date().toISOString(),
+                uptime: process.uptime(),
+                memory: process.memoryUsage()
+            }
+        });
+        
+    } catch (error) {
+        console.error('Debug error:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
 
 // @route   POST /api/customer/cancel-order/:id
 // @desc    Cancel an order

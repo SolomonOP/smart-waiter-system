@@ -87,8 +87,10 @@
         }
         
         .status-pending { border-left: 4px solid #ffc107; }
+        .status-confirmed { border-left: 4px solid #17a2b8; }
         .status-preparing { border-left: 4px solid #17a2b8; }
         .status-ready { border-left: 4px solid #28a745; }
+        .status-finished { border-left: 4px solid #20c997; }
         .status-completed { border-left: 4px solid #6c757d; }
         
         .service-btn {
@@ -202,6 +204,15 @@
             z-index: 1001;
             display: none;
         }
+        
+        .service-request-item {
+            border-left: 4px solid #6f42c1;
+            margin-bottom: 10px;
+        }
+        
+        .service-status-pending { border-left-color: #ffc107; }
+        .service-status-acknowledged { border-left-color: #17a2b8; }
+        .service-status-completed { border-left-color: #28a745; }
     </style>
 </head>
 <body>
@@ -396,6 +407,30 @@
                 </div>
             </div>
             
+            <!-- Additional Service Buttons -->
+            <div class="row mt-4">
+                <div class="col-md-3 mb-3">
+                    <button class="btn btn-outline-primary w-100" onclick="requestService('cutlery')">
+                        <i class="fas fa-utensils me-2"></i>Cutlery
+                    </button>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <button class="btn btn-outline-secondary w-100" onclick="requestService('napkin')">
+                        <i class="fas fa-hand-sparkles me-2"></i>Napkins
+                    </button>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <button class="btn btn-outline-info w-100" onclick="requestService('extra_sauce')">
+                        <i class="fas fa-wine-bottle me-2"></i>Extra Sauce
+                    </button>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <button class="btn btn-outline-dark w-100" onclick="requestService('other')">
+                        <i class="fas fa-question-circle me-2"></i>Other
+                    </button>
+                </div>
+            </div>
+            
             <!-- Live Order Status -->
             <div class="mt-5">
                 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -407,6 +442,21 @@
                 <div id="orderStatus" class="row">
                     <div class="col-12 text-center text-muted py-4">
                         <p>No orders yet. Place an order from the Menu section.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Service Request History -->
+            <div class="mt-5">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h4 class="mb-0">Your Service Requests</h4>
+                    <button class="btn btn-sm btn-outline-primary" onclick="loadServiceRequests()">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+                </div>
+                <div id="serviceRequests" class="row">
+                    <div class="col-12 text-center text-muted py-4">
+                        <p>No service requests yet. Use the buttons above to request services.</p>
                     </div>
                 </div>
             </div>
@@ -557,7 +607,8 @@
                 MENU: '/api/customer/menu',
                 ORDER: '/api/customer/order',
                 TABLES: '/api/customer/tables',
-                SERVICE_REQUEST: '/api/customer/service-request'
+                SERVICE_REQUEST: '/api/customer/service-request',
+                DEBUG: '/api/customer/debug'
             }
         };
 
@@ -580,6 +631,7 @@
             logout: () => {
                 localStorage.removeItem('token');
                 localStorage.removeItem('user');
+                localStorage.removeItem('currentTable');
                 window.location.href = 'login.html';
             }
         };
@@ -601,59 +653,52 @@
                     });
 
                     // Live order status updates from chef
-socket.on('order-status-updated', (data) => {
-    console.log('Live order update from chef:', data);
-    
-    // Check if this is for current table
-    if (data.tableNumber === currentTable) {
-        // Update orders immediately
-        loadOrderStatus();
-        
-        // Show notification
-        showNotification(
-            `Order #${data.orderNumber} is now ${data.status}`,
-            'info'
-        );
-        
-        // Highlight update
-        const orderElement = document.querySelector(`[data-order-id="${data.orderId}"]`);
-        if (orderElement) {
-            orderElement.classList.add('live-update');
-            setTimeout(() => {
-                orderElement.classList.remove('live-update');
-            }, 5000);
-        }
-    }
-});
+                    socket.on('order-status-updated', (data) => {
+                        console.log('Live order update from chef:', data);
+                        
+                        // Check if this is for current table
+                        if (data.tableNumber === currentTable) {
+                            // Update orders immediately
+                            loadOrderStatus();
+                            
+                            // Show notification
+                            showNotification(
+                                `Order #${data.orderNumber} is now ${data.status}`,
+                                'info'
+                            );
+                            
+                            // Highlight update
+                            const orderElement = document.querySelector(`[data-order-id="${data.orderId}"]`);
+                            if (orderElement) {
+                                orderElement.classList.add('live-update');
+                                setTimeout(() => {
+                                    orderElement.classList.remove('live-update');
+                                }, 5000);
+                            }
+                        }
+                    });
 
-// Service request confirmation
-socket.on('service-request-sent', (data) => {
-    if (data.tableNumber === currentTable) {
-        Toast.show(`Your ${data.type} request has been acknowledged!`, 'success');
-    }
-});
+                    // Service request confirmation
+                    socket.on('service-request-confirmation', (data) => {
+                        console.log('Service request confirmation:', data);
+                        if (data.tableNumber === currentTable) {
+                            Toast.show(`Service request sent! ${data.message}`, 'success');
+                        }
+                    });
 
-// In your initSocket() function, add these listeners:
-socket.on('service-request-confirmation', (data) => {
-    console.log('Service request confirmation:', data);
-    if (data.tableNumber === currentTable) {
-        Toast.show(`Service request sent! ${data.message}`, 'success');
-    }
-});
+                    socket.on('service-request-acknowledged', (data) => {
+                        console.log('Service request acknowledged:', data);
+                        if (data.tableNumber === currentTable) {
+                            Toast.show(`${data.message} by ${data.chefName}`, 'info');
+                        }
+                    });
 
-socket.on('service-request-acknowledged', (data) => {
-    console.log('Service request acknowledged:', data);
-    if (data.tableNumber === currentTable) {
-        Toast.show(`${data.message} by ${data.chefName}`, 'info');
-    }
-});
-
-socket.on('service-request-completed', (data) => {
-    console.log('Service request completed:', data);
-    if (data.tableNumber === currentTable) {
-        Toast.show(data.message, 'success');
-    }
-});
+                    socket.on('service-request-completed', (data) => {
+                        console.log('Service request completed:', data);
+                        if (data.tableNumber === currentTable) {
+                            Toast.show(data.message, 'success');
+                        }
+                    });
                     
                     socket.on('disconnect', () => {
                         console.log('Socket disconnected');
@@ -822,33 +867,35 @@ socket.on('service-request-completed', (data) => {
             // Start system initialization
             await initializeSystem();
         }
-
-        // In customer/dashboard.html
-function setupRealTimeUpdates() {
-    if (socket) {
-        // Listen for chef updates
-        socket.on('order-update', (data) => {
-            console.log('Real-time order update:', data);
-            if (data.tableNumber === currentTable) {
-                refreshOrderDisplay(data);
-            }
-        });
         
-        // Join table room for specific updates
-        socket.emit('join-table', currentTable);
-    }
-}
+        // Setup real-time updates
+        function setupRealTimeUpdates() {
+            if (socket) {
+                // Listen for chef updates
+                socket.on('order-update', (data) => {
+                    console.log('Real-time order update:', data);
+                    if (data.tableNumber === currentTable) {
+                        refreshOrderDisplay(data);
+                    }
+                });
+                
+                // Join table room for specific updates
+                if (currentTable) {
+                    socket.emit('join-table', currentTable);
+                }
+            }
+        }
 
-function refreshOrderDisplay(data) {
-    const orderStatus = document.getElementById('orderStatus');
-    if (!orderStatus) return;
-    
-    // Update specific order or reload all
-    loadOrderStatus();
-    
-    // Show notification
-    Toast.show(`Order #${data.orderNumber} updated: ${data.status}`, 'info');
-}
+        function refreshOrderDisplay(data) {
+            const orderStatus = document.getElementById('orderStatus');
+            if (!orderStatus) return;
+            
+            // Update specific order or reload all
+            loadOrderStatus();
+            
+            // Show notification
+            Toast.show(`Order #${data.orderNumber} updated: ${data.status}`, 'info');
+        }
         
         // Initialize system
         async function initializeSystem() {
@@ -919,34 +966,35 @@ function refreshOrderDisplay(data) {
         }
         
         // Setup auto-refresh
-function setupAutoRefresh() {
-    // Clear existing interval
-    if (autoRefreshInterval) {
-        clearInterval(autoRefreshInterval);
-    }
-    
-    // Setup auto-refresh every 45 seconds (less frequent to avoid connection issues)
-    autoRefreshInterval = setInterval(async () => {
-        if (currentTable && document.getElementById('services').style.display === 'block') {
-            try {
-                await loadOrderStatus();
-            } catch (error) {
-                console.log('Auto-refresh failed:', error.message);
+        function setupAutoRefresh() {
+            // Clear existing interval
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
             }
+            
+            // Setup auto-refresh every 45 seconds (less frequent to avoid connection issues)
+            autoRefreshInterval = setInterval(async () => {
+                if (currentTable && document.getElementById('services').style.display === 'block') {
+                    try {
+                        await loadOrderStatus();
+                        await loadServiceRequests();
+                    } catch (error) {
+                        console.log('Auto-refresh failed:', error.message);
+                    }
+                }
+            }, 45000);
+            
+            // Also refresh menu every 3 minutes
+            setInterval(async () => {
+                if (currentTable && document.getElementById('menu').style.display === 'block') {
+                    try {
+                        await loadMenu();
+                    } catch (error) {
+                        console.log('Menu refresh failed:', error.message);
+                    }
+                }
+            }, 180000);
         }
-    }, 45000);
-    
-    // Also refresh menu every 3 minutes
-    setInterval(async () => {
-        if (currentTable && document.getElementById('menu').style.display === 'block') {
-            try {
-                await loadMenu();
-            } catch (error) {
-                console.log('Menu refresh failed:', error.message);
-            }
-        }
-    }, 180000);
-}
         
         // Initialize socket
         function initSocket() {
@@ -994,6 +1042,7 @@ function setupAutoRefresh() {
                     if (currentTable) {
                         loadOrderStatus();
                         loadMenu();
+                        loadServiceRequests();
                     }
                 });
             }
@@ -1038,6 +1087,7 @@ function setupAutoRefresh() {
                             loadMenu();
                         } else if (targetId === 'services') {
                             loadOrderStatus();
+                            loadServiceRequests();
                         }
                     }
                 });
@@ -1060,78 +1110,78 @@ function setupAutoRefresh() {
         }
          
         async function loadTables() {
-    try {
-        const data = await API.get(CONFIG.API_ENDPOINTS.TABLES);
-        
-        if (!data || !data.success || !Array.isArray(data.tables)) {
-            console.error('Invalid API response:', data);
-            throw new Error('Invalid response from server');
-        }
-        
-        console.log('Raw tables data:', data.tables);
-        
-        // Show ALL active tables, not just "available" status
-        // Customers can order from occupied tables too (they're already sitting there)
-        activeTables = data.tables
-            .filter(table => {
-                return table.isActive !== false; // Only show active tables
-            })
-            .map(table => table.tableNumber);
-        
-        console.log('Active tables (customer view):', activeTables);
-        
-        if (activeTables.length > 0) {
-            // Try to get table from localStorage or use first available
-            const savedTable = localStorage.getItem('currentTable');
-            if (savedTable && activeTables.includes(parseInt(savedTable))) {
-                currentTable = parseInt(savedTable);
-            } else {
-                currentTable = activeTables[0];
+            try {
+                const data = await API.get(CONFIG.API_ENDPOINTS.TABLES);
+                
+                if (!data || !data.success || !Array.isArray(data.tables)) {
+                    console.error('Invalid API response:', data);
+                    throw new Error('Invalid response from server');
+                }
+                
+                console.log('Raw tables data:', data.tables);
+                
+                // Show ALL active tables, not just "available" status
+                // Customers can order from occupied tables too (they're already sitting there)
+                activeTables = data.tables
+                    .filter(table => {
+                        return table.isActive !== false; // Only show active tables
+                    })
+                    .map(table => table.tableNumber);
+                
+                console.log('Active tables (customer view):', activeTables);
+                
+                if (activeTables.length > 0) {
+                    // Try to get table from localStorage or use first available
+                    const savedTable = localStorage.getItem('currentTable');
+                    if (savedTable && activeTables.includes(parseInt(savedTable))) {
+                        currentTable = parseInt(savedTable);
+                    } else {
+                        currentTable = activeTables[0];
+                    }
+                    
+                    console.log('Current table set to:', currentTable);
+                    
+                    // Save to localStorage
+                    localStorage.setItem('currentTable', currentTable);
+                    
+                    generateTableButtons();
+                    
+                    // Load menu for this table
+                    await loadMenu();
+                    
+                } else {
+                    console.log('No active tables found');
+                    Toast.show('No tables available. Please contact staff.', 'warning');
+                    
+                    // Show message in table selection
+                    const tableStatus = document.getElementById('tableStatus');
+                    if (tableStatus) {
+                        tableStatus.innerHTML = `
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                No tables available. Please contact restaurant staff.
+                            </div>
+                        `;
+                    }
+                }
+                
+            } catch (error) {
+                console.error('Error loading tables:', error);
+                
+                // Show error message
+                Toast.show('Unable to load tables. Please refresh the page.', 'error');
+                
+                const tableStatus = document.getElementById('tableStatus');
+                if (tableStatus) {
+                    tableStatus.innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-circle me-2"></i>
+                            Failed to load tables. Error: ${error.message}
+                        </div>
+                    `;
+                }
             }
-            
-            console.log('Current table set to:', currentTable);
-            
-            // Save to localStorage
-            localStorage.setItem('currentTable', currentTable);
-            
-            generateTableButtons();
-            
-            // Load menu for this table
-            await loadMenu();
-            
-        } else {
-            console.log('No active tables found');
-            Toast.show('No tables available. Please contact staff.', 'warning');
-            
-            // Show message in table selection
-            const tableStatus = document.getElementById('tableStatus');
-            if (tableStatus) {
-                tableStatus.innerHTML = `
-                    <div class="alert alert-warning">
-                        <i class="fas fa-exclamation-triangle me-2"></i>
-                        No tables available. Please contact restaurant staff.
-                    </div>
-                `;
-            }
         }
-        
-    } catch (error) {
-        console.error('Error loading tables:', error);
-        
-        // Show error message
-        Toast.show('Unable to load tables. Please refresh the page.', 'error');
-        
-        const tableStatus = document.getElementById('tableStatus');
-        if (tableStatus) {
-            tableStatus.innerHTML = `
-                <div class="alert alert-danger">
-                    <i class="fas fa-exclamation-circle me-2"></i>
-                    Failed to load tables. Error: ${error.message}
-                </div>
-            `;
-        }
-    }
-}
         
         // Generate table buttons
         function generateTableButtons() {
@@ -1196,10 +1246,16 @@ function setupAutoRefresh() {
             // Load menu and orders for this table
             await Promise.all([
                 loadMenu(),
-                loadOrderStatus()
+                loadOrderStatus(),
+                loadServiceRequests()
             ]);
             
             Toast.show(`Table ${tableNumber} selected. Loading data...`, 'success');
+            
+            // Join table room for socket updates
+            if (socket) {
+                socket.emit('join-table', tableNumber);
+            }
         }
         
         // Set table from input
@@ -1467,280 +1523,252 @@ function setupAutoRefresh() {
         }
         
         async function placeOrder() {
-    if (!currentTable) {
-        Toast.show('Please select a table first', 'error');
-        return;
-    }
-    
-    if (cart.length === 0) {
-        Toast.show('Your cart is empty', 'error');
-        return;
-    }
-    
-    try {
-        Loading.show('Placing your order...');
-        
-        // Build order object
-        const orderData = {
-            tableNumber: parseInt(currentTable),
-            items: cart.map(item => ({
-                menuItem: item.id, // This should be a valid MongoDB ObjectId
-                name: item.name,
-                price: parseFloat(item.price),
-                quantity: parseInt(item.quantity)
-            })),
-            customerName: user.firstName + ' ' + user.lastName,
-            customerEmail: user.email || 'customer@example.com',
-            instructions: document.getElementById('specialInstructions')?.value || ''
-        };
-        
-        console.log('Order data being sent:', JSON.stringify(orderData, null, 2));
-        
-        const response = await API.post(CONFIG.API_ENDPOINTS.ORDER, orderData);
-        
-        console.log('Order success:', response);
-        
-        Toast.show(`Order #${response.order.orderNumber} placed successfully!`, 'success');
-        
-        // Reset cart
-        cart = [];
-        updateCartDisplay();
-        hideCart();
-        
-        // Load updated order status
-        await loadOrderStatus();
-        
-        // Emit socket event
-        if (socket) {
-            socket.emit('new-order', {
-                orderId: response.order._id,
-                tableNumber: currentTable,
-                orderNumber: response.order.orderNumber,
-                status: 'pending'
-            });
-        }
-        
-    } catch (error) {
-        console.error('Order placement error:', error);
-        console.error('Full error:', error);
-        
-        // Show detailed error
-        let errorMessage = 'Failed to place order. ';
-        
-        if (error.message.includes('NetworkError') || error.message.includes('Failed to fetch')) {
-            errorMessage += 'Network error. Please check your connection.';
-        } else if (error.message.includes('500')) {
-            errorMessage += 'Server error. Please try again or contact staff.';
-        } else {
-            errorMessage += error.message;
-        }
-        
-        Toast.show(errorMessage, 'error');
-        
-        // Show debug info
-        console.log('Cart items:', cart);
-        console.log('Current table:', currentTable);
-        console.log('User:', user);
-        
-    } finally {
-        Loading.hide();
-    }
-}
-
-// In your customer frontend JavaScript
-async function sendServiceRequest(type, description) {
-    try {
-        const tableNumber = getCurrentTableNumber(); // You need to get this from somewhere
-        const orderId = getCurrentOrderId(); // Get current order ID if available
-        
-        const response = await fetch('/api/service-request', { // or /api/customer/service-request
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${Auth.getToken()}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                type,
-                description,
-                tableNumber,
-                orderId
-            })
-        });
-        
-        const data = await response.json();
-        if (data.success) {
-            Toast.show('Service request sent successfully!', 'success');
-        }
-        
-    } catch (error) {
-        console.error('Send service request error:', error);
-        Toast.show('Failed to send service request', 'error');
-    }
-}
-        
-        /// Request service - WORKING VERSION
-async function requestService(type) {
-    // Always ask for table number in services section
-    let targetTable = currentTable;
-    
-    // If no table is selected or we're in services section, ask for table
-    if (!targetTable || document.getElementById('services').style.display === 'block') {
-        const tableInput = prompt(`Please enter your table number for ${getServiceName(type)} request:`);
-        if (!tableInput) {
-            Toast.show('Service request cancelled', 'warning');
-            return;
-        }
-        
-        const tableNumber = parseInt(tableInput.trim());
-        if (!tableNumber || tableNumber < 1) {
-            Toast.show('Please enter a valid table number', 'error');
-            return;
-        }
-        
-        targetTable = tableNumber;
-    }
-    
-    try {
-        Loading.show('Sending request...');
-        
-        const request = {
-            type: type,
-            tableNumber: parseInt(targetTable),
-            customerName: user.firstName + ' ' + user.lastName,
-            description: `${getServiceName(type)} request from table ${targetTable}`
-        };
-        
-        console.log('Sending service request:', request);
-        
-        // Create a timeout for the request
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-        
-        try {
-            const token = localStorage.getItem('token');
-            
-            const response = await fetch(CONFIG.BACKEND_URL + CONFIG.API_ENDPOINTS.SERVICE_REQUEST, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(request),
-                signal: controller.signal
-            });
-            
-            clearTimeout(timeoutId);
-            
-            console.log('Response status:', response.status);
-            
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('Response error:', errorText);
-                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            if (!currentTable) {
+                Toast.show('Please select a table first', 'error');
+                return;
             }
             
-            const data = await response.json();
-            console.log('Service request response:', data);
+            if (cart.length === 0) {
+                Toast.show('Your cart is empty', 'error');
+                return;
+            }
             
-            if (data.success) {
-                Toast.show(`${getServiceName(type)} request sent to table ${targetTable}!`, 'success');
+            try {
+                Loading.show('Placing your order...');
+                
+                // Build order object
+                const orderData = {
+                    tableNumber: parseInt(currentTable),
+                    items: cart.map(item => ({
+                        menuItem: item.id, // This should be a valid MongoDB ObjectId
+                        name: item.name,
+                        price: parseFloat(item.price),
+                        quantity: parseInt(item.quantity)
+                    })),
+                    customerName: user.firstName + ' ' + user.lastName,
+                    customerEmail: user.email || 'customer@example.com',
+                    instructions: document.getElementById('specialInstructions')?.value || ''
+                };
+                
+                console.log('Order data being sent:', JSON.stringify(orderData, null, 2));
+                
+                const response = await API.post(CONFIG.API_ENDPOINTS.ORDER, orderData);
+                
+                console.log('Order success:', response);
+                
+                Toast.show(`Order #${response.order.orderNumber} placed successfully!`, 'success');
+                
+                // Reset cart
+                cart = [];
+                updateCartDisplay();
+                hideCart();
+                
+                // Load updated order status
+                await loadOrderStatus();
                 
                 // Emit socket event
                 if (socket) {
-                    socket.emit('service-request', {
-                        ...request,
-                        requestId: data.requestId || data.request?._id
+                    socket.emit('new-order', {
+                        orderId: response.order._id,
+                        tableNumber: currentTable,
+                        orderNumber: response.order.orderNumber,
+                        status: 'pending'
                     });
                 }
-            } else {
-                throw new Error(data.message || 'Request failed');
+                
+            } catch (error) {
+                console.error('Order placement error:', error);
+                console.error('Full error:', error);
+                
+                // Show detailed error
+                let errorMessage = 'Failed to place order. ';
+                
+                if (error.message.includes('NetworkError') || error.message.includes('Failed to fetch')) {
+                    errorMessage += 'Network error. Please check your connection.';
+                } else if (error.message.includes('500')) {
+                    errorMessage += 'Server error. Please try again or contact staff.';
+                } else {
+                    errorMessage += error.message;
+                }
+                
+                Toast.show(errorMessage, 'error');
+                
+                // Show debug info
+                console.log('Cart items:', cart);
+                console.log('Current table:', currentTable);
+                console.log('User:', user);
+                
+            } finally {
+                Loading.hide();
             }
-            
-        } catch (fetchError) {
-            console.error('Fetch error:', fetchError);
-            
-            if (fetchError.name === 'AbortError') {
-                throw new Error('Request timed out. Please try again.');
-            }
-            throw fetchError;
         }
         
-    } catch (error) {
-        console.error('Service request error:', error);
-        
-        let errorMessage = 'Failed to send request. ';
-        if (error.message.includes('timeout') || error.message.includes('AbortError')) {
-            errorMessage = 'Request timed out. The server might be busy.';
-        } else if (error.message.includes('500')) {
-            errorMessage = 'Server error. Please try again later.';
-        } else if (error.message.includes('401')) {
-            errorMessage = 'Session expired. Please login again.';
-            setTimeout(() => logout(), 2000);
-        } else if (error.message.includes('Table validation failed')) {
-            errorMessage = 'System configuration error. Contact staff.';
-        } else {
-            errorMessage += error.message;
+        /// Request service - WORKING VERSION
+        async function requestService(type) {
+            // Always ask for table number in services section
+            let targetTable = currentTable;
+            
+            // If no table is selected or we're in services section, ask for table
+            if (!targetTable || document.getElementById('services').style.display === 'block') {
+                const tableInput = prompt(`Please enter your table number for ${getServiceName(type)} request:`);
+                if (!tableInput) {
+                    Toast.show('Service request cancelled', 'warning');
+                    return;
+                }
+                
+                const tableNumber = parseInt(tableInput.trim());
+                if (!tableNumber || tableNumber < 1) {
+                    Toast.show('Please enter a valid table number', 'error');
+                    return;
+                }
+                
+                targetTable = tableNumber;
+            }
+            
+            try {
+                Loading.show('Sending request...');
+                
+                const request = {
+                    type: type,
+                    tableNumber: parseInt(targetTable),
+                    customerName: user.firstName + ' ' + user.lastName,
+                    description: `${getServiceName(type)} request from table ${targetTable}`
+                };
+                
+                console.log('Sending service request:', request);
+                
+                // Create a timeout for the request
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+                
+                try {
+                    const token = localStorage.getItem('token');
+                    
+                    const response = await fetch(CONFIG.BACKEND_URL + CONFIG.API_ENDPOINTS.SERVICE_REQUEST, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify(request),
+                        signal: controller.signal
+                    });
+                    
+                    clearTimeout(timeoutId);
+                    
+                    console.log('Response status:', response.status);
+                    
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        console.error('Response error:', errorText);
+                        throw new Error(`HTTP ${response.status}: ${errorText}`);
+                    }
+                    
+                    const data = await response.json();
+                    console.log('Service request response:', data);
+                    
+                    if (data.success) {
+                        Toast.show(`${getServiceName(type)} request sent to table ${targetTable}!`, 'success');
+                        
+                        // Emit socket event
+                        if (socket) {
+                            socket.emit('service-request', {
+                                ...request,
+                                requestId: data.requestId || data.request?._id
+                            });
+                        }
+                        
+                        // Refresh service requests display
+                        setTimeout(() => loadServiceRequests(), 1000);
+                    } else {
+                        throw new Error(data.message || 'Request failed');
+                    }
+                    
+                } catch (fetchError) {
+                    console.error('Fetch error:', fetchError);
+                    
+                    if (fetchError.name === 'AbortError') {
+                        throw new Error('Request timed out. Please try again.');
+                    }
+                    throw fetchError;
+                }
+                
+            } catch (error) {
+                console.error('Service request error:', error);
+                
+                let errorMessage = 'Failed to send request. ';
+                if (error.message.includes('timeout') || error.message.includes('AbortError')) {
+                    errorMessage = 'Request timed out. The server might be busy.';
+                } else if (error.message.includes('500')) {
+                    errorMessage = 'Server error. Please try again later.';
+                } else if (error.message.includes('401')) {
+                    errorMessage = 'Session expired. Please login again.';
+                    setTimeout(() => logout(), 2000);
+                } else if (error.message.includes('Table validation failed')) {
+                    errorMessage = 'System configuration error. Contact staff.';
+                } else {
+                    errorMessage += error.message;
+                }
+                
+                Toast.show(errorMessage, 'error');
+            } finally {
+                Loading.hide();
+            }
         }
-        
-        Toast.show(errorMessage, 'error');
-    } finally {
-        Loading.hide();
-    }
-}
         
         function getServiceName(type) {
-    const serviceNames = {
-        'water': 'Water Refill',
-        'cleaning': 'Table Cleaning',
-        'bill': 'Bill Payment',
-        'cutlery': 'Cutlery',
-        'napkin': 'Napkins',
-        'extra_sauce': 'Extra Sauce',
-        'other': 'Other Service'
-    };
-    return serviceNames[type] || type;
-}
+            const serviceNames = {
+                'water': 'Water Refill',
+                'cleaning': 'Table Cleaning',
+                'bill': 'Bill Payment',
+                'cutlery': 'Cutlery',
+                'napkin': 'Napkins',
+                'extra_sauce': 'Extra Sauce',
+                'other': 'Other Service'
+            };
+            return serviceNames[type] || type;
+        }
         
         // Load order status
-async function loadOrderStatus() {
-    if (!currentTable) return;
-    
-    try {
-        console.log('Loading orders for table:', currentTable);
-        
-        const data = await API.get(CONFIG.API_ENDPOINTS.CUSTOMER_ORDERS);
-        
-        console.log('Orders loaded:', data);
-        
-        // Filter orders for current table
-        const tableOrders = data.orders ? data.orders.filter(order => order.tableNumber === currentTable) : [];
-        currentOrders = tableOrders;
-        
-        displayOrderStatus(currentOrders);
-        
-        // Update last update time
-        lastOrderUpdate = new Date();
-        
-    } catch (error) {
-        console.error('Error loading orders:', error);
-        
-        // Don't show toast for connection errors during auto-refresh
-        if (!error.message.includes('Failed to fetch') && !error.message.includes('ERR_CONNECTION_CLOSED')) {
-            Toast.show('Unable to load order status: ' + error.message, 'error');
+        async function loadOrderStatus() {
+            if (!currentTable) return;
+            
+            try {
+                console.log('Loading orders for table:', currentTable);
+                
+                const data = await API.get(CONFIG.API_ENDPOINTS.CUSTOMER_ORDERS);
+                
+                console.log('Orders loaded:', data);
+                
+                // Filter orders for current table
+                const tableOrders = data.orders ? data.orders.filter(order => order.tableNumber === currentTable) : [];
+                currentOrders = tableOrders;
+                
+                displayOrderStatus(currentOrders);
+                
+                // Update last update time
+                lastOrderUpdate = new Date();
+                
+            } catch (error) {
+                console.error('Error loading orders:', error);
+                
+                // Don't show toast for connection errors during auto-refresh
+                if (!error.message.includes('Failed to fetch') && !error.message.includes('ERR_CONNECTION_CLOSED')) {
+                    Toast.show('Unable to load order status: ' + error.message, 'error');
+                }
+                
+                // Show placeholder
+                const statusContainer = document.getElementById('orderStatus');
+                if (statusContainer) {
+                    statusContainer.innerHTML = `
+                        <div class="col-12 text-center text-muted py-4">
+                            <p><i class="fas fa-sync fa-spin me-2"></i>Loading order status...</p>
+                            <p class="small">Connection issue. Retrying...</p>
+                        </div>
+                    `;
+                }
+            }
         }
-        
-        // Show placeholder
-        const statusContainer = document.getElementById('orderStatus');
-        if (statusContainer) {
-            statusContainer.innerHTML = `
-                <div class="col-12 text-center text-muted py-4">
-                    <p><i class="fas fa-sync fa-spin me-2"></i>Loading order status...</p>
-                    <p class="small">Connection issue. Retrying...</p>
-                </div>
-            `;
-        }
-    }
-}
         
         function displayOrderStatus(orders) {
             const statusContainer = document.getElementById('orderStatus');
@@ -1787,9 +1815,108 @@ async function loadOrderStatus() {
         function getOrderStatusColor(status) {
             switch(status) {
                 case 'pending': return 'warning';
+                case 'confirmed': return 'info';
                 case 'preparing': return 'info';
                 case 'ready': return 'success';
+                case 'finished': return 'primary';
                 case 'completed': return 'secondary';
+                case 'cancelled': return 'danger';
+                default: return 'dark';
+            }
+        }
+        
+        // Load service requests
+        async function loadServiceRequests() {
+            if (!currentTable) return;
+            
+            try {
+                // Try to load from debug endpoint first
+                const debugData = await API.get(CONFIG.API_ENDPOINTS.DEBUG);
+                
+                if (debugData.success && debugData.recentServiceRequests) {
+                    // Filter service requests for current table
+                    const tableServiceRequests = debugData.recentServiceRequests.filter(
+                        req => req.tableNumber === currentTable
+                    );
+                    
+                    displayServiceRequests(tableServiceRequests);
+                } else {
+                    // Fallback: show message
+                    const container = document.getElementById('serviceRequests');
+                    if (container) {
+                        container.innerHTML = `
+                            <div class="col-12 text-center text-muted py-4">
+                                <p>No service request history available</p>
+                            </div>
+                        `;
+                    }
+                }
+                
+            } catch (error) {
+                console.error('Error loading service requests:', error);
+                
+                // Show placeholder
+                const container = document.getElementById('serviceRequests');
+                if (container) {
+                    container.innerHTML = `
+                        <div class="col-12 text-center text-muted py-4">
+                            <p>Unable to load service requests</p>
+                            <p class="small">${error.message}</p>
+                        </div>
+                    `;
+                }
+            }
+        }
+        
+        function displayServiceRequests(serviceRequests) {
+            const container = document.getElementById('serviceRequests');
+            if (!container) return;
+            
+            container.innerHTML = '';
+            
+            if (serviceRequests.length === 0) {
+                container.innerHTML = `
+                    <div class="col-12 text-center text-muted py-4">
+                        <p>No service requests yet. Use the buttons above to request services.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Sort by creation time (newest first)
+            serviceRequests.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            
+            serviceRequests.forEach(request => {
+                const statusClass = `service-status-${request.status}`;
+                const requestCard = `
+                    <div class="col-md-6 mb-3">
+                        <div class="order-status service-request-item ${statusClass}">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h6 class="mb-0">${getServiceName(request.type)}</h6>
+                                <small class="text-muted">
+                                    ${request.createdAt ? new Date(request.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'N/A'}
+                                </small>
+                            </div>
+                            <p class="mb-1"><i class="fas fa-chair me-2"></i>Table: ${request.tableNumber}</p>
+                            <p class="mb-1"><i class="fas fa-info-circle me-2"></i>${request.description || 'No description'}</p>
+                            <div class="mt-3">
+                                <span class="badge bg-${getServiceStatusColor(request.status)}">
+                                    ${request.status?.toUpperCase() || 'PENDING'}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += requestCard;
+            });
+        }
+        
+        function getServiceStatusColor(status) {
+            switch(status) {
+                case 'pending': return 'warning';
+                case 'acknowledged': return 'info';
+                case 'completed': return 'success';
+                case 'cancelled': return 'secondary';
                 default: return 'dark';
             }
         }
@@ -1871,6 +1998,7 @@ async function loadOrderStatus() {
         window.selectTable = selectTable;
         window.setTableFromInput = setTableFromInput;
         window.loadOrderStatus = loadOrderStatus;
+        window.loadServiceRequests = loadServiceRequests;
     </script>
 </body>
 </html>
