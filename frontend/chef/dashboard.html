@@ -194,13 +194,13 @@
 }
         
         .btn-ready {
-    background: var(--success);  /* Changed from --info to --success */
+    background: var(--success);
     color: white;
     border: none;
 }
         
         .btn-ready:hover {
-    background: #219653;  /* Darker green */
+    background: #219653;
     transform: scale(1.05);
 }
         
@@ -456,14 +456,12 @@
     box-shadow: 0 4px 8px rgba(155, 89, 182, 0.3);
 }
 
-/* Order status border colors */
 .order-pending { border-left-color: #f39c12; }
 .order-preparing { border-left-color: #3498db; }
 .order-ready { border-left-color: #27ae60; }
 .order-finished { border-left-color: #9b59b6; }
 .order-completed { border-left-color: #7f8c8d; }
 
-/* Button group styling */
 .btn-group {
     display: flex;
     gap: 5px;
@@ -588,19 +586,6 @@
             100% { transform: scale(1); }
         }
         
-        .service-request-card {
-            border-left: 4px solid var(--warning);
-        }
-        
-        .blink {
-            animation: blink 1s infinite;
-        }
-        
-        @keyframes blink {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-
         .card-body {
             min-height: 150px !important;
             display: flex !important;
@@ -623,6 +608,81 @@
             overflow-y: auto !important;
             overflow-x: hidden !important;
             margin-bottom: 1rem !important;
+        }
+
+        /* Service Request Styles */
+        .service-request-card {
+            border-left: 4px solid;
+            transition: all 0.3s;
+        }
+        
+        .service-request-pending {
+            border-left-color: #f39c12;
+            animation: pulse 2s infinite;
+        }
+        
+        .service-request-acknowledged {
+            border-left-color: #3498db;
+        }
+        
+        .service-request-completed {
+            border-left-color: #27ae60;
+        }
+        
+        .service-request-urgent {
+            border-left-color: #e74c3c;
+            animation: blink 1s infinite;
+        }
+        
+        .service-request-high {
+            border-left-color: #e67e22;
+        }
+        
+        .service-request-normal {
+            border-left-color: #f39c12;
+        }
+        
+        .service-request-low {
+            border-left-color: #95a5a6;
+        }
+        
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .request-time {
+            font-size: 0.75rem;
+            color: #6c757d;
+        }
+        
+        .customer-name {
+            font-weight: 500;
+            color: #2c3e50;
+        }
+        
+        .service-type-badge {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+        }
+        
+        .assigned-to {
+            background-color: #e3f2fd;
+            border-radius: 4px;
+            padding: 5px 10px;
+            font-size: 0.8rem;
+        }
+        
+        .no-requests {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6c757d;
+        }
+        
+        .no-requests i {
+            font-size: 48px;
+            margin-bottom: 20px;
+            color: #dee2e6;
         }
     </style>
 </head>
@@ -920,16 +980,156 @@
         <section id="servicesSection" class="section-content" style="display: none;">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h1 class="h3 mb-0">Service Requests</h1>
-                <button class="btn btn-outline-primary" onclick="loadServiceRequests()">
-                    <i class="fas fa-sync-alt me-2"></i>Refresh
-                </button>
+                <div>
+                    <button class="btn btn-outline-primary me-2" onclick="loadServiceRequests()">
+                        <i class="fas fa-sync-alt me-2"></i>Refresh
+                    </button>
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                            <i class="fas fa-filter me-2"></i>Filter
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#" onclick="filterServiceRequests('all')">All Requests</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="filterServiceRequests('pending')">Pending Only</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="filterServiceRequests('acknowledged')">My Assigned</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="filterServiceRequests('completed')">Completed</a></li>
+                        </ul>
+                    </div>
+                </div>
             </div>
             
-            <div class="row" id="serviceRequestsList">
-                <!-- Service requests will be loaded here -->
+            <!-- Service Request Stats -->
+            <div class="row mb-4">
+                <div class="col-md-3 mb-3">
+                    <div class="card stat-card border-start border-warning border-5">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="card-title">PENDING</h6>
+                                    <h2 class="card-text" id="pendingRequestsCount">0</h2>
+                                </div>
+                                <div class="stat-icon bg-warning bg-opacity-10 text-warning">
+                                    <i class="fas fa-clock"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-3 mb-3">
+                    <div class="card stat-card border-start border-info border-5">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="card-title">ASSIGNED TO ME</h6>
+                                    <h2 class="card-text" id="myRequestsCount">0</h2>
+                                </div>
+                                <div class="stat-icon bg-info bg-opacity-10 text-info">
+                                    <i class="fas fa-user-check"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-3 mb-3">
+                    <div class="card stat-card border-start border-success border-5">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="card-title">COMPLETED</h6>
+                                    <h2 class="card-text" id="completedRequestsCount">0</h2>
+                                </div>
+                                <div class="stat-icon bg-success bg-opacity-10 text-success">
+                                    <i class="fas fa-check-circle"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-3 mb-3">
+                    <div class="card stat-card border-start border-primary border-5">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="card-title">TODAY</h6>
+                                    <h2 class="card-text" id="todayRequestsCount">0</h2>
+                                </div>
+                                <div class="stat-icon bg-primary bg-opacity-10 text-primary">
+                                    <i class="fas fa-history"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Service Requests Tabs -->
+            <ul class="nav nav-tabs mb-4" id="serviceRequestsTab">
+                <li class="nav-item">
+                    <a class="nav-link active" data-bs-toggle="tab" href="#pendingRequestsTab">
+                        <i class="fas fa-clock me-2"></i>Pending
+                        <span class="badge bg-warning ms-2" id="pendingTabBadge">0</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-bs-toggle="tab" href="#myRequestsTab">
+                        <i class="fas fa-user-check me-2"></i>My Assigned
+                        <span class="badge bg-info ms-2" id="myTabBadge">0</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-bs-toggle="tab" href="#allRequestsTab">
+                        <i class="fas fa-list me-2"></i>All Requests
+                        <span class="badge bg-secondary ms-2" id="allTabBadge">0</span>
+                    </a>
+                </li>
+            </ul>
+            
+            <div class="tab-content" id="serviceRequestsTabContent">
+                <!-- Pending Requests Tab -->
+                <div class="tab-pane fade show active" id="pendingRequestsTab">
+                    <div class="row" id="pendingRequestsList">
+                        <div class="col-12">
+                            <div class="no-requests">
+                                <i class="fas fa-concierge-bell"></i>
+                                <h5>No pending service requests</h5>
+                                <p>New requests will appear here automatically</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- My Assigned Requests Tab -->
+                <div class="tab-pane fade" id="myRequestsTab">
+                    <div class="row" id="myRequestsList">
+                        <div class="col-12">
+                            <div class="no-requests">
+                                <i class="fas fa-user-check"></i>
+                                <h5>No assigned requests</h5>
+                                <p>Assign requests to yourself from the Pending tab</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- All Requests Tab -->
+                <div class="tab-pane fade" id="allRequestsTab">
+                    <div class="row" id="allRequestsList">
+                        <div class="col-12">
+                            <div class="no-requests">
+                                <i class="fas fa-list"></i>
+                                <h5>No service requests</h5>
+                                <p>Service requests will appear here</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </section>
     </div>
+
 
     <!-- Walk-in Order Modal -->
     <div class="modal fade walkin-modal" id="walkinOrderModal" tabindex="-1">
@@ -1002,6 +1202,26 @@
         <i class="fas fa-plus"></i>
     </button>
 
+    <!-- Service Request Details Modal -->
+    <div class="modal fade" id="serviceRequestModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="serviceRequestModalTitle">
+                        <i class="fas fa-concierge-bell me-2"></i>Service Request Details
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="serviceRequestModalBody">
+                    <!-- Content will be loaded dynamically -->
+                </div>
+                <div class="modal-footer" id="serviceRequestModalFooter">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     
@@ -1014,7 +1234,10 @@
                 CHEF_UPDATE_ORDER: '/api/chef/orders',
                 CHEF_MENU: '/api/chef/menu',
                 CHEF_CREATE_ORDER: '/api/chef/orders/new',
-                SERVICE_REQUESTS: '/api/chef/service-requests',
+                SERVICE_REQUESTS: '/api/service-requests/pending',
+                SERVICE_REQUESTS_ALL: '/api/service-requests/all',
+                ACKNOWLEDGE_REQUEST: '/api/service-requests/:id/acknowledge',
+                COMPLETE_REQUEST: '/api/service-requests/:id/complete',
                 DASHBOARD_STATS: '/api/chef/dashboard-stats',
                 ACCEPT_ORDER: '/api/chef/orders/:id/accept',
                 COMPLETE_ORDER: '/api/chef/orders/:id/complete',
@@ -1182,6 +1405,36 @@
                 const date = new Date(dateString);
                 return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             },
+            formatDateTime: (dateString) => {
+                const date = new Date(dateString);
+                return date.toLocaleString([], { 
+                    month: 'short', 
+                    day: 'numeric',
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                });
+            },
+            timeSince: (dateString) => {
+                const date = new Date(dateString);
+                const seconds = Math.floor((new Date() - date) / 1000);
+                
+                let interval = Math.floor(seconds / 31536000);
+                if (interval >= 1) return interval + " year" + (interval > 1 ? "s" : "") + " ago";
+                
+                interval = Math.floor(seconds / 2592000);
+                if (interval >= 1) return interval + " month" + (interval > 1 ? "s" : "") + " ago";
+                
+                interval = Math.floor(seconds / 86400);
+                if (interval >= 1) return interval + " day" + (interval > 1 ? "s" : "") + " ago";
+                
+                interval = Math.floor(seconds / 3600);
+                if (interval >= 1) return interval + " hour" + (interval > 1 ? "s" : "") + " ago";
+                
+                interval = Math.floor(seconds / 60);
+                if (interval >= 1) return interval + " minute" + (interval > 1 ? "s" : "") + " ago";
+                
+                return "just now";
+            },
             formatCategory: (category) => {
                 const categories = {
                     'appetizer': 'Appetizer',
@@ -1214,7 +1467,10 @@
         let user = null;
         let orders = [];
         let menuItems = [];
-        let serviceRequests = [];
+        let allServiceRequests = [];
+        let pendingServiceRequests = [];
+        let myServiceRequests = [];
+        let completedServiceRequests = [];
         let selectedMenuItems = new Map();
 
         // Initialize Application
@@ -1279,6 +1535,9 @@
         socket.on('new-service-request', (data) => {
     console.log('New service request received:', data);
     
+    // Play notification sound
+    playNotificationSound();
+    
     // Show notification
     Toast.show(`New ${getServiceName(data.type)} request from Table ${data.tableNumber}`, 'warning');
     
@@ -1292,54 +1551,86 @@
 socket.on('service-request-updated', (data) => {
     console.log('Service request updated:', data);
     
-    // If this request was assigned to someone else, remove it from our list
+    // If this request was assigned to someone else, reload to update
     if (data.assignedTo !== user.firstName + ' ' + user.lastName) {
-        serviceRequests = serviceRequests.filter(req => req._id !== data.requestId);
-        renderServiceRequests(serviceRequests);
+        loadServiceRequests();
     }
 });
 
 socket.on('service-request-removed', (data) => {
     console.log('Service request removed:', data);
-    
-    // Remove from local lists
-    serviceRequests = serviceRequests.filter(req => req._id !== data.requestId);
-    renderServiceRequests(serviceRequests);
-    
-    // Reload acknowledged requests
-    loadAcknowledgedRequests();
-    
-    // Update notification badges
-    updateNotificationBadges();
+    loadServiceRequests();
 });
 
 // Add notification sound function
 function playNotificationSound() {
     try {
-        const audio = new Audio('https://assets.mixkit.co/sfx/preview/mixkit-alarm-digital-clock-beep-989.mp3');
-        audio.volume = 0.3;
-        audio.play().catch(e => console.log('Audio play failed:', e));
+        // Simple beep sound
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.frequency.value = 800;
+        oscillator.type = 'sine';
+        
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+        
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.5);
     } catch (error) {
-        console.log('Notification sound error:', error);
+        console.log('Sound play failed:', error);
     }
 }
 
-// Update notification badges function
-function updateNotificationBadges() {
-    const serviceBadge = document.getElementById('serviceRequestsBadge');
-    if (serviceBadge) {
-        serviceBadge.textContent = serviceRequests.length;
-        serviceBadge.style.display = serviceRequests.length > 0 ? 'flex' : 'none';
+function playAssignmentSound() {
+    try {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.frequency.value = 600;
+        oscillator.type = 'sine';
+        
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+        
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.3);
+    } catch (error) {
+        console.log('Sound play failed:', error);
     }
-    
-    // Update dashboard badge
-    const dashboardBadge = document.getElementById('dashboardBadge');
-    if (dashboardBadge) {
-        // Get pending orders count
-        const pendingOrdersCount = parseInt(document.getElementById('pendingCount').textContent) || 0;
-        const totalNotifications = pendingOrdersCount + serviceRequests.length;
-        dashboardBadge.textContent = totalNotifications;
-        dashboardBadge.style.display = totalNotifications > 0 ? 'flex' : 'none';
+}
+
+function playCompletionSound() {
+    try {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        // Success tone
+        oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime); // C5
+        oscillator.frequency.setValueAtTime(659.25, audioContext.currentTime + 0.1); // E5
+        oscillator.frequency.setValueAtTime(783.99, audioContext.currentTime + 0.2); // G5
+        
+        oscillator.type = 'sine';
+        
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+        
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.5);
+    } catch (error) {
+        console.log('Sound play failed:', error);
     }
 }
 
@@ -1639,7 +1930,7 @@ socket.on('order-status-update', async (data) => {
                                 <small class="text-muted">${request.description || 'No description'}</small>
                             </div>
                             <div>
-                                <button class="btn btn-sm btn-primary" onclick="acceptServiceRequest('${request._id}')">
+                                <button class="btn btn-sm btn-primary" onclick="assignServiceRequest('${request._id}')">
                                     <i class="fas fa-user-check me-1"></i>Accept
                                 </button>
                             </div>
@@ -2024,29 +2315,6 @@ async function completeOrder(orderId) {
             }
         }
 
-        async function finalCompleteOrder(orderId) {
-            try {
-                if (!confirm('Are you sure you want to complete this order? This will send the bill to customer email and remove it from current orders.')) {
-                    return;
-                }
-                
-                Loading.show('Completing order...');
-                
-                const response = await API.post(`/api/chef/orders/${orderId}/final-complete`, {});
-                
-                if (response.success) {
-                    Toast.show('Order completed! Bill sent to customer email.', 'success');
-                    await Promise.all([loadDashboard(), loadOrders()]);
-                }
-                
-                Loading.hide();
-                
-            } catch (error) {
-                Loading.hide();
-                ErrorHandler.handle(error, 'finalCompleteOrder');
-            }
-        }
-
         // Menu Management Functions
         async function loadMenuItems() {
             try {
@@ -2273,18 +2541,40 @@ async function completeOrder(orderId) {
     try {
         Loading.show();
         
-        const response = await API.get('/api/service-requests/pending');
+        // Load pending requests
+        const pendingResponse = await API.get(CONFIG.API_ENDPOINTS.SERVICE_REQUESTS);
         
-        if (response.success) {
-            serviceRequests = response.serviceRequests || [];
-            renderServiceRequests(serviceRequests);
+        // Load all requests for history
+        const allResponse = await API.get(CONFIG.API_ENDPOINTS.SERVICE_REQUESTS_ALL + '?limit=50');
+        
+        if (pendingResponse.success && allResponse.success) {
+            // Store all requests
+            allServiceRequests = allResponse.serviceRequests || [];
             
-            // Update notification badge
-            const badge = document.getElementById('serviceRequestsBadge');
-            if (badge) {
-                badge.textContent = serviceRequests.length;
-                badge.style.display = serviceRequests.length > 0 ? 'flex' : 'none';
-            }
+            // Filter pending requests
+            pendingServiceRequests = pendingResponse.serviceRequests || [];
+            
+            // Filter requests assigned to current user
+            myServiceRequests = allServiceRequests.filter(request => 
+                request.assignedTo === user.id || 
+                request.assignedToName?.includes(user.firstName)
+            );
+            
+            // Filter completed requests
+            completedServiceRequests = allServiceRequests.filter(request => 
+                request.status === 'completed'
+            );
+            
+            // Update statistics
+            updateServiceRequestStats();
+            
+            // Render requests
+            renderPendingRequests();
+            renderMyRequests();
+            renderAllRequests();
+            
+            // Update notification badges
+            updateNotificationBadges();
         }
         
         Loading.hide();
@@ -2293,30 +2583,57 @@ async function completeOrder(orderId) {
         Loading.hide();
         console.error('Load service requests error:', error);
         
-        const container = document.getElementById('serviceRequestsList');
-        if (container) {
-            container.innerHTML = `
-                <div class="col-12">
-                    <div class="alert alert-danger">
-                        <i class="fas fa-exclamation-circle me-2"></i>
-                        Failed to load service requests: ${error.message}
-                    </div>
+        // Show error in all containers
+        const errorHtml = `
+            <div class="col-12">
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                    Failed to load service requests: ${error.message}
+                    <button class="btn btn-sm btn-outline-danger ms-2" onclick="loadServiceRequests()">
+                        <i class="fas fa-sync-alt me-1"></i>Retry
+                    </button>
                 </div>
-            `;
-        }
+            </div>
+        `;
+        
+        document.getElementById('pendingRequestsList').innerHTML = errorHtml;
+        document.getElementById('myRequestsList').innerHTML = errorHtml;
+        document.getElementById('allRequestsList').innerHTML = errorHtml;
     }
 }
 
-        function renderServiceRequests(requests) {
-    const container = document.getElementById('serviceRequestsList');
+function updateServiceRequestStats() {
+    // Get today's date
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     
-    if (!requests || requests.length === 0) {
+    // Count today's requests
+    const todayRequests = allServiceRequests.filter(request => 
+        new Date(request.createdAt) >= today
+    );
+    
+    // Update stats
+    document.getElementById('pendingRequestsCount').textContent = pendingServiceRequests.length;
+    document.getElementById('myRequestsCount').textContent = myServiceRequests.filter(r => r.status === 'acknowledged').length;
+    document.getElementById('completedRequestsCount').textContent = completedServiceRequests.length;
+    document.getElementById('todayRequestsCount').textContent = todayRequests.length;
+    
+    // Update tab badges
+    document.getElementById('pendingTabBadge').textContent = pendingServiceRequests.length;
+    document.getElementById('myTabBadge').textContent = myServiceRequests.filter(r => r.status === 'acknowledged').length;
+    document.getElementById('allTabBadge').textContent = allServiceRequests.length;
+}
+
+function renderPendingRequests() {
+    const container = document.getElementById('pendingRequestsList');
+    
+    if (pendingServiceRequests.length === 0) {
         container.innerHTML = `
             <div class="col-12">
-                <div class="empty-state">
+                <div class="no-requests">
                     <i class="fas fa-concierge-bell"></i>
                     <h5>No pending service requests</h5>
-                    <p>All service requests have been handled</p>
+                    <p>New requests will appear here automatically</p>
                 </div>
             </div>
         `;
@@ -2324,50 +2641,50 @@ async function completeOrder(orderId) {
     }
     
     let html = '';
-    requests.forEach(request => {
-        const priorityColor = getPriorityColor(request.priority);
+    pendingServiceRequests.forEach(request => {
+        const priorityClass = `service-request-${request.priority || 'normal'}`;
+        const serviceIcon = getServiceIcon(request.type);
         const serviceName = getServiceName(request.type);
-        const icon = getServiceIcon(request.type);
         
         html += `
             <div class="col-md-6 col-lg-4 mb-4">
-                <div class="card h-100 border-start border-${priorityColor} border-4">
+                <div class="card service-request-card ${priorityClass} h-100">
                     <div class="card-body">
                         <div class="d-flex align-items-start mb-3">
                             <div class="me-3">
-                                <div class="rounded-circle bg-${priorityColor} bg-opacity-10 p-3">
-                                    <i class="${icon} fa-2x text-${priorityColor}"></i>
+                                <div class="rounded-circle p-2 ${getPriorityBgClass(request.priority)}">
+                                    <i class="${serviceIcon} fa-lg ${getPriorityTextClass(request.priority)}"></i>
                                 </div>
                             </div>
                             <div class="flex-grow-1">
                                 <h6 class="mb-1">${serviceName}</h6>
                                 <div class="d-flex align-items-center mb-1">
-                                    <span class="badge bg-${priorityColor} me-2">
+                                    <span class="badge ${getPriorityBadgeClass(request.priority)} me-2">
                                         ${request.priority ? request.priority.toUpperCase() : 'NORMAL'}
                                     </span>
-                                    <small class="text-muted">
-                                        <i class="fas fa-clock me-1"></i>${FormatUtils.formatTime(request.createdAt)}
+                                    <small class="request-time">
+                                        ${FormatUtils.timeSince(request.createdAt)}
                                     </small>
                                 </div>
-                                <p class="text-muted small mb-0">
-                                    <i class="fas fa-chair me-1"></i>Table ${request.tableNumber}
-                                </p>
-                                <p class="text-muted small mb-0">
-                                    <i class="fas fa-user me-1"></i>${request.customerName || 'Customer'}
-                                </p>
                             </div>
                         </div>
                         
-                        <div class="mb-4">
-                            <p class="small mb-2">${request.description || 'No description provided'}</p>
-                            <small class="text-muted">
-                                Requested ${timeSince(request.createdAt)} ago
-                            </small>
+                        <div class="mb-3">
+                            <p class="customer-name mb-1">
+                                <i class="fas fa-user me-1"></i>${request.customerName || 'Customer'}
+                            </p>
+                            <p class="text-muted small mb-1">
+                                <i class="fas fa-chair me-1"></i>Table ${request.tableNumber}
+                            </p>
+                            <p class="small mb-0">${request.description || 'No description provided'}</p>
                         </div>
                         
                         <div class="d-grid gap-2">
-                            <button class="btn btn-primary" onclick="acceptServiceRequest('${request._id}')">
+                            <button class="btn btn-primary" onclick="assignServiceRequest('${request._id}')">
                                 <i class="fas fa-user-check me-2"></i>Assign to Me
+                            </button>
+                            <button class="btn btn-outline-secondary" onclick="viewServiceRequestDetails('${request._id}')">
+                                <i class="fas fa-info-circle me-2"></i>View Details
                             </button>
                         </div>
                     </div>
@@ -2379,156 +2696,221 @@ async function completeOrder(orderId) {
     container.innerHTML = html;
 }
 
-        async function acceptServiceRequest(requestId) {
+function renderMyRequests() {
+    const container = document.getElementById('myRequestsList');
+    
+    const myAssignedRequests = myServiceRequests.filter(request => 
+        request.status === 'acknowledged'
+    );
+    
+    if (myAssignedRequests.length === 0) {
+        container.innerHTML = `
+            <div class="col-12">
+                <div class="no-requests">
+                    <i class="fas fa-user-check"></i>
+                    <h5>No assigned requests</h5>
+                    <p>Assign requests to yourself from the Pending tab</p>
+                </div>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    myAssignedRequests.forEach(request => {
+        const serviceIcon = getServiceIcon(request.type);
+        const serviceName = getServiceName(request.type);
+        
+        html += `
+            <div class="col-md-6 col-lg-4 mb-4">
+                <div class="card service-request-card service-request-acknowledged h-100">
+                    <div class="card-body">
+                        <div class="d-flex align-items-start mb-3">
+                            <div class="me-3">
+                                <div class="rounded-circle bg-info bg-opacity-10 p-2">
+                                    <i class="${serviceIcon} fa-lg text-info"></i>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1">${serviceName}</h6>
+                                <small class="request-time">
+                                    Assigned ${FormatUtils.timeSince(request.acknowledgedAt)}
+                                </small>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <p class="customer-name mb-1">
+                                <i class="fas fa-user me-1"></i>${request.customerName || 'Customer'}
+                            </p>
+                            <p class="text-muted small mb-1">
+                                <i class="fas fa-chair me-1"></i>Table ${request.tableNumber}
+                            </p>
+                            <p class="small mb-0">${request.description || 'No description provided'}</p>
+                        </div>
+                        
+                        <div class="assigned-to mb-3">
+                            <i class="fas fa-user-tie me-1"></i>Assigned to: ${request.assignedToName || 'You'}
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-success" onclick="completeServiceRequest('${request._id}')">
+                                <i class="fas fa-check-circle me-2"></i>Mark as Complete
+                            </button>
+                            <button class="btn btn-outline-secondary" onclick="viewServiceRequestDetails('${request._id}')">
+                                <i class="fas fa-info-circle me-2"></i>View Details
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+function renderAllRequests() {
+    const container = document.getElementById('allRequestsList');
+    
+    if (allServiceRequests.length === 0) {
+        container.innerHTML = `
+            <div class="col-12">
+                <div class="no-requests">
+                    <i class="fas fa-list"></i>
+                    <h5>No service requests</h5>
+                    <p>Service requests will appear here</p>
+                </div>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    allServiceRequests.forEach(request => {
+        const statusClass = `service-request-${request.status}`;
+        const statusColor = getStatusColor(request.status);
+        const serviceIcon = getServiceIcon(request.type);
+        const serviceName = getServiceName(request.type);
+        
+        html += `
+            <div class="col-md-6 col-lg-4 mb-4">
+                <div class="card service-request-card ${statusClass} h-100">
+                    <div class="card-body">
+                        <div class="d-flex align-items-start mb-3">
+                            <div class="me-3">
+                                <div class="rounded-circle p-2 bg-${statusColor} bg-opacity-10">
+                                    <i class="${serviceIcon} fa-lg text-${statusColor}"></i>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1">${serviceName}</h6>
+                                <div class="d-flex align-items-center mb-1">
+                                    <span class="badge bg-${statusColor} me-2">
+                                        ${request.status ? request.status.toUpperCase() : 'PENDING'}
+                                    </span>
+                                    <small class="request-time">
+                                        ${FormatUtils.formatDateTime(request.createdAt)}
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <p class="customer-name mb-1">
+                                <i class="fas fa-user me-1"></i>${request.customerName || 'Customer'}
+                            </p>
+                            <p class="text-muted small mb-1">
+                                <i class="fas fa-chair me-1"></i>Table ${request.tableNumber}
+                            </p>
+                            <p class="small mb-2">${request.description || 'No description'}</p>
+                            
+                            ${request.assignedToName ? `
+                                <p class="small mb-1">
+                                    <i class="fas fa-user-tie me-1"></i>Assigned to: ${request.assignedToName}
+                                </p>
+                            ` : ''}
+                            
+                            ${request.completedAt ? `
+                                <p class="small mb-0">
+                                    <i class="fas fa-check-circle me-1"></i>Completed: ${FormatUtils.formatDateTime(request.completedAt)}
+                                </p>
+                            ` : ''}
+                        </div>
+                        
+                        <div class="d-grid">
+                            <button class="btn btn-outline-secondary" onclick="viewServiceRequestDetails('${request._id}')">
+                                <i class="fas fa-info-circle me-2"></i>View Details
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+async function assignServiceRequest(requestId) {
     try {
         if (!confirm('Assign this service request to yourself?')) {
             return;
         }
         
-        Loading.show('Assigning service request...');
+        Loading.show('Assigning request...');
         
-        const response = await API.put(`/api/service-requests/${requestId}/acknowledge`, {
-            notes: `Assigned to ${user.firstName} ${user.lastName}`
-        });
+        const response = await API.put(
+            CONFIG.API_ENDPOINTS.ACKNOWLEDGE_REQUEST.replace(':id', requestId),
+            {
+                notes: `Assigned to ${user.firstName} ${user.lastName}`
+            }
+        );
         
         if (response.success) {
             Toast.show('Service request assigned to you!', 'success');
             
-            // Remove from local pending list
-            serviceRequests = serviceRequests.filter(req => req._id !== requestId);
-            renderServiceRequests(serviceRequests);
+            // Play sound
+            playAssignmentSound();
             
-            // Update notification badges
-            updateNotificationBadges();
-            
-            // Load acknowledged requests
-            loadAcknowledgedRequests();
+            // Reload requests
+            await loadServiceRequests();
         }
         
         Loading.hide();
         
     } catch (error) {
         Loading.hide();
-        console.error('Accept service request error:', error);
+        console.error('Assign service request error:', error);
         Toast.show(`Failed to assign request: ${error.message}`, 'error');
     }
 }
 
-async function loadAcknowledgedRequests() {
-    try {
-        const response = await API.get('/api/service-requests/all?status=acknowledged&limit=10');
-        
-        if (response.success && response.serviceRequests.length > 0) {
-            // Filter requests assigned to current user
-            const acknowledgedRequests = response.serviceRequests.filter(req => 
-                req.assignedTo === user.id || 
-                req.assignedToName?.includes(user.firstName)
-            );
-            
-            if (acknowledgedRequests.length > 0) {
-                renderAcknowledgedRequests(acknowledgedRequests);
-            }
-        }
-    } catch (error) {
-        console.error('Load acknowledged requests error:', error);
-    }
-}
-
-async function showAcknowledgedRequests() {
-    try {
-        const response = await API.get('/api/service-requests/all?status=acknowledged&limit=10');
-        
-        if (response.success && response.serviceRequests.length > 0) {
-            const acknowledgedRequests = response.serviceRequests.filter(req => 
-                req.assignedTo === user.id || req.assignedToName?.includes(user.firstName)
-            );
-            
-            if (acknowledgedRequests.length > 0) {
-                renderAcknowledgedRequests(acknowledgedRequests);
-            }
-        }
-    } catch (error) {
-        console.error('Load acknowledged requests error:', error);
-    }
-}
-
-function renderAcknowledgedRequests(requests) {
-    const container = document.getElementById('serviceRequestsList');
-    
-    let html = container.innerHTML;
-    
-    // Only add header if we have acknowledged requests
-    if (requests.length > 0) {
-        html += `
-            <div class="col-12 mt-5">
-                <h5 class="border-bottom pb-2 mb-4">
-                    <i class="fas fa-user-check me-2 text-info"></i>Your Assigned Requests
-                </h5>
-            </div>
-        `;
-        
-        requests.forEach(request => {
-            html += `
-                <div class="col-md-6 col-lg-4 mb-4">
-                    <div class="card h-100 border-start border-info border-4">
-                        <div class="card-body">
-                            <div class="d-flex align-items-start mb-3">
-                                <div class="me-3">
-                                    <div class="rounded-circle bg-info bg-opacity-10 p-3">
-                                        <i class="${getServiceIcon(request.type)} fa-2x text-info"></i>
-                                    </div>
-                                </div>
-                                <div class="flex-grow-1">
-                                    <h6 class="mb-1">${getServiceName(request.type)}</h6>
-                                    <p class="text-muted small mb-0">
-                                        <i class="fas fa-chair me-1"></i>Table ${request.tableNumber}
-                                    </p>
-                                    <p class="text-muted small mb-0">
-                                        <i class="fas fa-user me-1"></i>${request.customerName || 'Customer'}
-                                    </p>
-                                    <p class="text-muted small mb-0">
-                                        <i class="fas fa-clock me-1"></i>Assigned ${timeSince(request.acknowledgedAt)} ago
-                                    </p>
-                                </div>
-                            </div>
-                            
-                            <div class="mb-4">
-                                <p class="small mb-2">${request.description || 'No description'}</p>
-                            </div>
-                            
-                            <div class="d-grid gap-2">
-                                <button class="btn btn-success" onclick="completeServiceRequest('${request._id}')">
-                                    <i class="fas fa-check-circle me-2"></i>Mark as Complete
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        });
-        
-        container.innerHTML = html;
-    }
-}
-
-        async function completeServiceRequest(requestId) {
+async function completeServiceRequest(requestId) {
     try {
         const notes = prompt('Add completion notes (optional):');
         
-        Loading.show('Completing service request...');
+        if (notes === null) {
+            return; // User cancelled
+        }
         
-        const response = await API.put(`/api/service-requests/${requestId}/complete`, {
-            notes: notes || ''
-        });
+        Loading.show('Completing request...');
+        
+        const response = await API.put(
+            CONFIG.API_ENDPOINTS.COMPLETE_REQUEST.replace(':id', requestId),
+            {
+                notes: notes || ''
+            }
+        );
         
         if (response.success) {
-            Toast.show('Service request completed!', 'success');
+            Toast.show('Service request completed successfully!', 'success');
             
-            // Refresh all service request lists
-            await Promise.all([
-                loadServiceRequests(),
-                loadAcknowledgedRequests()
-            ]);
+            // Play sound
+            playCompletionSound();
+            
+            // Reload requests
+            await loadServiceRequests();
         }
         
         Loading.hide();
@@ -2540,35 +2922,207 @@ function renderAcknowledgedRequests(requests) {
     }
 }
 
-function getPriorityColor(priority) {
-    switch(priority) {
-        case 'urgent': return 'danger';
-        case 'high': return 'warning';
-        case 'normal': return 'info';
-        case 'low': return 'secondary';
-        default: return 'primary';
+async function viewServiceRequestDetails(requestId) {
+    try {
+        // Find the request in our lists
+        const request = allServiceRequests.find(req => req._id === requestId);
+        
+        if (!request) {
+            Toast.show('Request not found', 'error');
+            return;
+        }
+        
+        const modalTitle = document.getElementById('serviceRequestModalTitle');
+        const modalBody = document.getElementById('serviceRequestModalBody');
+        const modalFooter = document.getElementById('serviceRequestModalFooter');
+        
+        // Set modal title
+        modalTitle.innerHTML = `
+            <i class="${getServiceIcon(request.type)} me-2"></i>
+            ${getServiceName(request.type)} - Table ${request.tableNumber}
+        `;
+        
+        // Create modal body content
+        let bodyHtml = `
+            <div class="mb-3">
+                <h6>Request Details</h6>
+                <p class="mb-1"><strong>Customer:</strong> ${request.customerName || 'Not specified'}</p>
+                <p class="mb-1"><strong>Table:</strong> ${request.tableNumber}</p>
+                <p class="mb-1"><strong>Type:</strong> ${getServiceName(request.type)}</p>
+                <p class="mb-1"><strong>Priority:</strong> <span class="badge ${getPriorityBadgeClass(request.priority)}">${request.priority?.toUpperCase() || 'NORMAL'}</span></p>
+                <p class="mb-1"><strong>Status:</strong> <span class="badge bg-${getStatusColor(request.status)}">${request.status?.toUpperCase() || 'PENDING'}</span></p>
+                <p class="mb-1"><strong>Created:</strong> ${FormatUtils.formatDateTime(request.createdAt)}</p>
+            </div>
+            
+            <div class="mb-3">
+                <h6>Description</h6>
+                <p class="border rounded p-2">${request.description || 'No description provided'}</p>
+            </div>
+        `;
+        
+        // Add assigned info if available
+        if (request.assignedToName) {
+            bodyHtml += `
+                <div class="mb-3">
+                    <h6>Assignment</h6>
+                    <p class="mb-1"><strong>Assigned to:</strong> ${request.assignedToName}</p>
+                    <p class="mb-0"><strong>Assigned at:</strong> ${request.acknowledgedAt ? FormatUtils.formatDateTime(request.acknowledgedAt) : 'Not assigned'}</p>
+                </div>
+            `;
+        }
+        
+        // Add completion info if available
+        if (request.completedAt) {
+            bodyHtml += `
+                <div class="mb-3">
+                    <h6>Completion</h6>
+                    <p class="mb-1"><strong>Completed at:</strong> ${FormatUtils.formatDateTime(request.completedAt)}</p>
+                    ${request.completionNotes ? `<p class="mb-0"><strong>Notes:</strong> ${request.completionNotes}</p>` : ''}
+                </div>
+            `;
+        }
+        
+        modalBody.innerHTML = bodyHtml;
+        
+        // Create modal footer buttons based on status
+        let footerHtml = '';
+        
+        if (request.status === 'pending') {
+            footerHtml = `
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="assignServiceRequest('${request._id}')">
+                    <i class="fas fa-user-check me-1"></i>Assign to Me
+                </button>
+            `;
+        } else if (request.status === 'acknowledged' && 
+                  (request.assignedTo === user.id || request.assignedToName?.includes(user.firstName))) {
+            footerHtml = `
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-success" onclick="completeServiceRequest('${request._id}')">
+                    <i class="fas fa-check-circle me-1"></i>Mark as Complete
+                </button>
+            `;
+        } else {
+            footerHtml = `
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            `;
+        }
+        
+        modalFooter.innerHTML = footerHtml;
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('serviceRequestModal'));
+        modal.show();
+        
+    } catch (error) {
+        console.error('View service request details error:', error);
+        Toast.show('Failed to load request details', 'error');
     }
 }
 
-function timeSince(date) {
-    const seconds = Math.floor((new Date() - new Date(date)) / 1000);
+function filterServiceRequests(filterType) {
+    // Get active tab
+    const activeTab = document.querySelector('#serviceRequestsTab .nav-link.active');
     
-    let interval = Math.floor(seconds / 31536000);
-    if (interval >= 1) return interval + " years";
+    // Update active tab based on filter
+    if (filterType === 'pending') {
+        document.querySelector('#serviceRequestsTab a[href="#pendingRequestsTab"]').click();
+    } else if (filterType === 'acknowledged') {
+        document.querySelector('#serviceRequestsTab a[href="#myRequestsTab"]').click();
+    } else if (filterType === 'completed') {
+        // For completed, we need to filter the all requests tab
+        document.querySelector('#serviceRequestsTab a[href="#allRequestsTab"]').click();
+        
+        // Filter completed requests in the all requests list
+        const completedRequests = allServiceRequests.filter(request => 
+            request.status === 'completed'
+        );
+        
+        if (completedRequests.length === 0) {
+            document.getElementById('allRequestsList').innerHTML = `
+                <div class="col-12">
+                    <div class="no-requests">
+                        <i class="fas fa-check-circle"></i>
+                        <h5>No completed requests</h5>
+                        <p>Completed requests will appear here</p>
+                    </div>
+                </div>
+            `;
+        } else {
+            // Re-render with only completed requests
+            const container = document.getElementById('allRequestsList');
+            let html = '';
+            
+            completedRequests.forEach(request => {
+                const serviceIcon = getServiceIcon(request.type);
+                const serviceName = getServiceName(request.type);
+                
+                html += `
+                    <div class="col-md-6 col-lg-4 mb-4">
+                        <div class="card service-request-card service-request-completed h-100">
+                            <div class="card-body">
+                                <div class="d-flex align-items-start mb-3">
+                                    <div class="me-3">
+                                        <div class="rounded-circle bg-success bg-opacity-10 p-2">
+                                            <i class="${serviceIcon} fa-lg text-success"></i>
+                                        </div>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <h6 class="mb-1">${serviceName}</h6>
+                                        <small class="request-time">
+                                            Completed ${FormatUtils.timeSince(request.completedAt)}
+                                        </small>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <p class="customer-name mb-1">
+                                        <i class="fas fa-user me-1"></i>${request.customerName || 'Customer'}
+                                    </p>
+                                    <p class="text-muted small mb-1">
+                                        <i class="fas fa-chair me-1"></i>Table ${request.tableNumber}
+                                    </p>
+                                    <p class="small mb-2">${request.description || 'No description'}</p>
+                                    
+                                    ${request.assignedToName ? `
+                                        <p class="small mb-1">
+                                            <i class="fas fa-user-tie me-1"></i>Completed by: ${request.assignedToName}
+                                        </p>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+    } else {
+        // Show all requests
+        document.querySelector('#serviceRequestsTab a[href="#allRequestsTab"]').click();
+        renderAllRequests();
+    }
+}
+
+        // Update notification badges function
+function updateNotificationBadges() {
+    // Update service requests badge
+    const serviceBadge = document.getElementById('serviceRequestsBadge');
+    if (serviceBadge) {
+        serviceBadge.textContent = pendingServiceRequests.length;
+        serviceBadge.style.display = pendingServiceRequests.length > 0 ? 'flex' : 'none';
+    }
     
-    interval = Math.floor(seconds / 2592000);
-    if (interval >= 1) return interval + " months";
-    
-    interval = Math.floor(seconds / 86400);
-    if (interval >= 1) return interval + " days";
-    
-    interval = Math.floor(seconds / 3600);
-    if (interval >= 1) return interval + " hours";
-    
-    interval = Math.floor(seconds / 60);
-    if (interval >= 1) return interval + " minutes";
-    
-    return Math.floor(seconds) + " seconds";
+    // Update dashboard badge
+    const dashboardBadge = document.getElementById('dashboardBadge');
+    if (dashboardBadge) {
+        // Get pending orders count
+        const pendingOrdersCount = parseInt(document.getElementById('pendingCount').textContent) || 0;
+        const totalNotifications = pendingOrdersCount + pendingServiceRequests.length;
+        dashboardBadge.textContent = totalNotifications;
+        dashboardBadge.style.display = totalNotifications > 0 ? 'flex' : 'none';
+    }
 }
 
         // Walk-in Order Functions
@@ -2819,29 +3373,73 @@ function timeSince(date) {
 }
 
 
-        function getServiceIcon(type) {
-            switch(type) {
-                case 'water': return 'fas fa-tint';
-                case 'chef_attention': return 'fas fa-utensils';
-                case 'item_modification': return 'fas fa-edit';
-                case 'special_request': return 'fas fa-star';
-                case 'cleaning': return 'fas fa-broom';
-                case 'bill': return 'fas fa-file-invoice-dollar';
-                default: return 'fas fa-concierge-bell';
-            }
-        }
+function getServiceIcon(type) {
+    switch(type) {
+        case 'water': return 'fas fa-tint';
+        case 'cleaning': return 'fas fa-broom';
+        case 'bill': return 'fas fa-file-invoice-dollar';
+        case 'cutlery': return 'fas fa-utensils';
+        case 'napkin': return 'fas fa-hand-sparkles';
+        case 'extra_sauce': return 'fas fa-wine-bottle';
+        case 'chef_attention': return 'fas fa-utensil-spoon';
+        case 'other': return 'fas fa-concierge-bell';
+        default: return 'fas fa-question-circle';
+    }
+}
 
-        function getServiceName(type) {
-            switch(type) {
-                case 'water': return 'Water Refill';
-                case 'chef_attention': return 'Chef Attention';
-                case 'item_modification': return 'Item Modification';
-                case 'special_request': return 'Special Request';
-                case 'cleaning': return 'Table Cleaning';
-                case 'bill': return 'Bill Payment';
-                default: return 'Service Request';
-            }
-        }
+function getServiceName(type) {
+    switch(type) {
+        case 'water': return 'Water Refill';
+        case 'cleaning': return 'Table Cleaning';
+        case 'bill': return 'Bill Payment';
+        case 'cutlery': return 'Cutlery Request';
+        case 'napkin': return 'Napkin Request';
+        case 'extra_sauce': return 'Extra Sauce';
+        case 'chef_attention': return 'Chef Attention';
+        case 'other': return 'Other Service';
+        default: return type;
+    }
+}
+
+function getPriorityBadgeClass(priority) {
+    switch(priority) {
+        case 'urgent': return 'bg-danger';
+        case 'high': return 'bg-warning text-dark';
+        case 'normal': return 'bg-info';
+        case 'low': return 'bg-secondary';
+        default: return 'bg-primary';
+    }
+}
+
+function getPriorityBgClass(priority) {
+    switch(priority) {
+        case 'urgent': return 'bg-danger bg-opacity-10';
+        case 'high': return 'bg-warning bg-opacity-10';
+        case 'normal': return 'bg-info bg-opacity-10';
+        case 'low': return 'bg-secondary bg-opacity-10';
+        default: return 'bg-primary bg-opacity-10';
+    }
+}
+
+function getPriorityTextClass(priority) {
+    switch(priority) {
+        case 'urgent': return 'text-danger';
+        case 'high': return 'text-warning';
+        case 'normal': return 'text-info';
+        case 'low': return 'text-secondary';
+        default: return 'text-primary';
+    }
+}
+
+function getStatusColor(status) {
+    switch(status) {
+        case 'pending': return 'warning';
+        case 'acknowledged': return 'info';
+        case 'completed': return 'success';
+        case 'cancelled': return 'secondary';
+        default: return 'dark';
+    }
+}
 
         function updateCurrentTime() {
             const now = new Date();
@@ -2872,15 +3470,16 @@ function timeSince(date) {
         window.acceptOrder = acceptOrder;
         window.completeOrder = completeOrder; 
         window.finishOrder = finishOrder;
+        window.markAsPaid = markAsPaid;
         window.completePreparation = completePreparation;
         window.downloadBill = downloadBill;
-        window.finalCompleteOrder = finalCompleteOrder;
         window.updateMenuItemStatus = updateMenuItemStatus;
         window.searchMenuItems = searchMenuItems;
         window.filterMenu = filterMenu;
         window.filterByCategory = filterByCategory;
-        window.acceptServiceRequest = acceptServiceRequest;
+        window.assignServiceRequest = assignServiceRequest;
         window.completeServiceRequest = completeServiceRequest;
+        window.viewServiceRequestDetails = viewServiceRequestDetails;
         window.showWalkinOrderModal = showWalkinOrderModal;
         window.increaseWalkinItem = increaseWalkinItem;
         window.decreaseWalkinItem = decreaseWalkinItem;
@@ -2890,6 +3489,7 @@ function timeSince(date) {
         window.loadOrders = loadOrders;
         window.loadMenuItems = loadMenuItems;
         window.loadServiceRequests = loadServiceRequests;
+        window.filterServiceRequests = filterServiceRequests;
     </script>
 </body>
 </html>
