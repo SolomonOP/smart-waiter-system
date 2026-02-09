@@ -1299,12 +1299,15 @@ socket.on('order-removed-from-dashboard', async (data) => {
 
 // Update order status listener
 socket.on('order-status-update', async (data) => {
+    console.log('Order status update received:', data);
+    
+    const status = data.status ? data.status.toLowerCase() : 'pending';
     const statusMessages = {
         'finished': `Order #${data.orderNumber} is ready for payment`,
         'completed': `Order #${data.orderNumber} completed successfully`
     };
     
-    const message = statusMessages[data.status] || `Order #${data.orderNumber} status updated to ${data.status}`;
+    const message = statusMessages[status] || `Order #${data.orderNumber} status updated to ${status}`;
     Toast.show(message, 'info');
     
     await loadDashboard();
@@ -1447,28 +1450,35 @@ socket.on('order-status-update', async (data) => {
     
     let html = '';
     orders.forEach(order => {
-        const statusClass = `order-${order.status}`;
-        const statusColor = getStatusColor(order.status);
+        const statusLower = order.status ? order.status.toLowerCase() : 'pending';
+        const statusColor = getStatusColor(statusLower);
         
         // Action button for recent orders
         let actionButton = '';
-        if (order.status === 'pending' || order.status === 'confirmed') {
+        if (statusLower === 'pending' || statusLower === 'confirmed') {
             actionButton = `
                 <button class="btn btn-accept btn-sm" onclick="acceptOrder('${order._id}')">
                     <i class="fas fa-check me-1"></i>Accept
                 </button>
             `;
-        } else if (order.status === 'preparing') {
+        } else if (statusLower === 'preparing') {
             actionButton = `
                 <button class="btn btn-complete btn-sm" onclick="completeOrder('${order._id}')">
                     <i class="fas fa-check-double me-1"></i>Complete
                 </button>
             `;
-        } else if (order.status === 'ready') {
+        } else if (statusLower === 'ready') {
+            actionButton = `
+                <button class="btn btn-finish btn-sm" onclick="finishOrder('${order._id}')">
+                    <i class="fas fa-flag-checkered me-1"></i>Finish
+                </button>
+            `;
+        } else if (statusLower === 'finished') {
+            // MARK AS PAID button for finished orders in recent orders
             actionButton = `
                 <div class="btn-group">
-                    <button class="btn btn-finish btn-sm" onclick="finishOrder('${order._id}')">
-                        <i class="fas fa-flag-checkered me-1"></i>Finish
+                    <button class="btn btn-success btn-sm" onclick="markAsPaid('${order._id}')">
+                        <i class="fas fa-credit-card me-1"></i>Paid
                     </button>
                     <button class="btn btn-download btn-sm" onclick="downloadBill('${order._id}')">
                         <i class="fas fa-download me-1"></i>Bill
@@ -1478,7 +1488,7 @@ socket.on('order-status-update', async (data) => {
         }
         
         html += `
-            <div class="order-card ${statusClass} mb-3 p-3" data-order-id="${order._id}">
+            <div class="order-card order-${statusLower} mb-3 p-3" data-order-id="${order._id}">
                 <div class="d-flex justify-content-between align-items-start mb-2">
                     <div>
                         <h6 class="mb-1">Order #${order.orderNumber || 'N/A'}</h6>
@@ -1487,7 +1497,7 @@ socket.on('order-status-update', async (data) => {
                         </small>
                     </div>
                     <span class="badge badge-status" style="background-color: ${statusColor}">
-                        ${order.status ? order.status.toUpperCase() : 'UNKNOWN'}
+                        ${order.status ? order.status.toUpperCase() : 'PENDING'}
                     </span>
                 </div>
                 <div class="order-items mb-3">
@@ -1572,8 +1582,7 @@ socket.on('order-status-update', async (data) => {
             }
         }
 
-        // Update the renderOrdersByStatus function
-function renderOrdersByStatus() {
+        function renderOrdersByStatus() {
     const statusGroups = {
         'pending': document.getElementById('pendingOrdersList'),
         'preparing': document.getElementById('preparingOrdersList'),
@@ -1604,6 +1613,24 @@ function renderOrdersByStatus() {
         return;
     }
 
+    // Group orders by status (UPPERCASE to lowercase conversion)
+    const groupedOrders = {
+        'pending': [],
+        'preparing': [],
+        'ready': [],
+        'finished': [],
+        'completed': []
+    };
+
+    orders.forEach(order => {
+        const status = order.status ? order.status.toLowerCase() : 'pending';
+        if (groupedOrders[status]) {
+            groupedOrders[status].push(order);
+        } else {
+            groupedOrders['pending'].push(order);
+        }
+    });
+
     // Render each group
     Object.keys(groupedOrders).forEach(status => {
         const container = statusGroups[status];
@@ -1625,32 +1652,33 @@ function renderOrdersByStatus() {
 
         let html = '';
         ordersList.forEach((order) => {
-            const statusColor = getStatusColor(order.status);
+            const statusLower = order.status ? order.status.toLowerCase() : 'pending';
+            const statusColor = getStatusColor(statusLower);
             const customerEmail = order.customer?.email || order.customerEmail || 'No email';
             
             // Create action buttons based on status
             let actionButtonHtml = '';
 
-            if (order.status === 'pending' || order.status === 'confirmed') {
+            if (statusLower === 'pending' || statusLower === 'confirmed') {
                 actionButtonHtml = `
                     <button class="btn btn-accept" onclick="acceptOrder('${order._id}')">
                         <i class="fas fa-check me-1"></i>Accept
                     </button>
                 `;
-            } else if (order.status === 'preparing') {
+            } else if (statusLower === 'preparing') {
                 actionButtonHtml = `
                     <button class="btn btn-complete" onclick="completeOrder('${order._id}')">
                         <i class="fas fa-check-double me-1"></i>Complete
                     </button>
                 `;
-            } else if (order.status === 'ready') {
+            } else if (statusLower === 'ready') {
                 actionButtonHtml = `
                     <button class="btn btn-finish" onclick="finishOrder('${order._id}')">
                         <i class="fas fa-flag-checkered me-1"></i>Finish
                     </button>
                 `;
-            } else if (order.status === 'finished') {
-                // Changed from "Final Complete" to "Mark as Paid"
+            } else if (statusLower === 'finished') {
+                // MARK AS PAID button for finished orders
                 actionButtonHtml = `
                     <div class="btn-group">
                         <button class="btn btn-success" onclick="markAsPaid('${order._id}')">
@@ -1665,11 +1693,11 @@ function renderOrdersByStatus() {
             
             html += `
                 <div class="col-md-6 col-lg-4 mb-4">
-                    <div class="card h-100 order-card order-${order.status}" data-order-id="${order._id}">
+                    <div class="card h-100 order-card order-${statusLower}" data-order-id="${order._id}">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <h6 class="mb-0">Order #${order.orderNumber || 'N/A'}</h6>
                             <span class="badge" style="background-color: ${statusColor}">
-                                ${order.status.toUpperCase()}
+                                ${order.status ? order.status.toUpperCase() : 'PENDING'}
                             </span>
                         </div>
                         <div class="card-body">
@@ -1681,11 +1709,13 @@ function renderOrdersByStatus() {
                                     <i class="fas fa-clock me-1"></i>${FormatUtils.formatTime(order.createdAt)}
                                 </small>
                                 <small class="text-muted d-block">
-                                    <i class="fas fa-user me-1"></i>${order.customerName}
+                                    <i class="fas fa-user me-1"></i>${order.customerName || 'Guest'}
                                 </small>
-                                <small class="text-muted d-block">
-                                    <i class="fas fa-envelope me-1"></i>${customerEmail}
-                                </small>
+                                ${customerEmail !== 'No email' ? `
+                                    <small class="text-muted d-block">
+                                        <i class="fas fa-envelope me-1"></i>${customerEmail}
+                                    </small>
+                                ` : ''}
                             </div>
                             
                             <div class="order-items mb-3">
@@ -1726,7 +1756,7 @@ function renderOrdersByStatus() {
     });
 }
 
-// Add new function to mark order as paid
+// Add this function if not already present
 async function markAsPaid(orderId) {
     try {
         if (!confirm('Mark this order as paid? This will complete the order and remove it from the dashboard.')) {
@@ -1743,7 +1773,7 @@ async function markAsPaid(orderId) {
             // Update local orders array immediately
             const orderIndex = orders.findIndex(o => o._id === orderId);
             if (orderIndex !== -1) {
-                orders.splice(orderIndex, 1); // Remove from array
+                orders[orderIndex].status = 'completed';
             }
             
             await Promise.all([loadDashboard(), loadOrders()]);
@@ -2522,7 +2552,9 @@ async function completeOrder(orderId) {
 
         // Utility Functions
         function getStatusColor(status) {
-    switch(status) {
+    const statusLower = status ? status.toLowerCase() : 'pending';
+    
+    switch(statusLower) {
         case 'pending':
         case 'confirmed': return '#f39c12'; // Orange
         case 'preparing': return '#3498db'; // Blue
