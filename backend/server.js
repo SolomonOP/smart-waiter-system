@@ -109,6 +109,31 @@ const checkDatabase = (req, res, next) => {
   next();
 };
 
+// Add this middleware function near other middleware
+const validateTable = async (req, res, next) => {
+    try {
+        const { tableNumber } = req.body;
+        
+        if (!tableNumber) {
+            return next();
+        }
+        
+        const table = await Table.findOne({ tableNumber: parseInt(tableNumber) });
+        if (!table) {
+            return res.status(400).json({
+                success: false,
+                message: `Table ${tableNumber} not found`
+            });
+        }
+        
+        req.table = table;
+        next();
+    } catch (error) {
+        console.error('Table validation error:', error);
+        next(error);
+    }
+};
+
 // Apply database check to all API routes except health check
 app.use('/api', checkDatabase);
 app.use('/health', (req, res, next) => next()); // Skip for health check

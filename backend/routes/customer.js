@@ -364,15 +364,15 @@ router.get('/orders/:id', auth, async (req, res) => {
 });
 
 // @route   POST /api/customer/service-request
-// @desc    Request service (water, cleaning, bill, etc.) - SIMPLE WORKING VERSION
+// @desc    Request service (water, cleaning, bill, etc.) - WORKING VERSION
 // @access  Private
-router.post('/service-request', auth, async (req, res) => {
+router.post('/service-request', auth, validateTable, async (req, res) => {
     console.log('=== SERVICE REQUEST START ===');
     console.log('Request body:', req.body);
     console.log('User ID:', req.userId);
     
     try {
-        const { tableNumber, type, description, customerName } = req.body;
+        const { tableNumber, type, description } = req.body;
         
         // Basic validation
         if (!tableNumber || tableNumber < 1) {
@@ -383,7 +383,7 @@ router.post('/service-request', auth, async (req, res) => {
             });
         }
         
-        // Updated valid types to match Table schema
+        // Valid service types
         const validTypes = ['water', 'cleaning', 'bill', 'cutlery', 'napkin', 'extra_sauce', 'other', 'chef_attention'];
         if (!type || !validTypes.includes(type)) {
             console.log('Invalid service type:', type);
@@ -394,27 +394,35 @@ router.post('/service-request', auth, async (req, res) => {
         }
         
         // Get customer info
-        let customer = customerName;
-        if (!customer) {
+        let customerName = req.body.customerName;
+        if (!customerName) {
             try {
                 const user = await User.findById(req.userId);
-                customer = user ? user.firstName + ' ' + user.lastName : 'Customer';
+                customerName = user ? `${user.firstName} ${user.lastName}` : 'Customer';
             } catch (userError) {
                 console.log('User lookup error:', userError.message);
-                customer = 'Customer';
+                customerName = 'Customer';
             }
         }
         
-        console.log('Processing for table:', tableNumber, 'customer:', customer);
+        console.log('Processing service request for table:', tableNumber, 'customer:', customerName);
         
-        // Find the table first
-        const table = await Table.findOne({ tableNumber: parseInt(tableNumber) });
+        // Find or create table
+        let table = await Table.findOne({ tableNumber: parseInt(tableNumber) });
         
         if (!table) {
-            return res.status(404).json({
-                success: false,
-                message: `Table ${tableNumber} not found`
+            console.log(`Creating new table entry for table ${tableNumber}`);
+            table = new Table({
+                tableNumber: parseInt(tableNumber),
+                status: 'occupied',
+                isActive: true,
+                serviceRequests: []
             });
+        }
+        
+        // Initialize serviceRequests array if it doesn't exist
+        if (!table.serviceRequests) {
+            table.serviceRequests = [];
         }
         
         // Create service request object
@@ -422,38 +430,54 @@ router.post('/service-request', auth, async (req, res) => {
             type: type,
             tableNumber: parseInt(tableNumber),
             description: description || `${getServiceTypeName(type)} request from table ${tableNumber}`,
-            customerName: customer,
+            customerName: customerName,
             customerId: req.userId,
             status: 'pending',
             priority: getServicePriority(type),
-            createdAt: new Date()
+            createdAt: new Date(),
+            updatedAt: new Date()
         };
         
-        console.log('Creating service request:', serviceRequestData);
-        
-        // Initialize serviceRequests array if it doesn't exist
-        if (!table.serviceRequests) {
-            table.serviceRequests = [];
-        }
+        console.log('Adding service request:', serviceRequestData);
         
         // Add the service request to the table
         table.serviceRequests.push(serviceRequestData);
         
         try {
-            // Save with validation disabled for now to avoid issues
+            // Save the table
             await table.save({ validateBeforeSave: false });
             console.log('Table saved with new service request');
         } catch (saveError) {
-            console.error('Error saving table with service request:', saveError);
-            return res.status(500).json({
-                success: false,
-                message: 'Failed to save service request',
-                error: saveError.message
-            });
+            console.error('Error saving table:', saveError);
+            
+            // Try alternative approach - create separate service request document
+            try {
+                console.log('Trying alternative save method...');
+                await Table.updateOne(
+                    { tableNumber: parseInt(tableNumber) },
+                    { 
+                        $push: { serviceRequests: serviceRequestData },
+                        $set: { 
+                            status: 'occupied',
+                            isActive: true,
+                            updatedAt: new Date()
+                        }
+                    },
+                    { upsert: true }
+                );
+                console.log('Alternative save successful');
+            } catch (updateError) {
+                console.error('Alternative save failed:', updateError);
+                return res.status(500).json({
+                    success: false,
+                    message: 'Failed to save service request',
+                    error: updateError.message
+                });
+            }
         }
         
         const savedRequest = table.serviceRequests[table.serviceRequests.length - 1];
-        console.log('Service request saved:', savedRequest);
+        console.log('Service request saved successfully:', savedRequest._id);
         
         // Real-time notification
         const io = req.app.get('io');
@@ -461,22 +485,24 @@ router.post('/service-request', auth, async (req, res) => {
             console.log('Emitting socket events...');
             
             // Notify chefs
-            io.to('role:chef').emit('new-service-request', {
+            io.to('chef-dashboard').emit('new-service-request', {
                 requestId: savedRequest._id,
                 type: type,
                 tableNumber: tableNumber,
                 description: serviceRequestData.description,
-                customerName: customer,
+                customerName: customerName,
                 priority: serviceRequestData.priority,
-                timestamp: new Date().toISOString()
+                status: 'pending',
+                createdAt: new Date().toISOString()
             });
             
             // Notify the specific table
             io.to(`table:${tableNumber}`).emit('service-request-confirmation', {
                 type: type,
                 tableNumber: tableNumber,
-                message: 'Your service request has been received',
+                message: 'Your service request has been received and is pending',
                 requestId: savedRequest._id,
+                status: 'pending',
                 estimatedResponse: '5-10 minutes'
             });
         }
@@ -491,6 +517,7 @@ router.post('/service-request', auth, async (req, res) => {
                 type: savedRequest.type,
                 tableNumber: savedRequest.tableNumber,
                 description: savedRequest.description,
+                customerName: savedRequest.customerName,
                 status: savedRequest.status,
                 priority: savedRequest.priority,
                 createdAt: savedRequest.createdAt,
@@ -508,6 +535,55 @@ router.post('/service-request', auth, async (req, res) => {
             success: false,
             message: 'Server error while processing service request',
             error: error.message
+        });
+    }
+});
+
+// @route   GET /api/customer/service-requests
+// @desc    Get customer's service requests
+// @access  Private
+router.get('/service-requests', auth, async (req, res) => {
+    try {
+        // Get all tables where the customer has service requests
+        const tables = await Table.find({
+            'serviceRequests.customerId': req.userId
+        }).select('tableNumber serviceRequests');
+        
+        // Extract and filter service requests for this customer
+        const customerRequests = [];
+        tables.forEach(table => {
+            table.serviceRequests.forEach(request => {
+                if (request.customerId && request.customerId.toString() === req.userId) {
+                    customerRequests.push({
+                        _id: request._id,
+                        type: request.type,
+                        tableNumber: table.tableNumber,
+                        description: request.description,
+                        status: request.status,
+                        priority: request.priority,
+                        createdAt: request.createdAt,
+                        updatedAt: request.updatedAt,
+                        assignedTo: request.assignedTo,
+                        completedAt: request.completedAt
+                    });
+                }
+            });
+        });
+        
+        // Sort by creation time (newest first)
+        customerRequests.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        
+        res.json({
+            success: true,
+            count: customerRequests.length,
+            requests: customerRequests
+        });
+        
+    } catch (error) {
+        console.error('Get service requests error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error'
         });
     }
 });

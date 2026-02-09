@@ -1276,6 +1276,73 @@
             Toast.show('Disconnected from live updates', 'warning');
         });
 
+        socket.on('new-service-request', (data) => {
+    console.log('New service request received:', data);
+    
+    // Show notification
+    Toast.show(`New ${getServiceName(data.type)} request from Table ${data.tableNumber}`, 'warning');
+    
+    // Play notification sound (optional)
+    playNotificationSound();
+    
+    // Reload service requests
+    loadServiceRequests();
+    
+    // Update notification badge
+    updateNotificationBadges();
+});
+
+socket.on('service-request-updated', (data) => {
+    console.log('Service request updated:', data);
+    
+    // If this request was assigned to someone else, remove it from our list
+    if (data.assignedTo !== user.firstName + ' ' + user.lastName) {
+        serviceRequests = serviceRequests.filter(req => req._id !== data.requestId);
+        renderServiceRequests(serviceRequests);
+    }
+});
+
+socket.on('service-request-removed', (data) => {
+    console.log('Service request removed:', data);
+    
+    // Remove from local lists
+    serviceRequests = serviceRequests.filter(req => req._id !== data.requestId);
+    renderServiceRequests(serviceRequests);
+    
+    // Update notification badges
+    updateNotificationBadges();
+});
+
+// Add notification sound function
+function playNotificationSound() {
+    try {
+        const audio = new Audio('https://assets.mixkit.co/sfx/preview/mixkit-alarm-digital-clock-beep-989.mp3');
+        audio.volume = 0.3;
+        audio.play().catch(e => console.log('Audio play failed:', e));
+    } catch (error) {
+        console.log('Notification sound error:', error);
+    }
+}
+
+// Update notification badges function
+function updateNotificationBadges() {
+    const serviceBadge = document.getElementById('serviceRequestsBadge');
+    if (serviceBadge) {
+        serviceBadge.textContent = serviceRequests.length;
+        serviceBadge.style.display = serviceRequests.length > 0 ? 'flex' : 'none';
+    }
+    
+    // Update dashboard badge
+    const dashboardBadge = document.getElementById('dashboardBadge');
+    if (dashboardBadge) {
+        // Get pending orders count
+        const pendingOrdersCount = parseInt(document.getElementById('pendingCount').textContent) || 0;
+        const totalNotifications = pendingOrdersCount + serviceRequests.length;
+        dashboardBadge.textContent = totalNotifications;
+        dashboardBadge.style.display = totalNotifications > 0 ? 'flex' : 'none';
+    }
+}
+
         // Listen for new orders
         socket.on('new-order', async (data) => {
             Toast.show(`New order from Table ${data.tableNumber}`, 'info');
@@ -2203,26 +2270,42 @@ async function completeOrder(orderId) {
 
         // Service Requests Functions
         async function loadServiceRequests() {
-            try {
-                Loading.show();
-                
-                const response = await API.get(CONFIG.API_ENDPOINTS.SERVICE_REQUESTS);
-                
-                if (response.success) {
-                    serviceRequests = response.requests || [];
-                    renderServiceRequests(serviceRequests);
-                    
-                    // Update notification badge
-                    document.getElementById('serviceRequestsBadge').textContent = serviceRequests.length;
-                }
-                
-                Loading.hide();
-                
-            } catch (error) {
-                Loading.hide();
-                ErrorHandler.handle(error, 'loadServiceRequests');
+    try {
+        Loading.show();
+        
+        const response = await API.get('/api/service-requests/pending');
+        
+        if (response.success) {
+            serviceRequests = response.serviceRequests || [];
+            renderServiceRequests(serviceRequests);
+            
+            // Update notification badge
+            const badge = document.getElementById('serviceRequestsBadge');
+            if (badge) {
+                badge.textContent = serviceRequests.length;
+                badge.style.display = serviceRequests.length > 0 ? 'flex' : 'none';
             }
         }
+        
+        Loading.hide();
+        
+    } catch (error) {
+        Loading.hide();
+        console.error('Load service requests error:', error);
+        
+        const container = document.getElementById('serviceRequestsList');
+        if (container) {
+            container.innerHTML = `
+                <div class="col-12">
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        Failed to load service requests: ${error.message}
+                    </div>
+                </div>
+            `;
+        }
+    }
+}
 
         function renderServiceRequests(requests) {
     const container = document.getElementById('serviceRequestsList');
@@ -2232,8 +2315,8 @@ async function completeOrder(orderId) {
             <div class="col-12">
                 <div class="empty-state">
                     <i class="fas fa-concierge-bell"></i>
-                    <h5>No service requests</h5>
-                    <p>Service requests will appear here</p>
+                    <h5>No pending service requests</h5>
+                    <p>All service requests have been handled</p>
                 </div>
             </div>
         `;
@@ -2242,62 +2325,50 @@ async function completeOrder(orderId) {
     
     let html = '';
     requests.forEach(request => {
-        const statusColor = request.status === 'pending' ? 'warning' : 
-                           request.status === 'assigned' ? 'info' : 'success';
-        const icon = getServiceIcon(request.type);
+        const priorityColor = getPriorityColor(request.priority);
         const serviceName = getServiceName(request.type);
+        const icon = getServiceIcon(request.type);
         
         html += `
             <div class="col-md-6 col-lg-4 mb-4">
-                <div class="card h-100">
+                <div class="card h-100 border-start border-${priorityColor} border-4">
                     <div class="card-body">
                         <div class="d-flex align-items-start mb-3">
                             <div class="me-3">
-                                <div class="rounded-circle bg-${statusColor} bg-opacity-10 p-3">
-                                    <i class="${icon} fa-2x text-${statusColor}"></i>
+                                <div class="rounded-circle bg-${priorityColor} bg-opacity-10 p-3">
+                                    <i class="${icon} fa-2x text-${priorityColor}"></i>
                                 </div>
                             </div>
-                            <div>
+                            <div class="flex-grow-1">
                                 <h6 class="mb-1">${serviceName}</h6>
+                                <div class="d-flex align-items-center mb-1">
+                                    <span class="badge bg-${priorityColor} me-2">
+                                        ${request.priority ? request.priority.toUpperCase() : 'NORMAL'}
+                                    </span>
+                                    <small class="text-muted">
+                                        <i class="fas fa-clock me-1"></i>${FormatUtils.formatTime(request.createdAt)}
+                                    </small>
+                                </div>
                                 <p class="text-muted small mb-0">
-                                    Table ${request.tableNumber}
+                                    <i class="fas fa-chair me-1"></i>Table ${request.tableNumber}
                                 </p>
                                 <p class="text-muted small mb-0">
-                                    Customer: ${request.customerName}
+                                    <i class="fas fa-user me-1"></i>${request.customerName || 'Customer'}
                                 </p>
                             </div>
                         </div>
                         
-                        <div class="mb-3">
-                            <small class="text-muted d-block">
-                                <i class="fas fa-clock me-1"></i>${FormatUtils.formatTime(request.createdAt)}
+                        <div class="mb-4">
+                            <p class="small mb-2">${request.description || 'No description provided'}</p>
+                            <small class="text-muted">
+                                Requested ${timeSince(request.createdAt)} ago
                             </small>
-                            ${request.description ? `
-                                <small class="text-muted d-block">
-                                    <i class="fas fa-comment me-1"></i>${request.description}
-                                </small>
-                            ` : ''}
-                            ${request.order ? `
-                                <small class="text-muted d-block">
-                                    <i class="fas fa-receipt me-1"></i>Order #${request.order.orderNumber}
-                                </small>
-                            ` : ''}
                         </div>
                         
-                        <div class="d-flex justify-content-between align-items-center">
-                            <span class="badge bg-${statusColor}">
-                                ${request.status.toUpperCase()}
-                            </span>
-                            
-                            ${request.status === 'pending' ? `
-                                <button class="btn btn-sm btn-primary" onclick="acceptServiceRequest('${request._id}')">
-                                    <i class="fas fa-user-check me-1"></i>Accept
-                                </button>
-                            ` : request.status === 'assigned' ? `
-                                <button class="btn btn-sm btn-success" onclick="completeServiceRequest('${request._id}')">
-                                    <i class="fas fa-check me-1"></i>Complete
-                                </button>
-                            ` : ''}
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-primary" onclick="acceptServiceRequest('${request._id}')">
+                                <i class="fas fa-user-check me-2"></i>Assign to Me
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -2309,42 +2380,171 @@ async function completeOrder(orderId) {
 }
 
         async function acceptServiceRequest(requestId) {
-            try {
-                Loading.show('Accepting request...');
-                
-                const response = await API.post(`${CONFIG.API_ENDPOINTS.SERVICE_REQUESTS}/${requestId}/accept`, {});
-                
-                if (response.success) {
-                    Toast.show('Service request accepted!', 'success');
-                    await Promise.all([loadDashboard(), loadServiceRequests()]);
-                }
-                
-                Loading.hide();
-                
-            } catch (error) {
-                Loading.hide();
-                ErrorHandler.handle(error, 'acceptServiceRequest');
+    try {
+        if (!confirm('Assign this service request to yourself?')) {
+            return;
+        }
+        
+        Loading.show('Assigning service request...');
+        
+        const response = await API.put(`/api/service-requests/${requestId}/acknowledge`, {
+            notes: `Assigned to ${user.firstName} ${user.lastName}`
+        });
+        
+        if (response.success) {
+            Toast.show('Service request assigned to you!', 'success');
+            
+            // Remove from local list
+            serviceRequests = serviceRequests.filter(req => req._id !== requestId);
+            renderServiceRequests(serviceRequests);
+            
+            // Update notification badges
+            updateNotificationBadges();
+            
+            // Show acknowledged requests section if not exists
+            showAcknowledgedRequests();
+        }
+        
+        Loading.hide();
+        
+    } catch (error) {
+        Loading.hide();
+        console.error('Accept service request error:', error);
+        Toast.show(`Failed to assign request: ${error.message}`, 'error');
+    }
+}
+
+async function showAcknowledgedRequests() {
+    try {
+        const response = await API.get('/api/service-requests/all?status=acknowledged&limit=10');
+        
+        if (response.success && response.serviceRequests.length > 0) {
+            const acknowledgedRequests = response.serviceRequests.filter(req => 
+                req.assignedTo === user.id || req.assignedToName?.includes(user.firstName)
+            );
+            
+            if (acknowledgedRequests.length > 0) {
+                renderAcknowledgedRequests(acknowledgedRequests);
             }
         }
+    } catch (error) {
+        console.error('Load acknowledged requests error:', error);
+    }
+}
+
+function renderAcknowledgedRequests(requests) {
+    const container = document.getElementById('serviceRequestsList');
+    
+    let html = container.innerHTML;
+    
+    html += `
+        <div class="col-12 mt-5">
+            <h5 class="border-bottom pb-2 mb-4">
+                <i class="fas fa-user-check me-2 text-info"></i>Your Assigned Requests
+            </h5>
+        </div>
+    `;
+    
+    requests.forEach(request => {
+        html += `
+            <div class="col-md-6 col-lg-4 mb-4">
+                <div class="card h-100 border-start border-info border-4">
+                    <div class="card-body">
+                        <div class="d-flex align-items-start mb-3">
+                            <div class="me-3">
+                                <div class="rounded-circle bg-info bg-opacity-10 p-3">
+                                    <i class="${getServiceIcon(request.type)} fa-2x text-info"></i>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1">${getServiceName(request.type)}</h6>
+                                <p class="text-muted small mb-0">
+                                    <i class="fas fa-chair me-1"></i>Table ${request.tableNumber}
+                                </p>
+                                <p class="text-muted small mb-0">
+                                    <i class="fas fa-user me-1"></i>${request.customerName || 'Customer'}
+                                </p>
+                                <p class="text-muted small mb-0">
+                                    <i class="fas fa-clock me-1"></i>Assigned ${timeSince(request.acknowledgedAt)} ago
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <p class="small mb-2">${request.description || 'No description'}</p>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-success" onclick="completeServiceRequest('${request._id}')">
+                                <i class="fas fa-check-circle me-2"></i>Mark as Complete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
 
         async function completeServiceRequest(requestId) {
-            try {
-                Loading.show('Completing request...');
-                
-                const response = await API.post(`${CONFIG.API_ENDPOINTS.SERVICE_REQUESTS}/${requestId}/complete`, {});
-                
-                if (response.success) {
-                    Toast.show('Service request completed!', 'success');
-                    await Promise.all([loadDashboard(), loadServiceRequests()]);
-                }
-                
-                Loading.hide();
-                
-            } catch (error) {
-                Loading.hide();
-                ErrorHandler.handle(error, 'completeServiceRequest');
-            }
+    try {
+        const notes = prompt('Add completion notes (optional):');
+        
+        Loading.show('Completing service request...');
+        
+        const response = await API.put(`/api/service-requests/${requestId}/complete`, {
+            notes: notes || ''
+        });
+        
+        if (response.success) {
+            Toast.show('Service request completed!', 'success');
+            
+            // Refresh the service requests list
+            await loadServiceRequests();
+            await showAcknowledgedRequests();
         }
+        
+        Loading.hide();
+        
+    } catch (error) {
+        Loading.hide();
+        console.error('Complete service request error:', error);
+        Toast.show(`Failed to complete request: ${error.message}`, 'error');
+    }
+}
+
+function getPriorityColor(priority) {
+    switch(priority) {
+        case 'urgent': return 'danger';
+        case 'high': return 'warning';
+        case 'normal': return 'info';
+        case 'low': return 'secondary';
+        default: return 'primary';
+    }
+}
+
+function timeSince(date) {
+    const seconds = Math.floor((new Date() - new Date(date)) / 1000);
+    
+    let interval = Math.floor(seconds / 31536000);
+    if (interval >= 1) return interval + " years";
+    
+    interval = Math.floor(seconds / 2592000);
+    if (interval >= 1) return interval + " months";
+    
+    interval = Math.floor(seconds / 86400);
+    if (interval >= 1) return interval + " days";
+    
+    interval = Math.floor(seconds / 3600);
+    if (interval >= 1) return interval + " hours";
+    
+    interval = Math.floor(seconds / 60);
+    if (interval >= 1) return interval + " minutes";
+    
+    return Math.floor(seconds) + " seconds";
+}
 
         // Walk-in Order Functions
         async function showWalkinOrderModal() {

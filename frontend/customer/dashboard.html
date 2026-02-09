@@ -687,18 +687,44 @@
                     });
 
                     socket.on('service-request-acknowledged', (data) => {
-                        console.log('Service request acknowledged:', data);
-                        if (data.tableNumber === currentTable) {
-                            Toast.show(`${data.message} by ${data.chefName}`, 'info');
-                        }
-                    });
+    console.log('Service request acknowledged:', data);
+    if (data.tableNumber === currentTable) {
+        Toast.show(`${data.message}`, 'info');
+        
+        // Update the specific service request in the list
+        if (serviceRequests) {
+            const requestIndex = serviceRequests.findIndex(req => 
+                req._id === data.requestId || req.id === data.requestId
+            );
+            
+            if (requestIndex !== -1) {
+                serviceRequests[requestIndex].status = 'acknowledged';
+                serviceRequests[requestIndex].assignedToName = data.chefName;
+                displayServiceRequests(serviceRequests);
+            }
+        }
+    }
+});
 
-                    socket.on('service-request-completed', (data) => {
-                        console.log('Service request completed:', data);
-                        if (data.tableNumber === currentTable) {
-                            Toast.show(data.message, 'success');
-                        }
-                    });
+socket.on('service-request-completed', (data) => {
+    console.log('Service request completed:', data);
+    if (data.tableNumber === currentTable) {
+        Toast.show(data.message, 'success');
+        
+        // Update the specific service request in the list
+        if (serviceRequests) {
+            const requestIndex = serviceRequests.findIndex(req => 
+                req._id === data.requestId || req.id === data.requestId
+            );
+            
+            if (requestIndex !== -1) {
+                serviceRequests[requestIndex].status = 'completed';
+                serviceRequests[requestIndex].completedAt = data.completedAt || new Date();
+                displayServiceRequests(serviceRequests);
+            }
+        }
+    }
+});
                     
                     socket.on('disconnect', () => {
                         console.log('Socket disconnected');
@@ -1657,116 +1683,83 @@
         
         /// Request service - WORKING VERSION
         async function requestService(type) {
-            // Always ask for table number in services section
-            let targetTable = currentTable;
+    // Always ask for table number
+    const tableInput = prompt(`Please enter your table number for ${getServiceName(type)} request:`);
+    if (!tableInput) {
+        Toast.show('Service request cancelled', 'warning');
+        return;
+    }
+    
+    const tableNumber = parseInt(tableInput.trim());
+    if (!tableNumber || tableNumber < 1) {
+        Toast.show('Please enter a valid table number', 'error');
+        return;
+    }
+    
+    try {
+        Loading.show('Sending request...');
+        
+        const request = {
+            type: type,
+            tableNumber: tableNumber,
+            description: `${getServiceName(type)} request from table ${tableNumber}`,
+            customerName: user.firstName + ' ' + user.lastName
+        };
+        
+        console.log('Sending service request:', request);
+        
+        const response = await API.post(CONFIG.API_ENDPOINTS.SERVICE_REQUEST, request);
+        
+        console.log('Service request response:', response);
+        
+        if (response.success) {
+            Toast.show(`${getServiceName(type)} request sent to table ${tableNumber}!`, 'success');
             
-            // If no table is selected or we're in services section, ask for table
-            if (!targetTable || document.getElementById('services').style.display === 'block') {
-                const tableInput = prompt(`Please enter your table number for ${getServiceName(type)} request:`);
-                if (!tableInput) {
-                    Toast.show('Service request cancelled', 'warning');
-                    return;
-                }
+            // Add to local service requests list
+            if (response.request) {
+                // Add to local list
+                if (!serviceRequests) serviceRequests = [];
+                serviceRequests.unshift(response.request);
                 
-                const tableNumber = parseInt(tableInput.trim());
-                if (!tableNumber || tableNumber < 1) {
-                    Toast.show('Please enter a valid table number', 'error');
-                    return;
-                }
-                
-                targetTable = tableNumber;
+                // Update display
+                displayServiceRequests(serviceRequests);
             }
             
-            try {
-                Loading.show('Sending request...');
-                
-                const request = {
-                    type: type,
-                    tableNumber: parseInt(targetTable),
-                    customerName: user.firstName + ' ' + user.lastName,
-                    description: `${getServiceName(type)} request from table ${targetTable}`
-                };
-                
-                console.log('Sending service request:', request);
-                
-                // Create a timeout for the request
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-                
-                try {
-                    const token = localStorage.getItem('token');
-                    
-                    const response = await fetch(CONFIG.BACKEND_URL + CONFIG.API_ENDPOINTS.SERVICE_REQUEST, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`
-                        },
-                        body: JSON.stringify(request),
-                        signal: controller.signal
-                    });
-                    
-                    clearTimeout(timeoutId);
-                    
-                    console.log('Response status:', response.status);
-                    
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        console.error('Response error:', errorText);
-                        throw new Error(`HTTP ${response.status}: ${errorText}`);
-                    }
-                    
-                    const data = await response.json();
-                    console.log('Service request response:', data);
-                    
-                    if (data.success) {
-                        Toast.show(`${getServiceName(type)} request sent to table ${targetTable}!`, 'success');
-                        
-                        // Emit socket event
-                        if (socket) {
-                            socket.emit('service-request', {
-                                ...request,
-                                requestId: data.requestId || data.request?._id
-                            });
-                        }
-                        
-                        // Refresh service requests display
-                        setTimeout(() => loadServiceRequests(), 1000);
-                    } else {
-                        throw new Error(data.message || 'Request failed');
-                    }
-                    
-                } catch (fetchError) {
-                    console.error('Fetch error:', fetchError);
-                    
-                    if (fetchError.name === 'AbortError') {
-                        throw new Error('Request timed out. Please try again.');
-                    }
-                    throw fetchError;
-                }
-                
-            } catch (error) {
-                console.error('Service request error:', error);
-                
-                let errorMessage = 'Failed to send request. ';
-                if (error.message.includes('timeout') || error.message.includes('AbortError')) {
-                    errorMessage = 'Request timed out. The server might be busy.';
-                } else if (error.message.includes('500')) {
-                    errorMessage = 'Server error. Please try again later.';
-                } else if (error.message.includes('401')) {
-                    errorMessage = 'Session expired. Please login again.';
-                    setTimeout(() => logout(), 2000);
-                } else if (error.message.includes('Table validation failed')) {
-                    errorMessage = 'System configuration error. Contact staff.';
-                } else {
-                    errorMessage += error.message;
-                }
-                
-                Toast.show(errorMessage, 'error');
-            } finally {
-                Loading.hide();
+            // Emit socket event
+            if (socket) {
+                socket.emit('service-request', {
+                    ...request,
+                    requestId: response.request.id,
+                    status: 'pending'
+                });
             }
+            
+            // Refresh service requests after 2 seconds
+            setTimeout(() => loadServiceRequests(), 2000);
+        } else {
+            throw new Error(response.message || 'Request failed');
         }
+        
+    } catch (error) {
+        console.error('Service request error:', error);
+        
+        let errorMessage = 'Failed to send request. ';
+        if (error.message.includes('timeout')) {
+            errorMessage = 'Request timed out. Please try again.';
+        } else if (error.message.includes('500')) {
+            errorMessage = 'Server error. Please try again later.';
+        } else if (error.message.includes('401')) {
+            errorMessage = 'Session expired. Please login again.';
+            setTimeout(() => logout(), 2000);
+        } else {
+            errorMessage += error.message;
+        }
+        
+        Toast.show(errorMessage, 'error');
+    } finally {
+        Loading.hide();
+    }
+}
         
         function getServiceName(type) {
             const serviceNames = {
@@ -1879,99 +1872,102 @@
         
         // Load service requests
         async function loadServiceRequests() {
-            if (!currentTable) return;
-            
-            try {
-                // Try to load from debug endpoint first
-                const debugData = await API.get(CONFIG.API_ENDPOINTS.DEBUG);
-                
-                if (debugData.success && debugData.recentServiceRequests) {
-                    // Filter service requests for current table
-                    const tableServiceRequests = debugData.recentServiceRequests.filter(
-                        req => req.tableNumber === currentTable
-                    );
-                    
-                    displayServiceRequests(tableServiceRequests);
-                } else {
-                    // Fallback: show message
-                    const container = document.getElementById('serviceRequests');
-                    if (container) {
-                        container.innerHTML = `
-                            <div class="col-12 text-center text-muted py-4">
-                                <p>No service request history available</p>
-                            </div>
-                        `;
-                    }
-                }
-                
-            } catch (error) {
-                console.error('Error loading service requests:', error);
-                
-                // Show placeholder
-                const container = document.getElementById('serviceRequests');
-                if (container) {
-                    container.innerHTML = `
-                        <div class="col-12 text-center text-muted py-4">
-                            <p>Unable to load service requests</p>
-                            <p class="small">${error.message}</p>
-                        </div>
-                    `;
-                }
-            }
+    try {
+        const response = await API.get('/api/customer/service-requests');
+        
+        if (response.success) {
+            serviceRequests = response.requests || [];
+            displayServiceRequests(serviceRequests);
         }
         
-        function displayServiceRequests(serviceRequests) {
-            const container = document.getElementById('serviceRequests');
-            if (!container) return;
-            
-            container.innerHTML = '';
-            
-            if (serviceRequests.length === 0) {
-                container.innerHTML = `
-                    <div class="col-12 text-center text-muted py-4">
-                        <p>No service requests yet. Use the buttons above to request services.</p>
-                    </div>
-                `;
-                return;
-            }
-            
-            // Sort by creation time (newest first)
-            serviceRequests.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-            
-            serviceRequests.forEach(request => {
-                const statusClass = `service-status-${request.status}`;
-                const requestCard = `
-                    <div class="col-md-6 mb-3">
-                        <div class="order-status service-request-item ${statusClass}">
-                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                <h6 class="mb-0">${getServiceName(request.type)}</h6>
-                                <small class="text-muted">
-                                    ${request.createdAt ? new Date(request.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'N/A'}
-                                </small>
-                            </div>
-                            <p class="mb-1"><i class="fas fa-chair me-2"></i>Table: ${request.tableNumber}</p>
-                            <p class="mb-1"><i class="fas fa-info-circle me-2"></i>${request.description || 'No description'}</p>
-                            <div class="mt-3">
-                                <span class="badge bg-${getServiceStatusColor(request.status)}">
-                                    ${request.status?.toUpperCase() || 'PENDING'}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                container.innerHTML += requestCard;
-            });
-        }
+    } catch (error) {
+        console.error('Error loading service requests:', error);
+        Toast.show('Unable to load service requests: ' + error.message, 'error');
         
-        function getServiceStatusColor(status) {
-            switch(status) {
-                case 'pending': return 'warning';
-                case 'acknowledged': return 'info';
-                case 'completed': return 'success';
-                case 'cancelled': return 'secondary';
-                default: return 'dark';
-            }
+        const container = document.getElementById('serviceRequests');
+        if (container) {
+            container.innerHTML = `
+                <div class="col-12 text-center text-muted py-4">
+                    <p>Unable to load service requests</p>
+                    <p class="small">${error.message}</p>
+                    <button class="btn btn-sm btn-outline-primary mt-2" onclick="loadServiceRequests()">
+                        <i class="fas fa-sync-alt me-2"></i> Retry
+                    </button>
+                </div>
+            `;
         }
+    }
+}
+        
+        function displayServiceRequests(requests) {
+    const container = document.getElementById('serviceRequests');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    if (requests.length === 0) {
+        container.innerHTML = `
+            <div class="col-12 text-center text-muted py-4">
+                <p>No service requests yet. Use the buttons above to request services.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    // Sort by creation time (newest first)
+    requests.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    
+    requests.forEach(request => {
+        const statusClass = `service-status-${request.status}`;
+        const statusIcon = getServiceStatusIcon(request.status);
+        const statusColor = getServiceStatusColor(request.status);
+        
+        const requestCard = `
+            <div class="col-md-6 mb-3">
+                <div class="order-status service-request-item ${statusClass}">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h6 class="mb-0">${getServiceName(request.type)}</h6>
+                        <small class="text-muted">
+                            ${request.createdAt ? new Date(request.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'N/A'}
+                        </small>
+                    </div>
+                    <p class="mb-1"><i class="fas fa-chair me-2"></i>Table: ${request.tableNumber}</p>
+                    <p class="mb-1"><i class="fas fa-info-circle me-2"></i>${request.description || 'No description'}</p>
+                    ${request.assignedTo ? `
+                        <p class="mb-1"><i class="fas fa-user-chef me-2"></i>Assigned to: ${request.assignedToName || 'Staff'}</p>
+                    ` : ''}
+                    ${request.completedAt ? `
+                        <p class="mb-1"><i class="fas fa-check-circle me-2"></i>Completed: ${new Date(request.completedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                    ` : ''}
+                    <div class="mt-3">
+                        <span class="badge bg-${statusColor}">
+                            <i class="${statusIcon} me-1"></i>${request.status?.toUpperCase() || 'PENDING'}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        `;
+        container.innerHTML += requestCard;
+    });
+}
+        
+        function getServiceStatusIcon(status) {
+    switch(status) {
+        case 'pending': return 'fas fa-clock';
+        case 'acknowledged': return 'fas fa-user-check';
+        case 'completed': return 'fas fa-check-circle';
+        default: return 'fas fa-question-circle';
+    }
+}
+
+function getServiceStatusColor(status) {
+    switch(status) {
+        case 'pending': return 'warning';
+        case 'acknowledged': return 'info';
+        case 'completed': return 'success';
+        default: return 'secondary';
+    }
+}
         
         // Show notification
         function showNotification(message, type = 'info') {

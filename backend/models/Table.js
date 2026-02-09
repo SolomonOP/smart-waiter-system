@@ -8,18 +8,20 @@ const TableSchema = new mongoose.Schema({
     },
     capacity: {
         type: Number,
-        required: true,
-        min: [1, 'Capacity must be at least 1']
+        default: 4
+    },
+    status: {
+        type: String,
+        enum: ['available', 'occupied', 'reserved', 'cleaning'],
+        default: 'available'
     },
     location: {
         type: String,
-        default: 'indoor'
+        default: 'Main Hall'
     },
-    section: String,
-    status: {
+    section: {
         type: String,
-        enum: ['available', 'occupied', 'reserved', 'cleaning', 'maintenance'],
-        default: 'available'
+        default: 'A'
     },
     isActive: {
         type: Boolean,
@@ -33,10 +35,10 @@ const TableSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
     },
-    customerName: String,
-    occupiedAt: Date,
-    
-    // Service requests array - FIXED ENUM VALUES
+    customerName: {
+        type: String
+    },
+    // Service requests array
     serviceRequests: [{
         type: {
             type: String,
@@ -49,44 +51,62 @@ const TableSchema = new mongoose.Schema({
         },
         description: {
             type: String,
-            maxlength: [200, 'Description cannot exceed 200 characters']
+            default: ''
         },
-        customerName: String,
+        customerName: {
+            type: String,
+            default: 'Customer'
+        },
         customerId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'User'
         },
         status: {
             type: String,
-            enum: ['pending', 'acknowledged', 'in-progress', 'completed', 'cancelled'],
+            enum: ['pending', 'acknowledged', 'completed', 'cancelled'],
             default: 'pending'
+        },
+        priority: {
+            type: String,
+            enum: ['urgent', 'high', 'normal', 'low'],
+            default: 'normal'
         },
         assignedTo: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'User'
         },
-        priority: {
-            type: String,
-            enum: ['low', 'normal', 'high', 'urgent'],
-            default: 'normal'
+        assignedToName: {
+            type: String
         },
-        notes: String,
-        completedAt: Date,
-        acknowledgedAt: Date,
+        notes: {
+            type: String
+        },
+        completionNotes: {
+            type: String
+        },
+        acknowledgedAt: {
+            type: Date
+        },
+        completedAt: {
+            type: Date
+        },
         createdAt: {
+            type: Date,
+            default: Date.now
+        },
+        updatedAt: {
             type: Date,
             default: Date.now
         }
     }],
-    
-    metadata: {
-        lastCleaned: Date,
-        notes: String
+    createdAt: {
+        type: Date,
+        default: Date.now
+    },
+    updatedAt: {
+        type: Date,
+        default: Date.now
     }
-}, {
-    timestamps: true,
-    toJSON: { virtuals: true },
-    toObject: { virtuals: true }
 });
 
 // Virtual for pending service requests count
