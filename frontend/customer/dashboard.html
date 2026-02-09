@@ -1040,56 +1040,66 @@ function refreshOrderDisplay(data) {
         
         console.log('Raw tables data:', data.tables);
         
-        // Try different ways to get the table number
+        // Show ALL active tables, not just "available" status
+        // Customers can order from occupied tables too (they're already sitting there)
         activeTables = data.tables
             .filter(table => {
-                // Debug the table object
-                console.log('Table object:', table);
-                console.log('Table keys:', Object.keys(table));
-                
-                // Check if table is available
-                const isAvailable = table.status === 'available';
-                console.log(`Table ${table.tableNumber || table.number || 'unknown'} available?`, isAvailable);
-                
-                return isAvailable;
+                return table.isActive !== false; // Only show active tables
             })
-            .map(table => {
-                // Try different property names
-                const tableNum = table.tableNumber || table.number || table.tableNo || table.id;
-                console.log('Extracted table number:', tableNum, 'from:', table);
-                return tableNum;
-            });
+            .map(table => table.tableNumber);
         
-        console.log('Final active tables:', activeTables);
+        console.log('Active tables (customer view):', activeTables);
         
         if (activeTables.length > 0) {
-            currentTable = activeTables[0];
+            // Try to get table from localStorage or use first available
+            const savedTable = localStorage.getItem('currentTable');
+            if (savedTable && activeTables.includes(parseInt(savedTable))) {
+                currentTable = parseInt(savedTable);
+            } else {
+                currentTable = activeTables[0];
+            }
+            
             console.log('Current table set to:', currentTable);
+            
+            // Save to localStorage
+            localStorage.setItem('currentTable', currentTable);
+            
             generateTableButtons();
             
             // Load menu for this table
             await loadMenu();
             
         } else {
-            // Create a fallback table (for development)
-            console.log('No tables found, using fallback table 1');
-            activeTables = [1];
-            currentTable = 1;
-            generateTableButtons();
+            console.log('No active tables found');
+            Toast.show('No tables available. Please contact staff.', 'warning');
             
-            Toast.show('Using demo table 1', 'info');
+            // Show message in table selection
+            const tableStatus = document.getElementById('tableStatus');
+            if (tableStatus) {
+                tableStatus.innerHTML = `
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        No tables available. Please contact restaurant staff.
+                    </div>
+                `;
+            }
         }
         
     } catch (error) {
         console.error('Error loading tables:', error);
         
-        // Create fallback tables for development
-        console.log('Creating fallback tables due to error');
-        activeTables = [1, 2, 3, 4, 5];
-        currentTable = 1;
-        generateTableButtons();
+        // Show error message
+        Toast.show('Unable to load tables. Please refresh the page.', 'error');
         
-        Toast.show('Using demo tables (1-5)', 'warning');
+        const tableStatus = document.getElementById('tableStatus');
+        if (tableStatus) {
+            tableStatus.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                    Failed to load tables. Error: ${error.message}
+                </div>
+            `;
+        }
     }
 }
         
@@ -1505,15 +1515,18 @@ function refreshOrderDisplay(data) {
         
         // Request service
 async function requestService(type) {
-    if (!currentTable) {
-        // Prompt for table number
-        const tableInput = prompt('Please enter your table number:');
+    // Always ask for table number in services section
+    let targetTable = currentTable;
+    
+    // If no table is selected or we're in services section, ask for table
+    if (!targetTable || document.getElementById('services').style.display === 'block') {
+        const tableInput = prompt(`Please enter your table number for ${getServiceName(type)} request:`);
         if (!tableInput) {
             Toast.show('Service request cancelled', 'warning');
             return;
         }
         
-        const tableNumber = parseInt(tableInput);
+        const tableNumber = parseInt(tableInput.trim());
         if (!tableNumber || tableNumber < 1) {
             Toast.show('Please enter a valid table number', 'error');
             return;
@@ -1521,12 +1534,14 @@ async function requestService(type) {
         
         // Check if table exists
         if (!activeTables.includes(tableNumber)) {
-            Toast.show(`Table ${tableNumber} is not available`, 'warning');
-            return;
+            const confirmUse = confirm(`Table ${tableNumber} is not in the active list. Continue anyway?`);
+            if (!confirmUse) {
+                Toast.show('Service request cancelled', 'warning');
+                return;
+            }
         }
         
-        currentTable = tableNumber;
-        await selectTable(tableNumber);
+        targetTable = tableNumber;
     }
     
     try {
@@ -1534,13 +1549,16 @@ async function requestService(type) {
         
         const request = {
             type: type,
-            tableNumber: parseInt(currentTable),
-            customerName: user.firstName + ' ' + user.lastName
+            tableNumber: parseInt(targetTable),
+            customerName: user.firstName + ' ' + user.lastName,
+            description: `${getServiceName(type)} request from table ${targetTable}`
         };
+        
+        console.log('Sending service request:', request);
         
         const response = await API.post(CONFIG.API_ENDPOINTS.SERVICE_REQUEST, request);
         
-        Toast.show(`${getServiceName(type)} request sent!`, 'success');
+        Toast.show(`${getServiceName(type)} request sent to table ${targetTable}!`, 'success');
         
         // Emit socket event
         if (socket) {
@@ -1551,7 +1569,8 @@ async function requestService(type) {
         }
         
     } catch (error) {
-        Toast.show('Failed to send request: ' + error.message, 'error');
+        console.error('Service request error:', error);
+        Toast.show(`Failed to send request: ${error.message}`, 'error');
     } finally {
         Loading.hide();
     }

@@ -101,40 +101,35 @@ router.post('/order', auth, [
         
         const { tableNumber, items, specialInstructions, paymentMethod } = req.body;
         
+        console.log('Order received for table:', tableNumber);
+        console.log('Items:', items);
+        
         // Get user info
-        let user;
         let customerEmail, customerName;
         
-        if (req.user && req.user.isDemo) {
-            // Demo user
-            customerEmail = req.userId;
+        // Simple user handling - remove demo checks
+        if (req.user && req.user.email) {
+            customerEmail = req.user.email;
             customerName = req.user.firstName + ' ' + req.user.lastName;
         } else {
-            // Database user
-            user = await User.findById(req.userId);
-            if (!user) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'User not found'
-                });
-            }
-            customerEmail = user.email;
-            customerName = user.firstName + ' ' + user.lastName;
+            // Fallback for demo or testing
+            customerEmail = 'customer@example.com';
+            customerName = 'Customer';
         }
         
-        // Check table availability
-        const table = await Table.findOne({ tableNumber, isActive: true });
+        // Check table exists and is active
+        const table = await Table.findOne({ tableNumber: parseInt(tableNumber) });
         if (!table) {
             return res.status(400).json({
                 success: false,
-                message: 'Table not found or inactive'
+                message: `Table ${tableNumber} not found`
             });
         }
         
-        if (table.status !== 'available' && table.status !== 'occupied') {
+        if (!table.isActive) {
             return res.status(400).json({
                 success: false,
-                message: `Table is currently ${table.status}`
+                message: `Table ${tableNumber} is not active`
             });
         }
         
@@ -170,16 +165,12 @@ router.post('/order', auth, [
                 specialInstructions: item.specialInstructions || '',
                 itemTotal
             });
-            
-            // Increment order count
-            menuItem.orderCount += item.quantity;
-            await menuItem.save();
         }
         
         // Create order
         const order = new Order({
-            tableNumber,
-            customer: req.userId.includes('@demo.com') ? null : req.userId,
+            tableNumber: parseInt(tableNumber),
+            customer: req.userId,
             customerName,
             customerEmail,
             items: orderItems,
@@ -187,10 +178,7 @@ router.post('/order', auth, [
             totalAmount,
             paymentMethod: paymentMethod || 'pending',
             specialInstructions,
-            estimatedPrepTime: Math.max(...orderItems.map(item => {
-                const prepTime = item.quantity * 10; // 10 minutes per item
-                return Math.min(prepTime, 60); // Max 60 minutes
-            }))
+            estimatedPrepTime: 15 // Default 15 minutes
         });
         
         await order.save();
@@ -198,7 +186,7 @@ router.post('/order', auth, [
         // Update table status
         table.status = 'occupied';
         table.currentOrder = order._id;
-        table.currentCustomer = req.userId.includes('@demo.com') ? null : req.userId;
+        table.currentCustomer = req.userId;
         table.customerName = customerName;
         table.occupiedAt = new Date();
         await table.save();
@@ -213,15 +201,6 @@ router.post('/order', auth, [
                 items: order.items,
                 customerName: order.customerName,
                 estimatedPrepTime: order.estimatedPrepTime,
-                timestamp: new Date().toISOString()
-            });
-            
-            io.to('role:admin').emit('order-placed', {
-                orderId: order._id,
-                orderNumber: order.orderNumber,
-                tableNumber: order.tableNumber,
-                totalAmount: order.totalAmount,
-                customerName: order.customerName,
                 timestamp: new Date().toISOString()
             });
         }
@@ -243,13 +222,69 @@ router.post('/order', auth, [
         
     } catch (error) {
         console.error('Place order error:', error);
+        console.error('Error stack:', error.stack);
         res.status(500).json({
             success: false,
-            message: 'Server error',
+            message: 'Server error while placing order',
             error: process.env.NODE_ENV === 'production' ? undefined : error.message
         });
     }
 });
+
+// Generate table buttons
+function generateTableButtons() {
+    const tableButtonsContainer = document.getElementById('tableButtons');
+    if (!tableButtonsContainer) return;
+    
+    tableButtonsContainer.innerHTML = '';
+    
+    // Show status indicators
+    const statusHtml = `
+        <div class="d-flex justify-content-center mb-3">
+            <div class="me-3">
+                <span class="badge bg-success me-1">●</span> Available
+            </div>
+            <div class="me-3">
+                <span class="badge bg-warning me-1">●</span> Occupied
+            </div>
+            <div>
+                <span class="badge bg-secondary me-1">●</span> Reserved
+            </div>
+        </div>
+    `;
+    tableButtonsContainer.innerHTML = statusHtml;
+    
+    // Sort tables numerically
+    const sortedTables = [...activeTables].sort((a, b) => a - b);
+    
+    sortedTables.forEach(tableNum => {
+        // Create button with status indicator
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = `btn btn-outline-primary table-btn ${tableNum === currentTable ? 'active' : ''}`;
+        button.textContent = tableNum;
+        button.onclick = () => selectTable(tableNum);
+        tableButtonsContainer.appendChild(button);
+    });
+    
+    // Add note
+    const note = document.createElement('div');
+    note.className = 'mt-3 text-muted small';
+    note.textContent = 'Click on your table number. You can order from occupied tables too.';
+    tableButtonsContainer.appendChild(note);
+    
+    // Update table input
+    const tableInput = document.getElementById('tableNumber');
+    if (tableInput) {
+        tableInput.value = currentTable;
+    }
+    
+    // Update cart table number
+    const cartTableNumber = document.getElementById('cartTableNumber');
+    if (cartTableNumber) {
+        cartTableNumber.textContent = currentTable;
+    }
+}
 
 // @route   GET /api/customer/orders
 // @desc    Get customer orders
@@ -683,17 +718,24 @@ router.get('/tables', auth, async (req, res) => {
     }
 });
 
+// @route   GET /api/customer/tables
+// @desc    Get available tables for customers
+// @access  Private (Customer)
 router.get('/tables', auth, async (req, res) => {
     try {
-        // Temporarily remove the filter for debugging
-        const tables = await Table.find({})  // Get ALL tables
-            .sort({ tableNumber: 1 })
-            .select('tableNumber capacity location section status isActive');
+        // Get all tables that are active and can accept orders
+        // 'occupied' tables can still accept orders (multiple orders per table)
+        const tables = await Table.find({ 
+            isActive: true
+        })
+        .sort({ tableNumber: 1 })
+        .select('tableNumber capacity location section status');
         
-        console.log('Tables found:', tables.length);
-        tables.forEach(table => {
-            console.log(`Table ${table.tableNumber}: status=${table.status}, active=${table.isActive}`);
-        });
+        console.log('Available tables for customer:', tables.map(t => ({
+            number: t.tableNumber,
+            status: t.status,
+            capacity: t.capacity
+        })));
         
         res.json({
             success: true,
@@ -702,10 +744,10 @@ router.get('/tables', auth, async (req, res) => {
         });
         
     } catch (error) {
-        console.error('Get tables error:', error);
+        console.error('Get customer tables error:', error);
         res.status(500).json({
             success: false,
-            message: 'Failed to load tables'
+            message: 'Server error'
         });
     }
 });
