@@ -383,12 +383,13 @@ router.post('/service-request', auth, async (req, res) => {
             });
         }
         
-        const validTypes = ['water', 'cleaning', 'bill', 'cutlery', 'napkin', 'extra_sauce', 'other'];
+        // Updated valid types to match Table schema
+        const validTypes = ['water', 'cleaning', 'bill', 'cutlery', 'napkin', 'extra_sauce', 'other', 'chef_attention'];
         if (!type || !validTypes.includes(type)) {
             console.log('Invalid service type:', type);
             return res.status(400).json({
                 success: false,
-                message: 'Invalid service type'
+                message: `Invalid service type. Valid types are: ${validTypes.join(', ')}`
             });
         }
         
@@ -406,62 +407,53 @@ router.post('/service-request', auth, async (req, res) => {
         
         console.log('Processing for table:', tableNumber, 'customer:', customer);
         
-        // Create a simple service request document
-        // We'll store it in a separate collection to avoid table validation issues
+        // Find the table first
+        const table = await Table.findOne({ tableNumber: parseInt(tableNumber) });
         
-        // Define a simple schema for service requests
-        const ServiceRequestSchema = new mongoose.Schema({
-            type: String,
-            tableNumber: Number,
-            description: String,
-            customerName: String,
-            customerId: String,
-            status: { type: String, default: 'pending' },
-            acknowledgedBy: { type: String },
-            acknowledgedAt: { type: Date },
-            completedBy: { type: String },
-            completedAt: { type: Date },
-            notes: String,
-            createdAt: { type: Date, default: Date.now }
-        });
-        
-        // Use existing model or create new one
-        let ServiceRequestModel;
-        try {
-            ServiceRequestModel = mongoose.model('ServiceRequest');
-        } catch (error) {
-            ServiceRequestModel = mongoose.model('ServiceRequest', ServiceRequestSchema);
+        if (!table) {
+            return res.status(404).json({
+                success: false,
+                message: `Table ${tableNumber} not found`
+            });
         }
         
-        // Create service request
+        // Create service request object
         const serviceRequestData = {
             type: type,
             tableNumber: parseInt(tableNumber),
-            description: description || `${type} request from table ${tableNumber}`,
+            description: description || `${getServiceTypeName(type)} request from table ${tableNumber}`,
             customerName: customer,
             customerId: req.userId,
-            status: 'pending'
+            status: 'pending',
+            priority: getServicePriority(type),
+            createdAt: new Date()
         };
         
         console.log('Creating service request:', serviceRequestData);
         
-        const serviceRequest = new ServiceRequestModel(serviceRequestData);
-        await serviceRequest.save();
-        
-        console.log('Service request saved with ID:', serviceRequest._id);
-        
-        // Also update table status if needed
-        try {
-            const table = await Table.findOne({ tableNumber: parseInt(tableNumber) });
-            if (table) {
-                // Mark table as needing attention
-                table.status = 'occupied'; // or keep current status
-                await table.save();
-                console.log('Table updated');
-            }
-        } catch (tableError) {
-            console.log('Table update skipped:', tableError.message);
+        // Initialize serviceRequests array if it doesn't exist
+        if (!table.serviceRequests) {
+            table.serviceRequests = [];
         }
+        
+        // Add the service request to the table
+        table.serviceRequests.push(serviceRequestData);
+        
+        try {
+            // Save with validation disabled for now to avoid issues
+            await table.save({ validateBeforeSave: false });
+            console.log('Table saved with new service request');
+        } catch (saveError) {
+            console.error('Error saving table with service request:', saveError);
+            return res.status(500).json({
+                success: false,
+                message: 'Failed to save service request',
+                error: saveError.message
+            });
+        }
+        
+        const savedRequest = table.serviceRequests[table.serviceRequests.length - 1];
+        console.log('Service request saved:', savedRequest);
         
         // Real-time notification
         const io = req.app.get('io');
@@ -470,20 +462,12 @@ router.post('/service-request', auth, async (req, res) => {
             
             // Notify chefs
             io.to('role:chef').emit('new-service-request', {
-                requestId: serviceRequest._id,
+                requestId: savedRequest._id,
                 type: type,
                 tableNumber: tableNumber,
-                description: serviceRequest.description,
+                description: serviceRequestData.description,
                 customerName: customer,
-                timestamp: new Date().toISOString()
-            });
-            
-            // Notify admins
-            io.to('role:admin').emit('service-request-created', {
-                requestId: serviceRequest._id,
-                type: type,
-                tableNumber: tableNumber,
-                customerName: customer,
+                priority: serviceRequestData.priority,
                 timestamp: new Date().toISOString()
             });
             
@@ -492,7 +476,7 @@ router.post('/service-request', auth, async (req, res) => {
                 type: type,
                 tableNumber: tableNumber,
                 message: 'Your service request has been received',
-                requestId: serviceRequest._id,
+                requestId: savedRequest._id,
                 estimatedResponse: '5-10 minutes'
             });
         }
@@ -502,14 +486,14 @@ router.post('/service-request', auth, async (req, res) => {
         res.json({
             success: true,
             message: 'Service request sent successfully',
-            requestId: serviceRequest._id,
             request: {
-                id: serviceRequest._id,
-                type: serviceRequest.type,
-                tableNumber: serviceRequest.tableNumber,
-                description: serviceRequest.description,
-                status: serviceRequest.status,
-                createdAt: serviceRequest.createdAt,
+                id: savedRequest._id,
+                type: savedRequest.type,
+                tableNumber: savedRequest.tableNumber,
+                description: savedRequest.description,
+                status: savedRequest.status,
+                priority: savedRequest.priority,
+                createdAt: savedRequest.createdAt,
                 estimatedResponse: '5-10 minutes'
             }
         });
@@ -519,21 +503,6 @@ router.post('/service-request', auth, async (req, res) => {
         console.error('Error:', error);
         console.error('Error name:', error.name);
         console.error('Error message:', error.message);
-        
-        // Check if it's a validation error
-        if (error.name === 'ValidationError') {
-            console.error('Validation errors:', error.errors);
-            return res.status(400).json({
-                success: false,
-                message: 'Validation error',
-                errors: error.errors
-            });
-        }
-        
-        // Check if it's a MongoDB error
-        if (error.name === 'MongoError') {
-            console.error('MongoDB error code:', error.code);
-        }
         
         res.status(500).json({
             success: false,

@@ -11,11 +11,9 @@ const TableSchema = new mongoose.Schema({
         required: true,
         min: [1, 'Capacity must be at least 1']
     },
-    // Make location more flexible
     location: {
         type: String,
-        // Temporarily remove enum validation
-        // default: 'indoor'
+        default: 'indoor'
     },
     section: String,
     status: {
@@ -38,7 +36,7 @@ const TableSchema = new mongoose.Schema({
     customerName: String,
     occupiedAt: Date,
     
-    // Service requests array
+    // Service requests array - FIXED ENUM VALUES
     serviceRequests: [{
         type: {
             type: String,
