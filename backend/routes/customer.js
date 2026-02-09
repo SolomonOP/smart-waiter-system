@@ -2,8 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { check, validationResult } = require('express-validator');
 const auth = require('../middleware/auth');
-const { Table, ServiceRequest } = require('../models');
-const { MenuItem, Order, Table, User } = require('../models');
+const { MenuItem, Order, Table, User, ServiceRequest } = require('../models');
 
 // @route   GET /api/customer/menu
 // @desc    Get available menu items
