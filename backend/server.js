@@ -290,61 +290,6 @@ app.get('/', (req, res) => {
   });
 });
 
-// In server.js or app.js
-app.post('/api/customer/service-request', auth, async (req, res) => {
-    try {
-        const { type, description, tableNumber, orderId } = req.body;
-        
-        // Find the table
-        const table = await Table.findOne({ tableNumber });
-        if (!table) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Table not found' 
-            });
-        }
-        
-        // Create service request
-        const serviceRequest = new ServiceRequest({
-            type,
-            table: table._id,
-            tableNumber,
-            customer: req.user.id,
-            customerName: req.user.firstName + ' ' + req.user.lastName,
-            order: orderId,
-            description,
-            status: 'pending'
-        });
-        
-        await serviceRequest.save();
-        
-        // Real-time notification to chefs
-        const io = req.app.get('io');
-        if (io) {
-            io.emit('new-service-request', {
-                requestId: serviceRequest._id,
-                type: serviceRequest.type,
-                tableNumber: serviceRequest.tableNumber,
-                customerName: serviceRequest.customerName,
-                description: serviceRequest.description,
-                timestamp: new Date().toISOString()
-            });
-        }
-        
-        res.json({
-            success: true,
-            message: 'Service request sent successfully',
-            request: serviceRequest
-        });
-        
-    } catch (error) {
-        console.error('Create service request error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Server error'
-        });
-    }
-});
 
 // Health check endpoint (for Render)
 app.get('/health', (req, res) => {
