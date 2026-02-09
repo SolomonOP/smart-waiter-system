@@ -814,22 +814,13 @@ router.post('/orders/new', auth, isChef, [
         console.log('Creating new order for table:', tableNumber);
         console.log('Items:', items);
         
-        // Check table
+        // Check table exists but don't check if it's occupied
         const table = await Table.findOne({ tableNumber, isActive: true });
         if (!table) {
             console.log('Table not found:', tableNumber);
             return res.status(400).json({
                 success: false,
                 message: 'Table not found or inactive'
-            });
-        }
-        
-        console.log('Table status:', table.status);
-        
-        if (table.status === 'occupied') {
-            return res.status(400).json({
-                success: false,
-                message: 'Table is currently occupied'
             });
         }
         
@@ -874,8 +865,8 @@ router.post('/orders/new', auth, isChef, [
             await menuItem.save();
         }
         
-        // Calculate estimated prep time (simplified)
-        const estimatedPrepTime = 15; // Default 15 minutes
+        // Calculate estimated prep time
+        const estimatedPrepTime = 15;
         
         // Get next order number
         const lastOrder = await Order.findOne().sort({ orderNumber: -1 });
@@ -883,8 +874,8 @@ router.post('/orders/new', auth, isChef, [
         
         // Calculate totals
         const subtotal = totalAmount;
-        const tax = subtotal * 0.1; // 10% tax
-        const serviceCharge = subtotal * 0.05; // 5% service charge
+        const tax = subtotal * 0.1;
+        const serviceCharge = subtotal * 0.05;
         const finalTotal = subtotal + tax + serviceCharge;
         
         // Create order
@@ -898,7 +889,8 @@ router.post('/orders/new', auth, isChef, [
             tax,
             serviceCharge,
             totalAmount: finalTotal,
-            paymentMethod: 'pending',
+            paymentMethod: 'pending', // Will be updated when marked as paid
+            paymentStatus: 'pending', // Will be updated when marked as paid
             specialInstructions: specialInstructions || '',
             estimatedPrepTime,
             status: 'pending',
@@ -911,13 +903,8 @@ router.post('/orders/new', auth, isChef, [
         await order.save();
         console.log('Order saved:', order._id);
         
-        // Update table status
-        table.status = 'occupied';
-        table.currentOrder = order._id;
-        table.customerName = customerName || 'Walk-in Customer';
-        table.occupiedAt = new Date();
-        await table.save();
-        console.log('Table updated');
+        // DO NOT update table status - tables are always available
+        // This allows multiple orders on the same table
         
         // Real-time notification
         const io = req.app.get('io');
@@ -1003,7 +990,7 @@ router.post('/orders/:id/finish', auth, isChef, async (req, res) => {
                 status: order.status,
                 chefName: order.chefName,
                 timestamp: new Date().toISOString(),
-                message: 'Order finished and ready for billing'
+                message: 'Order finished and ready for payment'
             });
             
             // Notify specific table
@@ -1016,7 +1003,7 @@ router.post('/orders/:id/finish', auth, isChef, async (req, res) => {
         
         res.json({
             success: true,
-            message: 'Order marked as finished. Ready for billing.',
+            message: 'Order marked as finished. Ready for payment.',
             order: {
                 id: order._id,
                 orderNumber: order.orderNumber,
@@ -1027,6 +1014,118 @@ router.post('/orders/:id/finish', auth, isChef, async (req, res) => {
         
     } catch (error) {
         console.error('❌ Finish order error:', error);
+        console.error('Error details:', error.message);
+        console.error('Error stack:', error.stack);
+        res.status(500).json({
+            success: false,
+            message: 'Server error: ' + error.message,
+            error: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
+    }
+});
+
+// @route   POST /api/chef/orders/:id/mark-paid
+// @desc    Mark order as paid and complete it
+// @access  Private (Chef)
+router.post('/orders/:id/mark-paid', auth, isChef, async (req, res) => {
+    try {
+        console.log(`💰 Marking order as paid: ${req.params.id}`);
+        
+        const order = await Order.findById(req.params.id)
+            .populate('customer', 'firstName lastName email');
+        
+        if (!order) {
+            console.log(`❌ Order not found: ${req.params.id}`);
+            return res.status(404).json({
+                success: false,
+                message: 'Order not found'
+            });
+        }
+        
+        console.log(`📊 Current order status: ${order.status}, required: finished`);
+        
+        if (order.status !== 'finished') {
+            return res.status(400).json({
+                success: false,
+                message: `Order cannot be marked as paid in ${order.status} status. Must be 'finished'.`
+            });
+        }
+        
+        // Create PDF bill
+        let pdfBuffer = null;
+        try {
+            pdfBuffer = await createPDFBill(order);
+        } catch (pdfError) {
+            console.warn('PDF generation failed, continuing:', pdfError.message);
+        }
+        
+        // Send email with bill if customer email exists
+        if (order.customer?.email && pdfBuffer) {
+            try {
+                await sendBillEmail(order, pdfBuffer);
+                console.log(`📧 Email sent to ${order.customer.email}`);
+            } catch (emailError) {
+                console.warn('Email sending failed, continuing:', emailError.message);
+            }
+        }
+        
+        // Update order to completed status
+        order.status = 'completed';
+        order.paymentMethod = 'cash'; // or req.body.paymentMethod if you want to specify
+        order.paymentStatus = 'paid';
+        order.completedAt = new Date();
+        order.servedAt = new Date();
+        order.paidAt = new Date();
+        await order.save();
+        
+        console.log(`✅ Order ${order.orderNumber} marked as paid and completed`);
+        
+        // DON'T update table status - keep it available for new orders
+        // This allows multiple orders on the same table
+        
+        // Real-time notification
+        const io = req.app.get('io');
+        if (io) {
+            // Notify customer
+            io.to(`table:${order.tableNumber}`).emit('order-completed', {
+                message: 'Thank you for dining with us! Your order has been paid.',
+                status: order.status,
+                orderId: order._id
+            });
+            
+            // Notify chefs to remove from their lists
+            io.emit('order-completed-by-chef', {
+                orderId: order._id,
+                orderNumber: order.orderNumber,
+                tableNumber: order.tableNumber,
+                status: order.status,
+                message: 'Order marked as paid and completed',
+                timestamp: new Date().toISOString()
+            });
+            
+            // Emit specific event to remove order from chefs' dashboards
+            io.emit('order-removed-from-dashboard', {
+                orderId: order._id,
+                orderNumber: order.orderNumber
+            });
+        }
+        
+        res.json({
+            success: true,
+            message: 'Order marked as paid and completed successfully.',
+            order: {
+                id: order._id,
+                orderNumber: order.orderNumber,
+                status: order.status,
+                paymentMethod: order.paymentMethod,
+                paymentStatus: order.paymentStatus,
+                completedAt: order.completedAt,
+                paidAt: order.paidAt
+            }
+        });
+        
+    } catch (error) {
+        console.error('❌ Mark as paid error:', error);
         console.error('Error details:', error.message);
         console.error('Error stack:', error.stack);
         res.status(500).json({
@@ -1053,57 +1152,30 @@ router.get('/dashboard-stats', auth, isChef, async (req, res) => {
             createdAt: { $gte: today, $lt: tomorrow }
         });
         
-        // Calculate stats - ADD FINISHED COUNT
+        // Calculate stats - Include finished count
         const stats = {
             pending: todayOrders.filter(o => o.status === 'pending' || o.status === 'confirmed').length,
             preparing: todayOrders.filter(o => o.status === 'preparing').length,
             ready: todayOrders.filter(o => o.status === 'ready').length,
-            finished: todayOrders.filter(o => o.status === 'finished').length, // ADD THIS LINE
+            finished: todayOrders.filter(o => o.status === 'finished').length,
             completed: todayOrders.filter(o => o.status === 'completed').length,
             totalToday: todayOrders.length
         };
         
-        // Get recent orders (last 5) - INCLUDE FINISHED STATUS
+        // Get recent orders (last 5) - Include all statuses
         const recentOrders = await Order.find({
-            status: { $in: ['pending', 'confirmed', 'preparing', 'ready', 'finished'] } // Added 'finished'
+            status: { $in: ['pending', 'confirmed', 'preparing', 'ready', 'finished'] }
         })
         .sort({ createdAt: -1 })
         .limit(5)
         .populate('items.menuItem', 'name')
         .populate('customer', 'firstName lastName email');
         
-        // Get service requests from orders
-        const ordersWithRequests = await Order.find({
-            'serviceRequests.status': 'pending',
-            'serviceRequests.type': { $in: ['chef_attention'] }
-        })
-        .sort({ createdAt: -1 })
-        .limit(5);
-        
-        // Extract service requests
-        const serviceRequests = [];
-        ordersWithRequests.forEach(order => {
-            order.serviceRequests.forEach(request => {
-                if (request.status === 'pending' && request.type === 'chef_attention') {
-                    serviceRequests.push({
-                        id: request._id,
-                        type: request.type,
-                        tableNumber: request.tableNumber,
-                        description: request.description,
-                        orderNumber: order.orderNumber,
-                        customerName: order.customerName,
-                        createdAt: request.createdAt,
-                        orderId: order._id
-                    });
-                }
-            });
-        });
-        
         res.json({
             success: true,
             stats,
             recentOrders,
-            serviceRequests
+            serviceRequests: [] // Add if you have service requests
         });
         
     } catch (error) {

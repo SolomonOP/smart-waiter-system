@@ -69,6 +69,9 @@ const OrderSchema = new mongoose.Schema({
         default: 0,
         min: [0, 'Service charge cannot be negative']
     },
+    finishedAt: {
+        type: Date
+    },
     discount: {
         type: Number,
         default: 0,
@@ -88,6 +91,9 @@ const OrderSchema = new mongoose.Schema({
         type: String,
         enum: ['pending', 'paid', 'failed', 'refunded'],
         default: 'pending'
+    },
+    paidAt: {
+        type: Date
     },
     paymentId: String,
     status: {

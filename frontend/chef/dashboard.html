@@ -861,8 +861,10 @@
     
     <!-- Finished Orders Tab -->
     <div class="tab-pane fade" id="finishedTab">
-        <div class="row" id="finishedOrdersList"></div>
+    <div class="row" id="finishedOrdersList">
+        <!-- Finished orders will appear here -->
     </div>
+</div>
     
     <!-- Completed Orders Tab -->
     <div class="tab-pane fade" id="completedTab">
@@ -1288,18 +1290,26 @@ socket.on('order-finished', async (data) => {
     await loadOrders();
 });
 
-socket.on('order-status-update', async (data) => {
-    Toast.show(`Order #${data.orderNumber} status updated to ${data.status}`, 'info');
+// Add these socket event handlers
+socket.on('order-removed-from-dashboard', async (data) => {
+    Toast.show(`Order #${data.orderNumber} removed from dashboard`, 'info');
     await loadDashboard();
     await loadOrders();
 });
 
-        // Listen for order ready broadcast (when order is completed by chef)
-        socket.on('order-ready-broadcast', async (data) => {
-            Toast.show(`Order #${data.orderNumber} from Table ${data.tableNumber} is ready for billing!`, 'warning');
-            await loadDashboard();
-            await loadOrders();
-        });
+// Update order status listener
+socket.on('order-status-update', async (data) => {
+    const statusMessages = {
+        'finished': `Order #${data.orderNumber} is ready for payment`,
+        'completed': `Order #${data.orderNumber} completed successfully`
+    };
+    
+    const message = statusMessages[data.status] || `Order #${data.orderNumber} status updated to ${data.status}`;
+    Toast.show(message, 'info');
+    
+    await loadDashboard();
+    await loadOrders();
+});
 
         // Listen for order completion by chef (to remove from list)
         socket.on('order-completed-by-chef', async (data) => {
@@ -1562,7 +1572,8 @@ socket.on('order-status-update', async (data) => {
             }
         }
 
-        function renderOrdersByStatus() {
+        // Update the renderOrdersByStatus function
+function renderOrdersByStatus() {
     const statusGroups = {
         'pending': document.getElementById('pendingOrdersList'),
         'preparing': document.getElementById('preparingOrdersList'),
@@ -1592,24 +1603,6 @@ socket.on('order-status-update', async (data) => {
         });
         return;
     }
-
-    // Group orders by status
-    const groupedOrders = {
-        'pending': [],
-        'preparing': [],
-        'ready': [],
-        'finished': [],
-        'completed': []
-    };
-
-    orders.forEach(order => {
-        const status = order.status || 'pending';
-        if (groupedOrders[status]) {
-            groupedOrders[status].push(order);
-        } else {
-            groupedOrders['pending'].push(order);
-        }
-    });
 
     // Render each group
     Object.keys(groupedOrders).forEach(status => {
@@ -1652,20 +1645,16 @@ socket.on('order-status-update', async (data) => {
                 `;
             } else if (order.status === 'ready') {
                 actionButtonHtml = `
-                    <div class="btn-group">
-                        <button class="btn btn-finish" onclick="finishOrder('${order._id}')">
-                            <i class="fas fa-flag-checkered me-1"></i>Finish
-                        </button>
-                        <button class="btn btn-download" onclick="downloadBill('${order._id}')">
-                            <i class="fas fa-download me-1"></i>Bill
-                        </button>
-                    </div>
+                    <button class="btn btn-finish" onclick="finishOrder('${order._id}')">
+                        <i class="fas fa-flag-checkered me-1"></i>Finish
+                    </button>
                 `;
             } else if (order.status === 'finished') {
+                // Changed from "Final Complete" to "Mark as Paid"
                 actionButtonHtml = `
                     <div class="btn-group">
-                        <button class="btn btn-complete-final" onclick="finalCompleteOrder('${order._id}')">
-                            <i class="fas fa-check-circle me-1"></i>Final Complete
+                        <button class="btn btn-success" onclick="markAsPaid('${order._id}')">
+                            <i class="fas fa-credit-card me-1"></i>Mark as Paid
                         </button>
                         <button class="btn btn-download" onclick="downloadBill('${order._id}')">
                             <i class="fas fa-download me-1"></i>Bill
@@ -1736,6 +1725,39 @@ socket.on('order-status-update', async (data) => {
         container.innerHTML = html;
     });
 }
+
+// Add new function to mark order as paid
+async function markAsPaid(orderId) {
+    try {
+        if (!confirm('Mark this order as paid? This will complete the order and remove it from the dashboard.')) {
+            return;
+        }
+        
+        Loading.show('Marking order as paid...');
+        
+        const response = await API.post(`/api/chef/orders/${orderId}/mark-paid`, {});
+        
+        if (response.success) {
+            Toast.show('Order marked as paid and completed!', 'success');
+            
+            // Update local orders array immediately
+            const orderIndex = orders.findIndex(o => o._id === orderId);
+            if (orderIndex !== -1) {
+                orders.splice(orderIndex, 1); // Remove from array
+            }
+            
+            await Promise.all([loadDashboard(), loadOrders()]);
+        }
+        
+        Loading.hide();
+        
+    } catch (error) {
+        Loading.hide();
+        ErrorHandler.handle(error, 'markAsPaid');
+    }
+}
+
+// Remove the old finalCompleteOrder function since we're replacing it
 
 // Add new function to finish ready orders
 async function finishOrder(orderId) {
