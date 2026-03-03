@@ -592,18 +592,44 @@ router.post('/orders/:id/final-complete', auth, isChef, async (req, res) => {
 // @access  Private (Chef)
 router.get('/service-requests', auth, isChef, async (req, res) => {
     try {
-        const serviceRequests = await ServiceRequest.find({
+        const ServiceRequest = require('../models/ServiceRequest');
+        
+        // Get pending requests
+        const pendingRequests = await ServiceRequest.find({
             status: 'pending'
         })
         .populate('table', 'tableNumber')
         .populate('customer', 'firstName lastName email')
-        .populate('order', 'orderNumber')
         .sort({ createdAt: -1 });
+        
+        // Get acknowledged requests (assigned to this chef)
+        const myRequests = await ServiceRequest.find({
+            status: 'acknowledged',
+            assignedTo: req.user.id
+        })
+        .populate('table', 'tableNumber')
+        .populate('customer', 'firstName lastName email')
+        .sort({ createdAt: -1 });
+        
+        // Get completed requests (last 20)
+        const completedRequests = await ServiceRequest.find({
+            status: 'completed'
+        })
+        .populate('table', 'tableNumber')
+        .populate('customer', 'firstName lastName email')
+        .sort({ createdAt: -1 })
+        .limit(20);
         
         res.json({
             success: true,
-            count: serviceRequests.length,
-            requests: serviceRequests
+            pending: pendingRequests,
+            myRequests: myRequests,
+            completed: completedRequests,
+            counts: {
+                pending: pendingRequests.length,
+                myRequests: myRequests.length,
+                completed: completedRequests.length
+            }
         });
         
     } catch (error) {
@@ -620,6 +646,8 @@ router.get('/service-requests', auth, isChef, async (req, res) => {
 // @access  Private (Chef)
 router.post('/service-requests/:id/accept', auth, isChef, async (req, res) => {
     try {
+        const ServiceRequest = require('../models/ServiceRequest');
+        
         const serviceRequest = await ServiceRequest.findById(req.params.id);
         
         if (!serviceRequest) {
@@ -636,17 +664,40 @@ router.post('/service-requests/:id/accept', auth, isChef, async (req, res) => {
             });
         }
         
-        serviceRequest.status = 'assigned';
+        serviceRequest.status = 'acknowledged';
         serviceRequest.assignedTo = req.user.id;
         serviceRequest.assignedToName = req.user.firstName + ' ' + req.user.lastName;
+        serviceRequest.acknowledgedAt = new Date();
         await serviceRequest.save();
         
+        // Also update in Table model if needed
+        await Table.updateOne(
+            { 'serviceRequests._id': serviceRequest._id },
+            { 
+                $set: { 
+                    'serviceRequests.$.status': 'acknowledged',
+                    'serviceRequests.$.assignedTo': req.user.id,
+                    'serviceRequests.$.assignedToName': serviceRequest.assignedToName,
+                    'serviceRequests.$.acknowledgedAt': new Date()
+                }
+            }
+        );
+        
+        // Real-time notification
         const io = req.app.get('io');
         if (io) {
-            io.to(`table:${serviceRequest.tableNumber}`).emit('service-request-accepted', {
+            io.to(`table:${serviceRequest.tableNumber}`).emit('service-request-acknowledged', {
                 message: `Chef ${serviceRequest.assignedToName} is handling your request`,
                 requestType: serviceRequest.type,
                 requestId: serviceRequest._id
+            });
+            
+            io.to('role:chef').emit('service-request-updated', {
+                requestId: serviceRequest._id,
+                tableNumber: serviceRequest.tableNumber,
+                status: 'acknowledged',
+                assignedTo: serviceRequest.assignedToName,
+                assignedAt: serviceRequest.acknowledgedAt
             });
         }
         
@@ -670,6 +721,8 @@ router.post('/service-requests/:id/accept', auth, isChef, async (req, res) => {
 // @access  Private (Chef)
 router.post('/service-requests/:id/complete', auth, isChef, async (req, res) => {
     try {
+        const ServiceRequest = require('../models/ServiceRequest');
+        
         const serviceRequest = await ServiceRequest.findById(req.params.id);
         
         if (!serviceRequest) {
@@ -679,23 +732,44 @@ router.post('/service-requests/:id/complete', auth, isChef, async (req, res) => 
             });
         }
         
-        if (serviceRequest.status !== 'assigned') {
+        if (serviceRequest.status !== 'acknowledged') {
             return res.status(400).json({
                 success: false,
-                message: 'Service request must be assigned first'
+                message: 'Service request must be accepted first'
             });
         }
         
         serviceRequest.status = 'completed';
         serviceRequest.completedAt = new Date();
+        serviceRequest.completionNotes = req.body.notes || '';
         await serviceRequest.save();
         
+        // Also update in Table model
+        await Table.updateOne(
+            { 'serviceRequests._id': serviceRequest._id },
+            { 
+                $set: { 
+                    'serviceRequests.$.status': 'completed',
+                    'serviceRequests.$.completedAt': new Date(),
+                    'serviceRequests.$.completionNotes': req.body.notes || ''
+                }
+            }
+        );
+        
+        // Real-time notification
         const io = req.app.get('io');
         if (io) {
             io.to(`table:${serviceRequest.tableNumber}`).emit('service-request-completed', {
                 message: 'Your service request has been completed',
                 requestType: serviceRequest.type,
                 requestId: serviceRequest._id
+            });
+            
+            io.to('role:chef').emit('service-request-removed', {
+                requestId: serviceRequest._id,
+                tableNumber: serviceRequest.tableNumber,
+                type: serviceRequest.type,
+                message: 'Service request completed'
             });
         }
         

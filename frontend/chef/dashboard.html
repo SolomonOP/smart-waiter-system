@@ -2547,22 +2547,24 @@ async function loadServiceRequests() {
         
         console.log('Fetching service requests...');
         
-        // Load pending requests
-        const response = await API.get(CONFIG.API_ENDPOINTS.SERVICE_REQUESTS);
+        const response = await API.get('/api/chef/service-requests');
         
         console.log('Service requests response:', response);
         
         if (response.success) {
-            // Store pending requests
-            pendingServiceRequests = response.serviceRequests || [];
+            // Store requests
+            pendingServiceRequests = response.pending || [];
+            myServiceRequests = response.myRequests || [];
+            completedServiceRequests = response.completed || [];
             
-            console.log(`Loaded ${pendingServiceRequests.length} pending requests`);
+            console.log(`Loaded ${pendingServiceRequests.length} pending, ${myServiceRequests.length} assigned, ${completedServiceRequests.length} completed`);
             
             // Update statistics
             updateServiceRequestStats();
             
             // Render requests
             renderPendingRequests();
+            renderMyRequests();
             renderAllRequests();
             
             // Update notification badges
@@ -2576,22 +2578,6 @@ async function loadServiceRequests() {
         console.error('Load service requests error:', error);
         
         Toast.show('Failed to load service requests: ' + error.message, 'error');
-        
-        // Show error in containers
-        const errorHtml = `
-            <div class="col-12">
-                <div class="alert alert-danger">
-                    <i class="fas fa-exclamation-circle me-2"></i>
-                    Failed to load service requests: ${error.message}
-                    <button class="btn btn-sm btn-outline-danger ms-2" onclick="loadServiceRequests()">
-                        <i class="fas fa-sync-alt me-1"></i>Retry
-                    </button>
-                </div>
-            </div>
-        `;
-        
-        document.getElementById('pendingRequestsList').innerHTML = errorHtml;
-        document.getElementById('allRequestsList').innerHTML = errorHtml;
     }
 }
 
@@ -2600,21 +2586,21 @@ function updateServiceRequestStats() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    // Count today's requests from pending
+    // Count today's requests
     const todayRequests = pendingServiceRequests.filter(request => 
         new Date(request.createdAt) >= today
     );
     
     // Update stats
     document.getElementById('pendingRequestsCount').textContent = pendingServiceRequests.length;
-    document.getElementById('myRequestsCount').textContent = 0; // Not implemented yet
-    document.getElementById('completedRequestsCount').textContent = 0; // Not implemented yet
+    document.getElementById('myRequestsCount').textContent = myServiceRequests.length;
+    document.getElementById('completedRequestsCount').textContent = completedServiceRequests.length;
     document.getElementById('todayRequestsCount').textContent = todayRequests.length;
     
     // Update tab badges
     document.getElementById('pendingTabBadge').textContent = pendingServiceRequests.length;
-    document.getElementById('myTabBadge').textContent = 0;
-    document.getElementById('allTabBadge').textContent = pendingServiceRequests.length;
+    document.getElementById('myTabBadge').textContent = myServiceRequests.length;
+    document.getElementById('allTabBadge').textContent = pendingServiceRequests.length + myServiceRequests.length + completedServiceRequests.length;
 }
 
 function renderPendingRequests() {
@@ -2674,8 +2660,8 @@ function renderPendingRequests() {
                         </div>
                         
                         <div class="d-grid gap-2">
-                            <button class="btn btn-primary" onclick="assignServiceRequest('${request._id}')">
-                                <i class="fas fa-user-check me-2"></i>Assign to Me
+                            <button class="btn btn-primary" onclick="acceptServiceRequest('${request._id}')">
+                                <i class="fas fa-user-check me-2"></i>Accept
                             </button>
                             <button class="btn btn-outline-secondary" onclick="viewServiceRequestDetails('${request._id}')">
                                 <i class="fas fa-info-circle me-2"></i>View Details
@@ -2693,17 +2679,13 @@ function renderPendingRequests() {
 function renderMyRequests() {
     const container = document.getElementById('myRequestsList');
     
-    const myAssignedRequests = myServiceRequests.filter(request => 
-        request.status === 'acknowledged'
-    );
-    
-    if (myAssignedRequests.length === 0) {
+    if (!myServiceRequests || myServiceRequests.length === 0) {
         container.innerHTML = `
             <div class="col-12">
                 <div class="no-requests">
                     <i class="fas fa-user-check"></i>
                     <h5>No assigned requests</h5>
-                    <p>Assign requests to yourself from the Pending tab</p>
+                    <p>Accept requests from the Pending tab</p>
                 </div>
             </div>
         `;
@@ -2711,7 +2693,7 @@ function renderMyRequests() {
     }
     
     let html = '';
-    myAssignedRequests.forEach(request => {
+    myServiceRequests.forEach(request => {
         const serviceIcon = getServiceIcon(request.type);
         const serviceName = getServiceName(request.type);
         
@@ -2728,7 +2710,7 @@ function renderMyRequests() {
                             <div class="flex-grow-1">
                                 <h6 class="mb-1">${serviceName}</h6>
                                 <small class="request-time">
-                                    Assigned ${FormatUtils.timeSince(request.acknowledgedAt)}
+                                    Accepted ${FormatUtils.timeSince(request.acknowledgedAt)}
                                 </small>
                             </div>
                         </div>
@@ -2744,12 +2726,12 @@ function renderMyRequests() {
                         </div>
                         
                         <div class="assigned-to mb-3">
-                            <i class="fas fa-user-tie me-1"></i>Assigned to: ${request.assignedToName || 'You'}
+                            <i class="fas fa-user-tie me-1"></i>Assigned to you
                         </div>
                         
                         <div class="d-grid gap-2">
                             <button class="btn btn-success" onclick="completeServiceRequest('${request._id}')">
-                                <i class="fas fa-check-circle me-2"></i>Mark as Complete
+                                <i class="fas fa-check-circle me-2"></i>Mark Complete
                             </button>
                             <button class="btn btn-outline-secondary" onclick="viewServiceRequestDetails('${request._id}')">
                                 <i class="fas fa-info-circle me-2"></i>View Details
@@ -2767,7 +2749,9 @@ function renderMyRequests() {
 function renderAllRequests() {
     const container = document.getElementById('allRequestsList');
     
-    if (pendingServiceRequests.length === 0) {
+    const allRequests = [...pendingServiceRequests, ...myServiceRequests, ...completedServiceRequests];
+    
+    if (allRequests.length === 0) {
         container.innerHTML = `
             <div class="col-12">
                 <div class="no-requests">
@@ -2781,15 +2765,14 @@ function renderAllRequests() {
     }
     
     let html = '';
-    pendingServiceRequests.forEach(request => {
-        const statusClass = `service-request-${request.status}`;
+    allRequests.slice(0, 20).forEach(request => { // Show only latest 20
         const statusColor = getStatusColor(request.status);
         const serviceIcon = getServiceIcon(request.type);
         const serviceName = getServiceName(request.type);
         
         html += `
             <div class="col-md-6 col-lg-4 mb-4">
-                <div class="card service-request-card ${statusClass} h-100">
+                <div class="card service-request-card h-100">
                     <div class="card-body">
                         <div class="d-flex align-items-start mb-3">
                             <div class="me-3">
@@ -2818,6 +2801,18 @@ function renderAllRequests() {
                                 <i class="fas fa-chair me-1"></i>Table ${request.tableNumber}
                             </p>
                             <p class="small mb-2">${request.description || 'No description'}</p>
+                            
+                            ${request.assignedToName ? `
+                                <p class="small mb-1">
+                                    <i class="fas fa-user-tie me-1"></i>Assigned to: ${request.assignedToName}
+                                </p>
+                            ` : ''}
+                            
+                            ${request.completedAt ? `
+                                <p class="small mb-0">
+                                    <i class="fas fa-check-circle me-1"></i>Completed: ${FormatUtils.formatDateTime(request.completedAt)}
+                                </p>
+                            ` : ''}
                         </div>
                         
                         <div class="d-grid">
@@ -2872,30 +2867,47 @@ async function assignServiceRequest(requestId) {
     }
 }
 
+// Update function names to match
+async function acceptServiceRequest(requestId) {
+    try {
+        if (!confirm('Accept this service request?')) {
+            return;
+        }
+        
+        Loading.show('Accepting request...');
+        
+        const response = await API.post(`/api/chef/service-requests/${requestId}/accept`, {});
+        
+        if (response.success) {
+            Toast.show('Service request accepted!', 'success');
+            playAssignmentSound();
+            await loadServiceRequests();
+        }
+        
+        Loading.hide();
+        
+    } catch (error) {
+        Loading.hide();
+        console.error('Accept service request error:', error);
+        Toast.show(`Failed to accept request: ${error.message}`, 'error');
+    }
+}
+
 async function completeServiceRequest(requestId) {
     try {
         const notes = prompt('Add completion notes (optional):');
         
-        if (notes === null) {
-            return; // User cancelled
-        }
+        if (notes === null) return;
         
         Loading.show('Completing request...');
         
-        const response = await API.put(
-            CONFIG.API_ENDPOINTS.COMPLETE_REQUEST.replace(':id', requestId),
-            {
-                notes: notes || ''
-            }
-        );
+        const response = await API.post(`/api/chef/service-requests/${requestId}/complete`, {
+            notes: notes || ''
+        });
         
         if (response.success) {
-            Toast.show('Service request completed successfully!', 'success');
-            
-            // Play sound
+            Toast.show('Service request completed!', 'success');
             playCompletionSound();
-            
-            // Reload requests
             await loadServiceRequests();
         }
         

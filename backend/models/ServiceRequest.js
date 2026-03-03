@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const serviceRequestSchema = new mongoose.Schema({
     type: {
         type: String,
-        enum: ['water', 'chef_attention', 'item_modification', 'special_request', 'cleaning', 'bill'],
+        enum: ['water', 'cleaning', 'bill', 'cutlery', 'napkin', 'extra_sauce', 'other', 'chef_attention'],
         required: true
     },
     table: {
@@ -33,8 +33,13 @@ const serviceRequestSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['pending', 'assigned', 'completed'],
+        enum: ['pending', 'acknowledged', 'completed', 'cancelled'],
         default: 'pending'
+    },
+    priority: {
+        type: String,
+        enum: ['urgent', 'high', 'normal', 'low'],
+        default: 'normal'
     },
     assignedTo: {
         type: mongoose.Schema.Types.ObjectId,
@@ -43,13 +48,38 @@ const serviceRequestSchema = new mongoose.Schema({
     assignedToName: {
         type: String
     },
+    notes: {
+        type: String
+    },
+    completionNotes: {
+        type: String
+    },
+    acknowledgedAt: {
+        type: Date
+    },
     completedAt: {
         type: Date
     },
     createdAt: {
         type: Date,
         default: Date.now
+    },
+    updatedAt: {
+        type: Date,
+        default: Date.now
     }
 });
+
+// Update timestamp before saving
+serviceRequestSchema.pre('save', function(next) {
+    this.updatedAt = Date.now();
+    next();
+});
+
+// Indexes
+serviceRequestSchema.index({ status: 1 });
+serviceRequestSchema.index({ tableNumber: 1 });
+serviceRequestSchema.index({ customer: 1 });
+serviceRequestSchema.index({ createdAt: -1 });
 
 module.exports = mongoose.model('ServiceRequest', serviceRequestSchema);

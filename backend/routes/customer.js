@@ -354,53 +354,70 @@ router.post('/service-request', auth, async (req, res) => {
             });
         }
         
+        // Get customer info
         let customer = customerName;
         if (!customer) {
             const user = await User.findById(req.userId);
             customer = user ? user.firstName + ' ' + user.lastName : 'Customer';
         }
         
+        // Find or create the table (for reference only)
         let table = await Table.findOne({ tableNumber: parseInt(tableNumber) });
         
         if (!table) {
             table = new Table({
                 tableNumber: parseInt(tableNumber),
                 status: 'occupied',
-                isActive: true,
-                serviceRequests: []
+                isActive: true
             });
+            await table.save();
         }
         
-        if (!table.serviceRequests) {
-            table.serviceRequests = [];
-        }
+        // Create service request in the dedicated collection
+        const ServiceRequest = require('../models/ServiceRequest');
+        const serviceRequest = new ServiceRequest({
+            type: type,
+            table: table._id,
+            tableNumber: parseInt(tableNumber),
+            customer: req.userId,
+            customerName: customer,
+            description: description || `${getServiceTypeName(type)} request from table ${tableNumber}`,
+            status: 'pending',
+            createdAt: new Date()
+        });
         
-        const serviceRequestData = {
+        await serviceRequest.save();
+        
+        // Also add to table's service requests array for backward compatibility
+        table.serviceRequests.push({
             type: type,
             description: description || `${getServiceTypeName(type)} request from table ${tableNumber}`,
             customerName: customer,
             customerId: req.userId,
             status: 'pending',
             priority: getServicePriority(type),
-            createdAt: new Date(),
-            updatedAt: new Date()
-        };
+            createdAt: new Date()
+        });
+        await table.save();
         
-        table.serviceRequests.push(serviceRequestData);
-        await table.save({ validateBeforeSave: false });
-        
-        const savedRequest = table.serviceRequests[table.serviceRequests.length - 1];
-        
+        // Real-time notification
         const io = req.app.get('io');
         if (io) {
             io.to('role:chef').emit('new-service-request', {
-                requestId: savedRequest._id,
+                requestId: serviceRequest._id,
                 type: type,
                 tableNumber: tableNumber,
-                description: serviceRequestData.description,
+                description: serviceRequest.description,
                 customerName: customer,
-                priority: serviceRequestData.priority,
+                priority: getServicePriority(type),
                 timestamp: new Date().toISOString()
+            });
+            
+            io.to(`table:${tableNumber}`).emit('service-request-confirmation', {
+                type: type,
+                tableNumber: tableNumber,
+                message: 'Your service request has been received',
+                requestId: serviceRequest._id
             });
         }
         
@@ -408,13 +425,12 @@ router.post('/service-request', auth, async (req, res) => {
             success: true,
             message: 'Service request sent successfully',
             request: {
-                id: savedRequest._id,
-                type: savedRequest.type,
-                tableNumber: savedRequest.tableNumber,
-                description: savedRequest.description,
-                status: savedRequest.status,
-                priority: savedRequest.priority,
-                createdAt: savedRequest.createdAt
+                id: serviceRequest._id,
+                type: serviceRequest.type,
+                tableNumber: serviceRequest.tableNumber,
+                description: serviceRequest.description,
+                status: serviceRequest.status,
+                createdAt: serviceRequest.createdAt
             }
         });
         
@@ -433,37 +449,31 @@ router.post('/service-request', auth, async (req, res) => {
 // @access  Private
 router.get('/service-requests', auth, async (req, res) => {
     try {
-        const tables = await Table.find({
-            'serviceRequests.customerId': req.userId
-        }).select('tableNumber serviceRequests');
+        const ServiceRequest = require('../models/ServiceRequest');
         
-        const customerRequests = [];
-        tables.forEach(table => {
-            table.serviceRequests.forEach(request => {
-                if (request.customerId && request.customerId.toString() === req.userId) {
-                    customerRequests.push({
-                        _id: request._id,
-                        type: request.type,
-                        tableNumber: table.tableNumber,
-                        description: request.description,
-                        status: request.status,
-                        priority: request.priority,
-                        createdAt: request.createdAt,
-                        updatedAt: request.updatedAt,
-                        assignedTo: request.assignedTo,
-                        assignedToName: request.assignedToName,
-                        completedAt: request.completedAt
-                    });
-                }
-            });
-        });
+        const requests = await ServiceRequest.find({ 
+            customer: req.userId 
+        })
+        .populate('table', 'tableNumber')
+        .sort({ createdAt: -1 });
         
-        customerRequests.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        const formattedRequests = requests.map(request => ({
+            _id: request._id,
+            type: request.type,
+            tableNumber: request.tableNumber,
+            description: request.description,
+            status: request.status,
+            createdAt: request.createdAt,
+            updatedAt: request.updatedAt,
+            assignedTo: request.assignedTo,
+            assignedToName: request.assignedToName,
+            completedAt: request.completedAt
+        }));
         
         res.json({
             success: true,
-            count: customerRequests.length,
-            requests: customerRequests
+            count: formattedRequests.length,
+            requests: formattedRequests
         });
         
     } catch (error) {
@@ -475,7 +485,7 @@ router.get('/service-requests', auth, async (req, res) => {
     }
 });
 
-// Helper functions
+// Helper functions (add these at the bottom of the file)
 function getServiceTypeName(type) {
     const typeNames = {
         'water': 'Water Refill',
