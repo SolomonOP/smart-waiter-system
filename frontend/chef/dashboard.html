@@ -2549,7 +2549,7 @@ async function updateMenuItemStatus(itemId, isAvailable) {
             }
         }
 
-        // Replace your loadServiceRequests function
+        // Update your loadServiceRequests function
 async function loadServiceRequests() {
     try {
         Loading.show();
@@ -2561,20 +2561,18 @@ async function loadServiceRequests() {
         console.log('Service requests response:', response);
         
         if (response.success) {
-            // Store pending requests (status = pending)
+            // Store pending requests
             pendingServiceRequests = response.pending || [];
             
-            // Store my acknowledged requests (status = acknowledged, assigned to current chef)
-            // These are the ones that should show with "Mark Complete" button
+            // Store my acknowledged requests
             myServiceRequests = (response.myRequests || []).filter(req => 
-                req.status === 'acknowledged' && 
-                req.assignedTo === user?.id
+                req.status === 'acknowledged'
             );
             
-            // Store completed requests (for history, but won't be shown in main tabs)
+            // Store completed requests
             completedServiceRequests = response.completed || [];
             
-            // Update allServiceRequests for reference
+            // Update allServiceRequests
             allServiceRequests = [
                 ...pendingServiceRequests,
                 ...myServiceRequests,
@@ -2593,6 +2591,11 @@ async function loadServiceRequests() {
             
             // Update notification badges
             updateNotificationBadges();
+            
+            // Update dashboard if visible
+            if (document.getElementById('dashboardSection').style.display === 'block') {
+                updateRecentServiceRequests([]);
+            }
         }
         
         Loading.hide();
@@ -2858,7 +2861,7 @@ function renderAllRequests() {
     container.innerHTML = html;
 }
 
-// In chef/dashboard.html, update the assignServiceRequest function
+// Replace your assignServiceRequest function
 async function assignServiceRequest(requestId) {
     try {
         if (!confirm('Assign this service request to yourself?')) {
@@ -2869,9 +2872,8 @@ async function assignServiceRequest(requestId) {
         
         console.log('Assigning request:', requestId);
         
-        // FIXED: Use the corrected endpoint
         const response = await API.put(
-            `/api/service-requests/${requestId}/acknowledge`,  // Direct URL instead of using CONFIG
+            `/api/service-requests/${requestId}/acknowledge`,
             {
                 notes: `Assigned to ${user?.firstName || 'Chef'} ${user?.lastName || ''}`
             }
@@ -2882,10 +2884,49 @@ async function assignServiceRequest(requestId) {
         if (response.success) {
             Toast.show('Service request assigned to you!', 'success');
             
+            // Instead of reloading all requests, update the local arrays manually
+            // Find the request in pending and move it to myRequests
+            const acceptedRequest = pendingServiceRequests.find(req => req._id === requestId);
             
+            if (acceptedRequest) {
+                // Remove from pending
+                pendingServiceRequests = pendingServiceRequests.filter(req => req._id !== requestId);
+                
+                // Add to myRequests with updated status
+                const updatedRequest = {
+                    ...acceptedRequest,
+                    status: 'acknowledged',
+                    acknowledgedAt: new Date().toISOString(),
+                    assignedTo: user?.id,
+                    assignedToName: `${user?.firstName || 'Chef'} ${user?.lastName || ''}`
+                };
+                
+                myServiceRequests.push(updatedRequest);
+                
+                // Update allServiceRequests
+                allServiceRequests = [
+                    ...pendingServiceRequests,
+                    ...myServiceRequests,
+                    ...completedServiceRequests
+                ];
+                
+                // Update UI immediately
+                renderPendingRequests();
+                renderMyRequests();
+                renderAllRequests();
+                updateServiceRequestStats();
+                updateNotificationBadges();
+                
+                // Also update dashboard if visible
+                if (document.getElementById('dashboardSection').style.display === 'block') {
+                    updateRecentServiceRequests([]); // This will use the updated arrays
+                }
+            }
             
-            // Reload requests
-            await loadServiceRequests();
+            // Still reload from server to ensure sync (but don't show loading)
+            setTimeout(() => {
+                loadServiceRequests();
+            }, 1000);
         }
         
         Loading.hide();
@@ -2893,7 +2934,16 @@ async function assignServiceRequest(requestId) {
     } catch (error) {
         Loading.hide();
         console.error('Assign service request error:', error);
-        Toast.show(`Failed to assign request: ${error.message}`, 'error');
+        
+        // Show more specific error message
+        if (error.message.includes('400')) {
+            Toast.show('This request may have already been accepted by another chef', 'warning');
+        } else {
+            Toast.show(`Failed to assign request: ${error.message}`, 'error');
+        }
+        
+        // Reload to get fresh state
+        loadServiceRequests();
     }
 }
 
