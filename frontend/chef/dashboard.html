@@ -2826,7 +2826,7 @@ async function assignServiceRequest(requestId) {
 }
 
 
-// In chef/dashboard.html, update the completeServiceRequest function
+// Update the completeServiceRequest function (around line 2870)
 async function completeServiceRequest(requestId) {
     try {
         const notes = prompt('Add completion notes (optional):');
@@ -2837,9 +2837,10 @@ async function completeServiceRequest(requestId) {
         
         Loading.show('Completing request...');
         
-        // FIXED: Use the correct endpoint
+        console.log('Completing request:', requestId);
+        
         const response = await API.put(
-            `/api/service-requests/${requestId}/complete`,  // Direct URL
+            `/api/service-requests/${requestId}/complete`,
             {
                 notes: notes || ''
             }
@@ -2850,10 +2851,16 @@ async function completeServiceRequest(requestId) {
         if (response.success) {
             Toast.show('Service request completed successfully!', 'success');
             
-
+            // Play completion sound if you want
+            // playCompletionSound();
             
-            // Reload requests
+            // Reload requests to update UI
             await loadServiceRequests();
+            
+            // Also reload dashboard to update badge counts
+            if (document.getElementById('dashboardSection').style.display === 'block') {
+                await loadDashboard();
+            }
         }
         
         Loading.hide();

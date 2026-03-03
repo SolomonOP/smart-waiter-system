@@ -1864,13 +1864,18 @@ socket.on('service-request-completed', (data) => {
     }
 }
         
-        function displayServiceRequests(requests) {
+        // In customer dashboard, update the displayServiceRequests function
+function displayServiceRequests(requests) {
     const container = document.getElementById('serviceRequests');
     if (!container) return;
     
     container.innerHTML = '';
     
-    if (requests.length === 0) {
+    // Separate active and completed requests
+    const activeRequests = requests.filter(req => req.status !== 'completed');
+    const completedRequests = requests.filter(req => req.status === 'completed');
+    
+    if (activeRequests.length === 0 && completedRequests.length === 0) {
         container.innerHTML = `
             <div class="col-12 text-center text-muted py-4">
                 <p>No service requests yet. Use the buttons above to request services.</p>
@@ -1879,41 +1884,62 @@ socket.on('service-request-completed', (data) => {
         return;
     }
     
-    // Sort by creation time (newest first)
-    requests.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    // Show active requests first
+    if (activeRequests.length > 0) {
+        container.innerHTML += '<h6 class="mb-3">Active Requests</h6>';
+        activeRequests.forEach(request => {
+            container.innerHTML += createRequestCard(request, false);
+        });
+    }
     
-    requests.forEach(request => {
-        const statusClass = `service-status-${request.status}`;
-        const statusIcon = getServiceStatusIcon(request.status);
-        const statusColor = getServiceStatusColor(request.status);
-        
-        const requestCard = `
-            <div class="col-md-6 mb-3">
-                <div class="order-status service-request-item ${statusClass}">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <h6 class="mb-0">${getServiceName(request.type)}</h6>
-                        <small class="text-muted">
-                            ${request.createdAt ? new Date(request.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'N/A'}
-                        </small>
-                    </div>
-                    <p class="mb-1"><i class="fas fa-chair me-2"></i>Table: ${request.tableNumber}</p>
-                    <p class="mb-1"><i class="fas fa-info-circle me-2"></i>${request.description || 'No description'}</p>
-                    ${request.assignedToName ? `
-                        <p class="mb-1"><i class="fas fa-user-tie me-2"></i>Assigned to: ${request.assignedToName}</p>
-                    ` : ''}
-                    ${request.completedAt ? `
-                        <p class="mb-1"><i class="fas fa-check-circle me-2"></i>Completed: ${new Date(request.completedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
-                    ` : ''}
-                    <div class="mt-3">
-                        <span class="badge bg-${statusColor}">
-                            <i class="${statusIcon} me-1"></i>${request.status?.toUpperCase() || 'PENDING'}
-                        </span>
+    // Show completed requests in a collapsible section
+    if (completedRequests.length > 0) {
+        container.innerHTML += `
+            <div class="mt-4">
+                <h6 class="mb-3">
+                    <button class="btn btn-link p-0" type="button" data-bs-toggle="collapse" data-bs-target="#completedRequests">
+                        <i class="fas fa-chevron-down me-1"></i> Completed Requests (${completedRequests.length})
+                    </button>
+                </h6>
+                <div class="collapse" id="completedRequests">
+                    <div class="row">
+                        ${completedRequests.map(request => createRequestCard(request, true)).join('')}
                     </div>
                 </div>
             </div>
         `;
-        container.innerHTML += requestCard;
-    });
+    }
+}
+
+function createRequestCard(request, isCompleted) {
+    const statusColor = isCompleted ? 'secondary' : getServiceStatusColor(request.status);
+    const statusIcon = isCompleted ? 'fas fa-check-circle' : getServiceStatusIcon(request.status);
+    
+    return `
+        <div class="col-md-6 mb-3">
+            <div class="order-status service-request-item ${isCompleted ? 'bg-light' : ''}">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <h6 class="mb-0">${getServiceName(request.type)}</h6>
+                    <small class="text-muted">
+                        ${request.createdAt ? new Date(request.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'N/A'}
+                    </small>
+                </div>
+                <p class="mb-1"><i class="fas fa-chair me-2"></i>Table: ${request.tableNumber}</p>
+                <p class="mb-1"><i class="fas fa-info-circle me-2"></i>${request.description || 'No description'}</p>
+                ${request.assignedToName ? `
+                    <p class="mb-1"><i class="fas fa-user-tie me-2"></i>Assigned to: ${request.assignedToName}</p>
+                ` : ''}
+                ${request.completedAt ? `
+                    <p class="mb-1"><i class="fas fa-check-circle me-2"></i>Completed: ${new Date(request.completedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                ` : ''}
+                <div class="mt-3">
+                    <span class="badge bg-${statusColor}">
+                        <i class="${statusIcon} me-1"></i>${request.status?.toUpperCase() || 'PENDING'}
+                    </span>
+                </div>
+            </div>
+        </div>
+    `;
 }
         
         function getServiceStatusIcon(status) {

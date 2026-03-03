@@ -173,6 +173,7 @@ router.put('/:requestId/acknowledge', auth, async (req, res) => {
     }
 });
 
+// In backend/routes/service-requests.js
 // @route   PUT /api/service-requests/:requestId/complete
 // @desc    Complete a service request
 // @access  Private (Chef/Admin)
@@ -191,6 +192,7 @@ router.put('/:requestId/complete', auth, async (req, res) => {
         console.log(`Completing service request ${requestId} by user ${req.userId}`);
         
         // Find the service request in the dedicated collection
+        const ServiceRequest = require('../models/ServiceRequest');
         const serviceRequest = await ServiceRequest.findById(requestId);
         
         if (!serviceRequest) {
@@ -214,7 +216,8 @@ router.put('/:requestId/complete', auth, async (req, res) => {
         serviceRequest.completionNotes = notes || '';
         await serviceRequest.save();
         
-        // Also update in Table model
+        // Also update in Table model for backward compatibility
+        const Table = require('../models/Table');
         await Table.updateOne(
             { 'serviceRequests._id': requestId },
             { 
@@ -229,16 +232,17 @@ router.put('/:requestId/complete', auth, async (req, res) => {
         // Real-time notification
         const io = req.app.get('io');
         if (io) {
+            // Notify the specific table that request is completed
             io.to(`table:${serviceRequest.tableNumber}`).emit('service-request-completed', {
                 requestId: requestId,
                 type: serviceRequest.type,
                 tableNumber: serviceRequest.tableNumber,
                 message: `Your ${getServiceTypeName(serviceRequest.type)} request has been completed`,
                 status: 'completed',
-                completedAt: serviceRequest.completedAt,
-                timestamp: new Date().toISOString()
+                completedAt: serviceRequest.completedAt
             });
             
+            // Notify all chefs to remove from their lists
             io.to('role:chef').emit('service-request-removed', {
                 requestId: requestId,
                 tableNumber: serviceRequest.tableNumber,
