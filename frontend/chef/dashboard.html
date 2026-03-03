@@ -2496,7 +2496,7 @@ async function updateMenuItemStatus(itemId, isAvailable) {
             }
         }
 
-        // In chef/dashboard.html, replace the loadServiceRequests function
+        // Update the loadServiceRequests function (around line 2500)
 async function loadServiceRequests() {
     try {
         Loading.show();
@@ -2508,10 +2508,23 @@ async function loadServiceRequests() {
         console.log('Service requests response:', response);
         
         if (response.success) {
-            // Store requests
+            // Store requests - COMPLETED should NOT be in myServiceRequests
             pendingServiceRequests = response.pending || [];
-            myServiceRequests = response.myRequests || [];
+            
+            // Only show acknowledged requests that are NOT completed
+            myServiceRequests = (response.myRequests || []).filter(req => 
+                req.status === 'acknowledged' && !req.completedAt
+            );
+            
+            // Store completed separately (for history)
             completedServiceRequests = response.completed || [];
+            
+            // Update allServiceRequests for reference
+            allServiceRequests = [
+                ...pendingServiceRequests,
+                ...myServiceRequests,
+                ...completedServiceRequests
+            ];
             
             console.log(`Loaded ${pendingServiceRequests.length} pending, ${myServiceRequests.length} assigned, ${completedServiceRequests.length} completed`);
             
@@ -2636,7 +2649,12 @@ function renderPendingRequests() {
 function renderMyRequests() {
     const container = document.getElementById('myRequestsList');
     
-    if (!myServiceRequests || myServiceRequests.length === 0) {
+    // Filter to ensure only acknowledged (not completed) requests show
+    const activeAssignedRequests = myServiceRequests.filter(req => 
+        req.status === 'acknowledged' && !req.completedAt
+    );
+    
+    if (activeAssignedRequests.length === 0) {
         container.innerHTML = `
             <div class="col-12">
                 <div class="no-requests">
@@ -2650,7 +2668,7 @@ function renderMyRequests() {
     }
     
     let html = '';
-    myServiceRequests.forEach(request => {
+    activeAssignedRequests.forEach(request => {
         const serviceIcon = getServiceIcon(request.type);
         const serviceName = getServiceName(request.type);
         
@@ -2837,7 +2855,7 @@ async function completeServiceRequest(requestId) {
         
         Loading.show('Completing request...');
         
-        console.log('Completing request:', requestId);
+        console.log('Comly completing request:', requestId);
         
         const response = await API.put(
             `/api/service-requests/${requestId}/complete`,
@@ -2851,15 +2869,33 @@ async function completeServiceRequest(requestId) {
         if (response.success) {
             Toast.show('Service request completed successfully!', 'success');
             
-            // Play completion sound if you want
-            // playCompletionSound();
+            // Remove the completed request from local arrays immediately
+            // This gives instant UI feedback before reloading
+            const requestIndex = myServiceRequests.findIndex(req => req._id === requestId);
+            if (requestIndex !== -1) {
+                myServiceRequests.splice(requestIndex, 1);
+            }
             
-            // Reload requests to update UI
-            await loadServiceRequests();
+            // Also remove from allServiceRequests if it exists there
+            const allIndex = allServiceRequests.findIndex(req => req._id === requestId);
+            if (allIndex !== -1) {
+                allServiceRequests.splice(allIndex, 1);
+            }
+            
+            // Update UI immediately
+            renderMyRequests();
+            renderAllRequests();
+            updateServiceRequestStats();
+            updateNotificationBadges();
+            
+            // Then reload from server to ensure sync
+            setTimeout(() => {
+                loadServiceRequests();
+            }, 500);
             
             // Also reload dashboard to update badge counts
             if (document.getElementById('dashboardSection').style.display === 'block') {
-                await loadDashboard();
+                loadDashboard();
             }
         }
         
@@ -2982,16 +3018,13 @@ function filterServiceRequests(filterType) {
     } else if (filterType === 'acknowledged') {
         document.querySelector('#serviceRequestsTab a[href="#myRequestsTab"]').click();
     } else if (filterType === 'completed') {
-        // For completed, we need to filter the all requests tab
         document.querySelector('#serviceRequestsTab a[href="#allRequestsTab"]').click();
         
-        // Filter completed requests in the all requests list
-        const completedRequests = allServiceRequests.filter(request => 
-            request.status === 'completed'
-        );
+        // Show only completed requests in all requests tab
+        const container = document.getElementById('allRequestsList');
         
-        if (completedRequests.length === 0) {
-            document.getElementById('allRequestsList').innerHTML = `
+        if (completedServiceRequests.length === 0) {
+            container.innerHTML = `
                 <div class="col-12">
                     <div class="no-requests">
                         <i class="fas fa-check-circle"></i>
@@ -3001,11 +3034,8 @@ function filterServiceRequests(filterType) {
                 </div>
             `;
         } else {
-            // Re-render with only completed requests
-            const container = document.getElementById('allRequestsList');
             let html = '';
-            
-            completedRequests.forEach(request => {
+            completedServiceRequests.forEach(request => {
                 const serviceIcon = getServiceIcon(request.type);
                 const serviceName = getServiceName(request.type);
                 
@@ -3041,6 +3071,12 @@ function filterServiceRequests(filterType) {
                                             <i class="fas fa-user-tie me-1"></i>Completed by: ${request.assignedToName}
                                         </p>
                                     ` : ''}
+                                </div>
+                                
+                                <div class="d-grid">
+                                    <button class="btn btn-outline-secondary" onclick="viewServiceRequestDetails('${request._id}')">
+                                        <i class="fas fa-info-circle me-2"></i>View Details
+                                    </button>
                                 </div>
                             </div>
                         </div>
