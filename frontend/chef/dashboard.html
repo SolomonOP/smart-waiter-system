@@ -2616,7 +2616,8 @@ function renderPendingRequests() {
                         </div>
                         
                         <div class="d-grid gap-2">
-                            <button class="btn btn-primary" onclick="acceptServiceRequest('${request._id}')">
+                            <button class="btn btn-primary" onclick="assignServiceRequest('${request._id}')">
+
                                 <i class="fas fa-user-check me-2"></i>Accept
                             </button>
                             <button class="btn btn-outline-secondary" onclick="viewServiceRequestDetails('${request._id}')">
@@ -2824,31 +2825,6 @@ async function assignServiceRequest(requestId) {
     }
 }
 
-// Update function names to match
-async function acceptServiceRequest(requestId) {
-    try {
-        if (!confirm('Accept this service request?')) {
-            return;
-        }
-        
-        Loading.show('Accepting request...');
-        
-        const response = await API.post(`/api/chef/service-requests/${requestId}/accept`, {});
-        
-        if (response.success) {
-            Toast.show('Service request accepted!', 'success');
-            
-            await loadServiceRequests();
-        }
-        
-        Loading.hide();
-        
-    } catch (error) {
-        Loading.hide();
-        console.error('Accept service request error:', error);
-        Toast.show(`Failed to accept request: ${error.message}`, 'error');
-    }
-}
 
 // In chef/dashboard.html, update the completeServiceRequest function
 async function completeServiceRequest(requestId) {
@@ -2960,6 +2936,7 @@ async function viewServiceRequestDetails(requestId) {
             footerHtml = `
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                 <button type="button" class="btn btn-primary" onclick="assignServiceRequest('${request._id}')">
+
                     <i class="fas fa-user-check me-1"></i>Accept
                 </button>
             `;
