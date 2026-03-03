@@ -2539,30 +2539,29 @@ async function updateMenuItemStatus(itemId, isAvailable) {
             }
         }
 
-        // Service Requests Functions - FIXED
+        // In chef/dashboard.html, replace the loadServiceRequests function
 async function loadServiceRequests() {
     try {
         Loading.show();
         
-        // Load pending requests only (chefs don't need to see all requests)
-        const pendingResponse = await API.get(CONFIG.API_ENDPOINTS.SERVICE_REQUESTS);
+        console.log('Fetching service requests...');
         
-        if (pendingResponse.success) {
+        // Load pending requests
+        const response = await API.get(CONFIG.API_ENDPOINTS.SERVICE_REQUESTS);
+        
+        console.log('Service requests response:', response);
+        
+        if (response.success) {
             // Store pending requests
-            pendingServiceRequests = pendingResponse.serviceRequests || [];
+            pendingServiceRequests = response.serviceRequests || [];
             
-            // For now, we'll just use pending requests for all views
-            // You can expand this later if needed
-            allServiceRequests = pendingServiceRequests;
-            myServiceRequests = []; // You can implement this later
-            completedServiceRequests = []; // You can implement this later
+            console.log(`Loaded ${pendingServiceRequests.length} pending requests`);
             
             // Update statistics
             updateServiceRequestStats();
             
             // Render requests
             renderPendingRequests();
-            renderMyRequests();
             renderAllRequests();
             
             // Update notification badges
@@ -2575,7 +2574,9 @@ async function loadServiceRequests() {
         Loading.hide();
         console.error('Load service requests error:', error);
         
-        // Show error in all containers
+        Toast.show('Failed to load service requests: ' + error.message, 'error');
+        
+        // Show error in containers
         const errorHtml = `
             <div class="col-12">
                 <div class="alert alert-danger">
@@ -2589,7 +2590,6 @@ async function loadServiceRequests() {
         `;
         
         document.getElementById('pendingRequestsList').innerHTML = errorHtml;
-        document.getElementById('myRequestsList').innerHTML = errorHtml;
         document.getElementById('allRequestsList').innerHTML = errorHtml;
     }
 }
@@ -2619,7 +2619,7 @@ function updateServiceRequestStats() {
 function renderPendingRequests() {
     const container = document.getElementById('pendingRequestsList');
     
-    if (pendingServiceRequests.length === 0) {
+    if (!pendingServiceRequests || pendingServiceRequests.length === 0) {
         container.innerHTML = `
             <div class="col-12">
                 <div class="no-requests">
@@ -2637,6 +2637,7 @@ function renderPendingRequests() {
         const priorityClass = `service-request-${request.priority || 'normal'}`;
         const serviceIcon = getServiceIcon(request.type);
         const serviceName = getServiceName(request.type);
+        const timeAgo = FormatUtils.timeSince(request.createdAt);
         
         html += `
             <div class="col-md-6 col-lg-4 mb-4">
@@ -2650,12 +2651,12 @@ function renderPendingRequests() {
                             </div>
                             <div class="flex-grow-1">
                                 <h6 class="mb-1">${serviceName}</h6>
-                                <div class="d-flex align-items-center mb-1">
+                                <div class="d-flex align-items-center">
                                     <span class="badge ${getPriorityBadgeClass(request.priority)} me-2">
                                         ${request.priority ? request.priority.toUpperCase() : 'NORMAL'}
                                     </span>
                                     <small class="request-time">
-                                        ${FormatUtils.timeSince(request.createdAt)}
+                                        ${timeAgo}
                                     </small>
                                 </div>
                             </div>
@@ -2840,12 +2841,16 @@ async function assignServiceRequest(requestId) {
         
         Loading.show('Assigning request...');
         
+        console.log('Assigning request:', requestId);
+        
         const response = await API.put(
             CONFIG.API_ENDPOINTS.ACKNOWLEDGE_REQUEST.replace(':id', requestId),
             {
-                notes: `Assigned to ${user.firstName} ${user.lastName}`
+                notes: `Assigned to ${user?.firstName || 'Chef'} ${user?.lastName || ''}`
             }
         );
+        
+        console.log('Assign response:', response);
         
         if (response.success) {
             Toast.show('Service request assigned to you!', 'success');
