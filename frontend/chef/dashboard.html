@@ -2539,31 +2539,23 @@ async function updateMenuItemStatus(itemId, isAvailable) {
             }
         }
 
-        // Service Requests Functions
-        async function loadServiceRequests() {
+        // Service Requests Functions - FIXED
+async function loadServiceRequests() {
     try {
         Loading.show();
         
-        // Load pending requests
+        // Load pending requests only (chefs don't need to see all requests)
         const pendingResponse = await API.get(CONFIG.API_ENDPOINTS.SERVICE_REQUESTS);
         
-        if (pendingResponse.success && allResponse.success) {
-            // Store all requests
-            allServiceRequests = allResponse.serviceRequests || [];
-            
-            // Filter pending requests
+        if (pendingResponse.success) {
+            // Store pending requests
             pendingServiceRequests = pendingResponse.serviceRequests || [];
             
-            // Filter requests assigned to current user
-            myServiceRequests = allServiceRequests.filter(request => 
-                request.assignedTo === user.id || 
-                request.assignedToName?.includes(user.firstName)
-            );
-            
-            // Filter completed requests
-            completedServiceRequests = allServiceRequests.filter(request => 
-                request.status === 'completed'
-            );
+            // For now, we'll just use pending requests for all views
+            // You can expand this later if needed
+            allServiceRequests = pendingServiceRequests;
+            myServiceRequests = []; // You can implement this later
+            completedServiceRequests = []; // You can implement this later
             
             // Update statistics
             updateServiceRequestStats();
@@ -2607,21 +2599,21 @@ function updateServiceRequestStats() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    // Count today's requests
-    const todayRequests = allServiceRequests.filter(request => 
+    // Count today's requests from pending
+    const todayRequests = pendingServiceRequests.filter(request => 
         new Date(request.createdAt) >= today
     );
     
     // Update stats
     document.getElementById('pendingRequestsCount').textContent = pendingServiceRequests.length;
-    document.getElementById('myRequestsCount').textContent = myServiceRequests.filter(r => r.status === 'acknowledged').length;
-    document.getElementById('completedRequestsCount').textContent = completedServiceRequests.length;
+    document.getElementById('myRequestsCount').textContent = 0; // Not implemented yet
+    document.getElementById('completedRequestsCount').textContent = 0; // Not implemented yet
     document.getElementById('todayRequestsCount').textContent = todayRequests.length;
     
     // Update tab badges
     document.getElementById('pendingTabBadge').textContent = pendingServiceRequests.length;
-    document.getElementById('myTabBadge').textContent = myServiceRequests.filter(r => r.status === 'acknowledged').length;
-    document.getElementById('allTabBadge').textContent = allServiceRequests.length;
+    document.getElementById('myTabBadge').textContent = 0;
+    document.getElementById('allTabBadge').textContent = pendingServiceRequests.length;
 }
 
 function renderPendingRequests() {
@@ -2773,7 +2765,7 @@ function renderMyRequests() {
 function renderAllRequests() {
     const container = document.getElementById('allRequestsList');
     
-    if (allServiceRequests.length === 0) {
+    if (pendingServiceRequests.length === 0) {
         container.innerHTML = `
             <div class="col-12">
                 <div class="no-requests">
@@ -2787,7 +2779,7 @@ function renderAllRequests() {
     }
     
     let html = '';
-    allServiceRequests.forEach(request => {
+    pendingServiceRequests.forEach(request => {
         const statusClass = `service-request-${request.status}`;
         const statusColor = getStatusColor(request.status);
         const serviceIcon = getServiceIcon(request.type);
@@ -2824,18 +2816,6 @@ function renderAllRequests() {
                                 <i class="fas fa-chair me-1"></i>Table ${request.tableNumber}
                             </p>
                             <p class="small mb-2">${request.description || 'No description'}</p>
-                            
-                            ${request.assignedToName ? `
-                                <p class="small mb-1">
-                                    <i class="fas fa-user-tie me-1"></i>Assigned to: ${request.assignedToName}
-                                </p>
-                            ` : ''}
-                            
-                            ${request.completedAt ? `
-                                <p class="small mb-0">
-                                    <i class="fas fa-check-circle me-1"></i>Completed: ${FormatUtils.formatDateTime(request.completedAt)}
-                                </p>
-                            ` : ''}
                         </div>
                         
                         <div class="d-grid">

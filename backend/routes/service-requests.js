@@ -305,12 +305,12 @@ router.put('/:requestId/complete', auth, async (req, res) => {
 router.get('/all', auth, async (req, res) => {
     try {
         // Check if user is admin
-        if (req.userRole !== 'admin') {
-            return res.status(403).json({
-                success: false,
-                message: 'Admin access required'
-            });
-        }
+        if (req.userRole !== 'admin' && req.userRole !== 'chef') {
+    return res.status(403).json({
+        success: false,
+        message: 'Admin or Chef access required'
+    });
+}
         
         const { status, date, limit = 50 } = req.query;
         
