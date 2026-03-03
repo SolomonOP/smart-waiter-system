@@ -54,6 +54,32 @@
             transform: translateY(-5px);
             box-shadow: 0 10px 20px rgba(0,0,0,0.1);
         }
+
+        /* Add to your existing CSS */
+.btn-link {
+    color: var(--primary);
+    font-weight: 500;
+}
+
+.btn-link:hover {
+    color: var(--secondary);
+}
+
+.collapse:not(.show) {
+    display: none;
+}
+
+.collapsing {
+    position: relative;
+    height: 0;
+    overflow: hidden;
+    transition: height 0.35s ease;
+}
+
+.bg-light {
+    background-color: #f8f9fa !important;
+    opacity: 0.9;
+}
         
         .cart-sidebar {
             position: fixed;
@@ -1781,60 +1807,105 @@ socket.on('service-request-completed', (data) => {
             }
         }
         
-        function displayOrderStatus(orders) {
-            const statusContainer = document.getElementById('orderStatus');
-            if (!statusContainer) return;
-            
-            statusContainer.innerHTML = '';
-            
-            if (orders.length === 0) {
-                statusContainer.innerHTML = `
-                    <div class="col-12 text-center text-muted py-4">
-                        <p>No active orders</p>
-                        <p class="small">Visit the Menu section to place an order</p>
+        // Replace your displayOrderStatus function
+function displayOrderStatus(orders) {
+    const statusContainer = document.getElementById('orderStatus');
+    if (!statusContainer) return;
+    
+    statusContainer.innerHTML = '';
+    
+    // Separate active and completed orders
+    const activeOrders = orders.filter(order => 
+        !['completed', 'cancelled', 'rejected'].includes(order.status)
+    );
+    const completedOrders = orders.filter(order => 
+        ['completed', 'cancelled', 'rejected'].includes(order.status)
+    );
+    
+    if (activeOrders.length === 0 && completedOrders.length === 0) {
+        statusContainer.innerHTML = `
+            <div class="col-12 text-center text-muted py-4">
+                <p>No orders yet</p>
+                <p class="small">Visit the Menu section to place an order</p>
+            </div>
+        `;
+        return;
+    }
+    
+    // Show active orders first
+    if (activeOrders.length > 0) {
+        statusContainer.innerHTML += '<h6 class="mb-3">Active Orders</h6>';
+        activeOrders.forEach(order => {
+            statusContainer.innerHTML += createOrderCard(order, false);
+        });
+    }
+    
+    // Show completed orders in a collapsible section
+    if (completedOrders.length > 0) {
+        statusContainer.innerHTML += `
+            <div class="mt-4">
+                <h6 class="mb-3">
+                    <button class="btn btn-link p-0 text-decoration-none" type="button" 
+                            data-bs-toggle="collapse" data-bs-target="#completedOrders" 
+                            aria-expanded="false" aria-controls="completedOrders">
+                        <i class="fas fa-chevron-down me-1"></i> 
+                        Order History (${completedOrders.length})
+                    </button>
+                </h6>
+                <div class="collapse" id="completedOrders">
+                    <div class="row">
+                        ${completedOrders.map(order => createOrderCard(order, true)).join('')}
                     </div>
-                `;
-                return;
-            }
-            
-            orders.forEach(order => {
-                const statusClass = `status-${order.status}`;
-                const orderCard = `
-                    <div class="col-md-6 mb-3">
-                        <div class="order-status ${statusClass}" data-order-id="${order._id}">
-                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                <h6 class="mb-0">Order #${order.orderNumber || 'N/A'}</h6>
-                                <small class="text-muted">
-                                    ${order.createdAt ? new Date(order.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'N/A'}
-                                </small>
-                            </div>
-                            <p class="mb-1"><i class="fas fa-chair me-2"></i>Table: ${order.tableNumber || 'N/A'}</p>
-                            <p class="mb-1"><i class="fas fa-box me-2"></i>Items: ${order.items?.length || 0}</p>
-                            <p class="mb-1"><i class="fas fa-dollar-sign me-2"></i>Total: $${order.totalAmount?.toFixed(2) || '0.00'}</p>
-                            <div class="mt-3">
-                                <span class="badge bg-${getOrderStatusColor(order.status)}">
-                                    ${order.status?.toUpperCase() || 'UNKNOWN'}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                statusContainer.innerHTML += orderCard;
-            });
-        }
-        
-        function getOrderStatusColor(status) {
-            switch(status) {
-                case 'pending': return 'warning';
-                case 'confirmed': return 'info';
-                case 'preparing': return 'info';
-                case 'ready': return 'success';
-                case 'finished': return 'primary';
-                case 'completed': return 'secondary';
-                case 'cancelled': return 'danger';
-                default: return 'dark';
-            }
-        }
+                </div>
+            </div>
+        `;
+    }
+}
+
+function createOrderCard(order, isCompleted) {
+    const statusClass = `status-${order.status}`;
+    const statusColor = getOrderStatusColor(order.status);
+    const statusIcon = isCompleted ? 'fas fa-check-circle' : getOrderStatusIcon(order.status);
+    
+    return `
+        <div class="col-md-6 mb-3">
+            <div class="order-status ${statusClass} ${isCompleted ? 'bg-light' : ''}" data-order-id="${order._id}">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <h6 class="mb-0">Order #${order.orderNumber || 'N/A'}</h6>
+                    <small class="text-muted">
+                        ${order.createdAt ? new Date(order.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'N/A'}
+                    </small>
+                </div>
+                <p class="mb-1"><i class="fas fa-chair me-2"></i>Table: ${order.tableNumber || 'N/A'}</p>
+                <p class="mb-1"><i class="fas fa-box me-2"></i>Items: ${order.items?.length || 0}</p>
+                <p class="mb-1"><i class="fas fa-dollar-sign me-2"></i>Total: $${order.totalAmount?.toFixed(2) || '0.00'}</p>
+                
+                ${isCompleted && order.completedAt ? `
+                    <p class="mb-1"><i class="fas fa-check-circle me-2"></i>Completed: ${new Date(order.completedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                ` : ''}
+                
+                <div class="mt-3">
+                    <span class="badge bg-${statusColor}">
+                        <i class="${statusIcon} me-1"></i>${order.status?.toUpperCase() || 'UNKNOWN'}
+                    </span>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function getOrderStatusIcon(status) {
+    switch(status) {
+        case 'pending': return 'fas fa-clock';
+        case 'confirmed': return 'fas fa-check';
+        case 'preparing': return 'fas fa-utensils';
+        case 'ready': return 'fas fa-check-circle';
+        case 'finished': return 'fas fa-flag-checkered';
+        case 'completed': return 'fas fa-check-double';
+        case 'cancelled': return 'fas fa-times-circle';
+        default: return 'fas fa-question-circle';
+    }
+}
         
         // Load service requests
         async function loadServiceRequests() {
@@ -1864,7 +1935,7 @@ socket.on('service-request-completed', (data) => {
     }
 }
         
-        // In customer dashboard, update the displayServiceRequests function
+        // Update your displayServiceRequests function to match the same style
 function displayServiceRequests(requests) {
     const container = document.getElementById('serviceRequests');
     if (!container) return;
@@ -1878,7 +1949,8 @@ function displayServiceRequests(requests) {
     if (activeRequests.length === 0 && completedRequests.length === 0) {
         container.innerHTML = `
             <div class="col-12 text-center text-muted py-4">
-                <p>No service requests yet. Use the buttons above to request services.</p>
+                <p>No service requests yet</p>
+                <p class="small">Use the buttons above to request services</p>
             </div>
         `;
         return;
@@ -1888,7 +1960,7 @@ function displayServiceRequests(requests) {
     if (activeRequests.length > 0) {
         container.innerHTML += '<h6 class="mb-3">Active Requests</h6>';
         activeRequests.forEach(request => {
-            container.innerHTML += createRequestCard(request, false);
+            container.innerHTML += createServiceRequestCard(request, false);
         });
     }
     
@@ -1897,18 +1969,56 @@ function displayServiceRequests(requests) {
         container.innerHTML += `
             <div class="mt-4">
                 <h6 class="mb-3">
-                    <button class="btn btn-link p-0" type="button" data-bs-toggle="collapse" data-bs-target="#completedRequests">
-                        <i class="fas fa-chevron-down me-1"></i> Completed Requests (${completedRequests.length})
+                    <button class="btn btn-link p-0 text-decoration-none" type="button" 
+                            data-bs-toggle="collapse" data-bs-target="#completedServiceRequests" 
+                            aria-expanded="false" aria-controls="completedServiceRequests">
+                        <i class="fas fa-chevron-down me-1"></i> 
+                        Request History (${completedRequests.length})
                     </button>
                 </h6>
-                <div class="collapse" id="completedRequests">
+                <div class="collapse" id="completedServiceRequests">
                     <div class="row">
-                        ${completedRequests.map(request => createRequestCard(request, true)).join('')}
+                        ${completedRequests.map(request => createServiceRequestCard(request, true)).join('')}
                     </div>
                 </div>
             </div>
         `;
     }
+}
+
+function createServiceRequestCard(request, isCompleted) {
+    const statusColor = isCompleted ? 'secondary' : getServiceStatusColor(request.status);
+    const statusIcon = isCompleted ? 'fas fa-check-circle' : getServiceStatusIcon(request.status);
+    const statusText = isCompleted ? 'COMPLETED' : (request.status?.toUpperCase() || 'PENDING');
+    
+    return `
+        <div class="col-md-6 mb-3">
+            <div class="order-status service-request-item ${isCompleted ? 'bg-light' : ''}">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <h6 class="mb-0">${getServiceName(request.type)}</h6>
+                    <small class="text-muted">
+                        ${request.createdAt ? new Date(request.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'N/A'}
+                    </small>
+                </div>
+                <p class="mb-1"><i class="fas fa-chair me-2"></i>Table: ${request.tableNumber}</p>
+                <p class="mb-1"><i class="fas fa-info-circle me-2"></i>${request.description || 'No description'}</p>
+                
+                ${request.assignedToName ? `
+                    <p class="mb-1"><i class="fas fa-user-tie me-2"></i>Assigned to: ${request.assignedToName}</p>
+                ` : ''}
+                
+                ${isCompleted && request.completedAt ? `
+                    <p class="mb-1"><i class="fas fa-check-circle me-2"></i>Completed: ${new Date(request.completedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                ` : ''}
+                
+                <div class="mt-3">
+                    <span class="badge bg-${statusColor}">
+                        <i class="${statusIcon} me-1"></i>${statusText}
+                    </span>
+                </div>
+            </div>
+        </div>
+    `;
 }
 
 function createRequestCard(request, isCompleted) {
