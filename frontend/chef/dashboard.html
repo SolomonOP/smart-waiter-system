@@ -1237,8 +1237,8 @@
                 CHEF_CREATE_ORDER: '/api/chef/orders/new',
                 SERVICE_REQUESTS: '/api/service-requests/pending',
                 SERVICE_REQUESTS_ALL: '/api/service-requests/all',
-                ACKNOWLEDGE_REQUEST: '/api/service-requests/:id/acknowledge',
-                COMPLETE_REQUEST: '/api/service-requests/:id/complete',
+                ACKNOWLEDGE_REQUEST: '/api/service-requests/:requestId/acknowledge',
+                COMPLETE_REQUEST: '/api/service-requests/:requestId/complete',
                 DASHBOARD_STATS: '/api/chef/dashboard-stats',
                 ACCEPT_ORDER: '/api/chef/orders/:id/accept',
                 COMPLETE_ORDER: '/api/chef/orders/:id/complete',
@@ -2829,6 +2829,7 @@ function renderAllRequests() {
     container.innerHTML = html;
 }
 
+// In chef/dashboard.html, update the assignServiceRequest function
 async function assignServiceRequest(requestId) {
     try {
         if (!confirm('Assign this service request to yourself?')) {
@@ -2839,8 +2840,9 @@ async function assignServiceRequest(requestId) {
         
         console.log('Assigning request:', requestId);
         
+        // FIXED: Use the corrected endpoint
         const response = await API.put(
-            CONFIG.API_ENDPOINTS.ACKNOWLEDGE_REQUEST.replace(':id', requestId),
+            `/api/service-requests/${requestId}/acknowledge`,  // Direct URL instead of using CONFIG
             {
                 notes: `Assigned to ${user?.firstName || 'Chef'} ${user?.lastName || ''}`
             }
@@ -2893,21 +2895,34 @@ async function acceptServiceRequest(requestId) {
     }
 }
 
+// In chef/dashboard.html, update the completeServiceRequest function
 async function completeServiceRequest(requestId) {
     try {
         const notes = prompt('Add completion notes (optional):');
         
-        if (notes === null) return;
+        if (notes === null) {
+            return; // User cancelled
+        }
         
         Loading.show('Completing request...');
         
-        const response = await API.post(`/api/chef/service-requests/${requestId}/complete`, {
-            notes: notes || ''
-        });
+        // FIXED: Use the correct endpoint
+        const response = await API.put(
+            `/api/service-requests/${requestId}/complete`,  // Direct URL
+            {
+                notes: notes || ''
+            }
+        );
+        
+        console.log('Complete response:', response);
         
         if (response.success) {
-            Toast.show('Service request completed!', 'success');
+            Toast.show('Service request completed successfully!', 'success');
+            
+            // Play sound
             playCompletionSound();
+            
+            // Reload requests
             await loadServiceRequests();
         }
         
@@ -2920,10 +2935,12 @@ async function completeServiceRequest(requestId) {
     }
 }
 
+// Update the viewServiceRequestDetails function
 async function viewServiceRequestDetails(requestId) {
     try {
         // Find the request in our lists
-        const request = allServiceRequests.find(req => req._id === requestId);
+        const request = [...pendingServiceRequests, ...myServiceRequests, ...completedServiceRequests]
+            .find(req => req._id === requestId);
         
         if (!request) {
             Toast.show('Request not found', 'error');
@@ -2989,15 +3006,14 @@ async function viewServiceRequestDetails(requestId) {
             footerHtml = `
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                 <button type="button" class="btn btn-primary" onclick="assignServiceRequest('${request._id}')">
-                    <i class="fas fa-user-check me-1"></i>Assign to Me
+                    <i class="fas fa-user-check me-1"></i>Accept
                 </button>
             `;
-        } else if (request.status === 'acknowledged' && 
-                  (request.assignedTo === user.id || request.assignedToName?.includes(user.firstName))) {
+        } else if (request.status === 'acknowledged' && request.assignedTo === user?.id) {
             footerHtml = `
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                 <button type="button" class="btn btn-success" onclick="completeServiceRequest('${request._id}')">
-                    <i class="fas fa-check-circle me-1"></i>Mark as Complete
+                    <i class="fas fa-check-circle me-1"></i>Mark Complete
                 </button>
             `;
         } else {
