@@ -1668,36 +1668,36 @@
             }
         }
         
-        // Filter menu items
-        function filterMenuItems() {
-            const categoryFilter = document.getElementById('menuCategoryFilter').value;
-            const statusFilter = document.getElementById('menuStatusFilter').value;
-            const searchFilter = document.getElementById('menuSearch').value.toLowerCase();
-            
-            let filtered = [...AppState.menuItems];
-            
-            // Apply category filter
-            if (categoryFilter) {
-                filtered = filtered.filter(item => item.category === categoryFilter);
-            }
-            
-            // Apply status filter
-            if (statusFilter !== '') {
-                const isAvailable = statusFilter === 'true';
-                filtered = filtered.filter(item => item.isAvailable === isAvailable);
-            }
-            
-            // Apply search filter
-            if (searchFilter) {
-                filtered = filtered.filter(item => 
-                    item.name.toLowerCase().includes(searchFilter) ||
-                    item.description?.toLowerCase().includes(searchFilter)
-                );
-            }
-            
-            AppState.filteredMenuItems = filtered;
-            renderMenuItems(filtered);
-        }
+        // Filter menu items - FIXED
+function filterMenuItems() {
+    const categoryFilter = document.getElementById('menuCategoryFilter').value;
+    const statusFilter = document.getElementById('menuStatusFilter').value;
+    const searchFilter = document.getElementById('menuSearch').value.toLowerCase();
+    
+    let filtered = [...AppState.menuItems];
+    
+    // Apply category filter
+    if (categoryFilter) {
+        filtered = filtered.filter(item => item.category === categoryFilter);
+    }
+    
+    // FIXED: Use 'available' instead of 'isAvailable'
+    if (statusFilter !== '') {
+        const isAvailable = statusFilter === 'true';
+        filtered = filtered.filter(item => item.available === isAvailable); // Changed from isAvailable
+    }
+    
+    // Apply search filter
+    if (searchFilter) {
+        filtered = filtered.filter(item => 
+            item.name.toLowerCase().includes(searchFilter) ||
+            item.description?.toLowerCase().includes(searchFilter)
+        );
+    }
+    
+    AppState.filteredMenuItems = filtered;
+    renderMenuItems(filtered);
+}
         
         // Render menu items
         function renderMenuItems(menuItems) {
@@ -1731,8 +1731,8 @@
                                     <i class="bi bi-cup-hot display-4 text-muted"></i>
                                 </div>`
                             }
-                            <span class="position-absolute top-0 end-0 m-2 badge ${item.isAvailable ? 'bg-success' : 'bg-danger'}">
-                                ${item.isAvailable ? 'Available' : 'Unavailable'}
+                            <span class="position-absolute top-0 end-0 m-2 badge ${item.available ? 'bg-success' : 'bg-danger'}">
+                                ${item.available ? 'Available' : 'Unavailable'}
                             </span>
                         </div>
                         <div class="card-body">
@@ -2229,38 +2229,40 @@
             modal.show();
         }
         
-        // Edit menu item
-        async function editMenuItem(itemId) {
-            try {
-                Loading.show('Loading menu item...');
-                
-                const token = Auth.getToken();
-                const response = await API.get(CONFIG.API_ENDPOINTS.ADMIN_MENU_ITEM(itemId), token);
-                
-                if (response.success && response.menuItem) {
-                    const item = response.menuItem;
-                    
-                    // Populate edit form
-                    document.getElementById('editMenuItemId').value = item._id;
-                    document.getElementById('editMenuItemName').value = item.name;
-                    document.getElementById('editMenuItemCategory').value = item.category;
-                    document.getElementById('editMenuItemPrice').value = item.price;
-                    document.getElementById('editMenuItemPrepTime').value = item.preparationTime || 15;
-                    document.getElementById('editMenuItemDescription').value = item.description || '';
-                    document.getElementById('editMenuItemImage').value = item.image || '';
-                    document.getElementById('editMenuItemAvailable').checked = item.isAvailable;
-                    
-                    // Show modal
-                    const modal = new bootstrap.Modal(document.getElementById('editMenuItemModal'));
-                    modal.show();
-                }
-                
-                Loading.hide();
-            } catch (error) {
-                Loading.hide();
-                ErrorHandler.handle(error, 'editMenuItem');
-            }
+        // Edit menu item - FIXED
+async function editMenuItem(itemId) {
+    try {
+        Loading.show('Loading menu item...');
+        
+        const token = Auth.getToken();
+        const response = await API.get(CONFIG.API_ENDPOINTS.ADMIN_MENU_ITEM(itemId), token);
+        
+        if (response.success && response.menuItem) {
+            const item = response.menuItem;
+            
+            // Populate edit form
+            document.getElementById('editMenuItemId').value = item._id;
+            document.getElementById('editMenuItemName').value = item.name;
+            document.getElementById('editMenuItemCategory').value = item.category;
+            document.getElementById('editMenuItemPrice').value = item.price;
+            document.getElementById('editMenuItemPrepTime').value = item.preparationTime || 15;
+            document.getElementById('editMenuItemDescription').value = item.description || '';
+            document.getElementById('editMenuItemImage').value = item.image || '';
+            
+            // FIXED: Use 'available' instead of 'isAvailable'
+            document.getElementById('editMenuItemAvailable').checked = item.available === true; // Changed from isAvailable
+            
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('editMenuItemModal'));
+            modal.show();
         }
+        
+        Loading.hide();
+    } catch (error) {
+        Loading.hide();
+        ErrorHandler.handle(error, 'editMenuItem');
+    }
+}
         
         // In admin/dashboard.html, find and replace the updateMenuItem function
 
