@@ -898,7 +898,7 @@
                             </div>
                             <div class="col-md-6 mb-3">
                                 <div class="form-check form-switch mt-4">
-                                    <input class="form-check-input" type="checkbox" name="isAvailable" checked id="availabilitySwitch">
+                                    <input class="form-check-input" type="checkbox" name="available" checked id="availabilitySwitch">
                                     <label class="form-check-label">Available</label>
                                 </div>
                             </div>
@@ -959,7 +959,7 @@
                             </div>
                             <div class="col-md-6 mb-3">
                                 <div class="form-check form-switch mt-4">
-                                    <input class="form-check-input" type="checkbox" name="isAvailable" id="editMenuItemAvailable">
+                                    <input class="form-check-input" type="checkbox" name="available" id="editMenuItemAvailable">
                                     <label class="form-check-label">Available</label>
                                 </div>
                             </div>
@@ -2262,8 +2262,9 @@
             }
         }
         
-        // Update menu item
-        async function updateMenuItem() {
+        // In admin/dashboard.html, find and replace the updateMenuItem function
+
+async function updateMenuItem() {
     try {
         Loading.show('Updating menu item...');
         
@@ -2277,9 +2278,9 @@
         data.price = parseFloat(data.price);
         data.preparationTime = parseInt(data.preparationTime);
         
-        // Fix: Handle checkbox value correctly
-        const isAvailableCheckbox = form.querySelector('input[name="isAvailable"]');
-        data.isAvailable = isAvailableCheckbox.checked;
+        // FIXED: Use 'available' instead of 'isAvailable'
+        const availableCheckbox = form.querySelector('input[name="available"]'); // Changed from 'isAvailable'
+        data.available = availableCheckbox.checked; // Changed from 'isAvailable'
         
         const token = Auth.getToken();
         const response = await API.put(CONFIG.API_ENDPOINTS.ADMIN_MENU_ITEM(itemId), data, token);
@@ -2287,7 +2288,7 @@
         if (response.success) {
             Toast.show('Menu item updated successfully!', 'success');
             bootstrap.Modal.getInstance(document.getElementById('editMenuItemModal')).hide();
-            await loadMenuItems();
+            await loadMenuItems(); // Reload the menu items
         }
         
         Loading.hide();
@@ -2423,8 +2424,9 @@
             }
         }
         
-        // Save functions
-        async function saveMenuItem() {
+        // In admin/dashboard.html, find and fix the saveMenuItem function
+
+async function saveMenuItem() {
     try {
         Loading.show('Saving menu item...');
         
@@ -2435,16 +2437,14 @@
         data.price = parseFloat(data.price);
         data.preparationTime = parseInt(data.preparationTime);
         
-        // Fix: Properly handle checkbox value
-        const isAvailableCheckbox = form.querySelector('input[name="isAvailable"]');
-        data.isAvailable = isAvailableCheckbox.checked;
+        // FIXED: Use 'available' instead of 'isAvailable'
+        const availableCheckbox = form.querySelector('input[name="available"]'); // Changed
+        data.available = availableCheckbox.checked; // Changed
         
         // Add default image if empty
         if (!data.image) {
             data.image = 'https://via.placeholder.com/400x300/667eea/ffffff?text=' + encodeURIComponent(data.name);
         }
-        
-        console.log('📦 Saving menu item:', data);
         
         const token = Auth.getToken();
         const response = await API.post(CONFIG.API_ENDPOINTS.ADMIN_MENU, data, token);
