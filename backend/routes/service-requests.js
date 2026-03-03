@@ -2,7 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
-const { Table } = require('../models');
+const { ServiceRequest, Table } = require('../models'); // Add ServiceRequest
 
 // Helper functions
 function getServiceTypeName(type) {
@@ -20,7 +20,7 @@ function getServiceTypeName(type) {
 }
 
 // @route   GET /api/service-requests/pending
-// @desc    Get all pending service requests from tables
+// @desc    Get all pending service requests
 // @access  Private (Chef/Admin)
 router.get('/pending', auth, async (req, res) => {
     try {
@@ -32,56 +32,35 @@ router.get('/pending', auth, async (req, res) => {
             });
         }
         
-        console.log('Fetching pending service requests...');
+        console.log('Fetching pending service requests from ServiceRequest collection...');
         
-        // Find all tables with pending service requests
-        const tables = await Table.find({
-            'serviceRequests.status': 'pending',
-            isActive: true
-        }).select('tableNumber status serviceRequests customerName');
+        // Find all pending service requests from the dedicated collection
+        const serviceRequests = await ServiceRequest.find({ 
+            status: 'pending' 
+        })
+        .populate('table', 'tableNumber status')
+        .populate('customer', 'firstName lastName email')
+        .sort({ createdAt: -1 });
         
-        console.log(`Found ${tables.length} tables with pending requests`);
+        console.log(`Found ${serviceRequests.length} pending requests`);
         
-        // Extract and flatten service requests
-        const serviceRequests = [];
-        tables.forEach(table => {
-            if (table.serviceRequests && table.serviceRequests.length > 0) {
-                table.serviceRequests.forEach(request => {
-                    if (request.status === 'pending') {
-                        serviceRequests.push({
-                            _id: request._id,
-                            type: request.type,
-                            tableNumber: table.tableNumber,
-                            description: request.description,
-                            customerName: request.customerName || table.customerName || 'Customer',
-                            priority: request.priority || 'normal',
-                            status: request.status,
-                            createdAt: request.createdAt,
-                            tableStatus: table.status
-                        });
-                    }
-                });
-            }
-        });
-        
-        // Sort by priority and creation time
-        serviceRequests.sort((a, b) => {
-            const priorityOrder = { 'urgent': 0, 'high': 1, 'normal': 2, 'low': 3 };
-            const aPriority = priorityOrder[a.priority] || 2;
-            const bPriority = priorityOrder[b.priority] || 2;
-            
-            if (aPriority !== bPriority) {
-                return aPriority - bPriority;
-            }
-            return new Date(a.createdAt) - new Date(b.createdAt);
-        });
-        
-        console.log(`Returning ${serviceRequests.length} pending service requests`);
+        // Format the response
+        const formattedRequests = serviceRequests.map(request => ({
+            _id: request._id,
+            type: request.type,
+            tableNumber: request.tableNumber,
+            description: request.description,
+            customerName: request.customerName,
+            priority: request.priority || 'normal',
+            status: request.status,
+            createdAt: request.createdAt,
+            tableStatus: request.table?.status || 'unknown'
+        }));
         
         res.json({
             success: true,
-            count: serviceRequests.length,
-            serviceRequests: serviceRequests
+            count: formattedRequests.length,
+            serviceRequests: formattedRequests
         });
         
     } catch (error) {
@@ -110,20 +89,9 @@ router.put('/:requestId/acknowledge', auth, async (req, res) => {
         
         console.log(`Acknowledging service request ${requestId} by user ${req.userId}`);
         
-        // Find table with this service request
-        const table = await Table.findOne({
-            'serviceRequests._id': requestId
-        });
+        // Find the service request in the dedicated collection
+        const serviceRequest = await ServiceRequest.findById(requestId);
         
-        if (!table) {
-            return res.status(404).json({
-                success: false,
-                message: 'Service request not found'
-            });
-        }
-        
-        // Find the specific service request
-        const serviceRequest = table.serviceRequests.id(requestId);
         if (!serviceRequest) {
             return res.status(404).json({
                 success: false,
@@ -144,21 +112,30 @@ router.put('/:requestId/acknowledge', auth, async (req, res) => {
         serviceRequest.assignedTo = req.userId;
         serviceRequest.assignedToName = req.user.firstName + ' ' + req.user.lastName;
         serviceRequest.acknowledgedAt = new Date();
-        serviceRequest.updatedAt = new Date();
+        serviceRequest.notes = notes || '';
+        await serviceRequest.save();
         
-        if (notes) {
-            serviceRequest.notes = notes;
-        }
-        
-        await table.save();
+        // Also update in Table model for backward compatibility
+        await Table.updateOne(
+            { 'serviceRequests._id': requestId },
+            { 
+                $set: { 
+                    'serviceRequests.$.status': 'acknowledged',
+                    'serviceRequests.$.assignedTo': req.userId,
+                    'serviceRequests.$.assignedToName': serviceRequest.assignedToName,
+                    'serviceRequests.$.acknowledgedAt': new Date(),
+                    'serviceRequests.$.notes': notes || ''
+                }
+            }
+        );
         
         // Real-time notification
         const io = req.app.get('io');
         if (io) {
-            io.to(`table:${table.tableNumber}`).emit('service-request-acknowledged', {
+            io.to(`table:${serviceRequest.tableNumber}`).emit('service-request-acknowledged', {
                 requestId: requestId,
                 type: serviceRequest.type,
-                tableNumber: table.tableNumber,
+                tableNumber: serviceRequest.tableNumber,
                 message: `Your ${getServiceTypeName(serviceRequest.type)} request has been acknowledged`,
                 chefName: serviceRequest.assignedToName,
                 status: 'acknowledged',
@@ -167,7 +144,7 @@ router.put('/:requestId/acknowledge', auth, async (req, res) => {
             
             io.to('role:chef').emit('service-request-updated', {
                 requestId: requestId,
-                tableNumber: table.tableNumber,
+                tableNumber: serviceRequest.tableNumber,
                 status: 'acknowledged',
                 assignedTo: serviceRequest.assignedToName,
                 assignedAt: serviceRequest.acknowledgedAt
@@ -180,7 +157,7 @@ router.put('/:requestId/acknowledge', auth, async (req, res) => {
             request: {
                 id: serviceRequest._id,
                 type: serviceRequest.type,
-                tableNumber: table.tableNumber,
+                tableNumber: serviceRequest.tableNumber,
                 status: serviceRequest.status,
                 assignedTo: serviceRequest.assignedToName,
                 acknowledgedAt: serviceRequest.acknowledgedAt
@@ -213,20 +190,9 @@ router.put('/:requestId/complete', auth, async (req, res) => {
         
         console.log(`Completing service request ${requestId} by user ${req.userId}`);
         
-        // Find table with this service request
-        const table = await Table.findOne({
-            'serviceRequests._id': requestId
-        });
+        // Find the service request in the dedicated collection
+        const serviceRequest = await ServiceRequest.findById(requestId);
         
-        if (!table) {
-            return res.status(404).json({
-                success: false,
-                message: 'Service request not found'
-            });
-        }
-        
-        // Find the specific service request
-        const serviceRequest = table.serviceRequests.id(requestId);
         if (!serviceRequest) {
             return res.status(404).json({
                 success: false,
@@ -245,21 +211,28 @@ router.put('/:requestId/complete', auth, async (req, res) => {
         // Update the service request
         serviceRequest.status = 'completed';
         serviceRequest.completedAt = new Date();
-        serviceRequest.updatedAt = new Date();
+        serviceRequest.completionNotes = notes || '';
+        await serviceRequest.save();
         
-        if (notes) {
-            serviceRequest.completionNotes = notes;
-        }
-        
-        await table.save();
+        // Also update in Table model
+        await Table.updateOne(
+            { 'serviceRequests._id': requestId },
+            { 
+                $set: { 
+                    'serviceRequests.$.status': 'completed',
+                    'serviceRequests.$.completedAt': new Date(),
+                    'serviceRequests.$.completionNotes': notes || ''
+                }
+            }
+        );
         
         // Real-time notification
         const io = req.app.get('io');
         if (io) {
-            io.to(`table:${table.tableNumber}`).emit('service-request-completed', {
+            io.to(`table:${serviceRequest.tableNumber}`).emit('service-request-completed', {
                 requestId: requestId,
                 type: serviceRequest.type,
-                tableNumber: table.tableNumber,
+                tableNumber: serviceRequest.tableNumber,
                 message: `Your ${getServiceTypeName(serviceRequest.type)} request has been completed`,
                 status: 'completed',
                 completedAt: serviceRequest.completedAt,
@@ -268,7 +241,7 @@ router.put('/:requestId/complete', auth, async (req, res) => {
             
             io.to('role:chef').emit('service-request-removed', {
                 requestId: requestId,
-                tableNumber: table.tableNumber,
+                tableNumber: serviceRequest.tableNumber,
                 type: serviceRequest.type,
                 message: 'Service request completed'
             });
@@ -280,7 +253,7 @@ router.put('/:requestId/complete', auth, async (req, res) => {
             request: {
                 id: serviceRequest._id,
                 type: serviceRequest.type,
-                tableNumber: table.tableNumber,
+                tableNumber: serviceRequest.tableNumber,
                 status: serviceRequest.status,
                 completedAt: serviceRequest.completedAt
             }
