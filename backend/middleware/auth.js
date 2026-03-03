@@ -2,7 +2,6 @@ const jwt = require('jsonwebtoken');
 
 module.exports = async function(req, res, next) {
     try {
-        // Get token from header
         const authHeader = req.header('Authorization');
         
         if (!authHeader) {
@@ -12,17 +11,16 @@ module.exports = async function(req, res, next) {
             });
         }
         
-        // Check if it's a Bearer token
         if (!authHeader.startsWith('Bearer ')) {
             return res.status(401).json({ 
                 success: false,
-                message: 'Access denied. No token provided.' 
+                message: 'Invalid token format' 
             });
         }
         
         const token = authHeader.replace('Bearer ', '');
         
-        // Check if it's a demo token
+        // Check for demo token
         if (token.startsWith('demo_')) {
             const parts = token.split('_');
             if (parts.length === 3) {
@@ -40,24 +38,25 @@ module.exports = async function(req, res, next) {
         }
         
         // Verify JWT token
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your_super_secret_jwt_key_change_this_in_production');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
         
-        // Handle both JWT structures (your original and the new one)
-        if (decoded.user) {
-            // New structure: { user: { id, role, ... } }
-            req.user = decoded.user;
-            req.userId = decoded.user.id;
-            req.userRole = decoded.user.role;
-        } else {
-            // Original structure: { userId, role, ... } directly in decoded
-            req.user = decoded;
-            req.userId = decoded.userId || decoded.id;
-            req.userRole = decoded.role;
-        }
+        // STANDARDIZED: Always extract user data consistently
+        const userData = decoded.user || decoded;
+        
+        req.user = {
+            id: userData.userId || userData.id || userData._id,
+            userId: userData.userId || userData.id || userData._id,
+            email: userData.email,
+            role: userData.role,
+            firstName: userData.firstName,
+            lastName: userData.lastName
+        };
+        
+        req.userId = req.user.userId;
+        req.userRole = req.user.role;
         
         next();
     } catch (err) {
-        // Handle specific JWT errors
         if (err.name === 'JsonWebTokenError') {
             return res.status(401).json({ 
                 success: false,
@@ -68,14 +67,14 @@ module.exports = async function(req, res, next) {
         if (err.name === 'TokenExpiredError') {
             return res.status(401).json({ 
                 success: false,
-                message: 'Token has expired.' 
+                message: 'Token has expired' 
             });
         }
         
-        console.error('Auth middleware error:', err.message || err);
+        console.error('Auth middleware error:', err.message);
         res.status(401).json({ 
             success: false,
-            message: 'Token is not valid'
+            message: 'Authentication failed'
         });
     }
 };

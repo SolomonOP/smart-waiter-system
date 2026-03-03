@@ -1,8 +1,6 @@
 const mongoose = require('mongoose');
 
 const OrderSchema = new mongoose.Schema({
-
-    
     orderNumber: {
         type: String,
         required: true,
@@ -71,9 +69,6 @@ const OrderSchema = new mongoose.Schema({
         default: 0,
         min: [0, 'Service charge cannot be negative']
     },
-    finishedAt: {
-        type: Date
-    },
     discount: {
         type: Number,
         default: 0,
@@ -128,19 +123,15 @@ const OrderSchema = new mongoose.Schema({
             enum: ['water', 'cleaning', 'bill', 'cutlery', 'napkin', 'extra_sauce', 'other', 'chef_attention'],
             required: true
         },
-        tableNumber: {
-            type: Number,
-            required: true
-        },
         description: {
             type: String,
             maxlength: [200, 'Description cannot exceed 200 characters']
         },
         status: {
-        type: String,
-        enum: ['pending', 'confirmed', 'preparing', 'ready', 'finished', 'completed', 'cancelled', 'rejected'],
-        default: 'pending'
-    },
+            type: String,
+            enum: ['pending', 'confirmed', 'preparing', 'ready', 'completed', 'cancelled'],
+            default: 'pending'
+        },
         assignedTo: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'User'
@@ -162,7 +153,7 @@ const OrderSchema = new mongoose.Schema({
     },
     orderType: {
         type: String,
-        enum: ['customer', 'walk-in','service'],
+        enum: ['customer', 'walk-in', 'service'],
         default: 'customer'
     },
     createdAt: {
@@ -176,8 +167,7 @@ const OrderSchema = new mongoose.Schema({
     confirmedAt: Date,
     preparingAt: Date,
     readyAt: Date,
-    finishedAt: Date,
-    servedAt: Date,
+    finishedAt: Date,  // Only one finishedAt field
     completedAt: Date,
     cancelledAt: Date
 }, {
@@ -189,7 +179,7 @@ const OrderSchema = new mongoose.Schema({
 // Virtual for order duration
 OrderSchema.virtual('duration').get(function() {
     if (this.completedAt && this.createdAt) {
-        return Math.round((this.completedAt - this.createdAt) / 60000); // minutes
+        return Math.round((this.completedAt - this.createdAt) / 60000);
     }
     return null;
 });
@@ -234,11 +224,9 @@ OrderSchema.pre('save', async function(next) {
         const month = (now.getMonth() + 1).toString().padStart(2, '0');
         const day = now.getDate().toString().padStart(2, '0');
         
-        // Create date range for today
         const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
         const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
         
-        // Get count of today's orders
         const count = await this.constructor.countDocuments({
             createdAt: { $gte: startOfDay, $lte: endOfDay }
         });
@@ -246,12 +234,9 @@ OrderSchema.pre('save', async function(next) {
         const sequence = (count + 1).toString().padStart(4, '0');
         this.orderNumber = `ORD${year}${month}${day}${sequence}`;
         
-        console.log(`Generated order number: ${this.orderNumber} (count: ${count})`);
-        
         next();
     } catch (error) {
         console.error('Error generating order number:', error);
-        // Fallback order number
         this.orderNumber = `ORD${Date.now()}`;
         next();
     }
@@ -266,6 +251,6 @@ OrderSchema.index({ assignedChef: 1, status: 1 });
 OrderSchema.index({ createdAt: -1 });
 OrderSchema.index({ 'serviceRequests.status': 1 });
 OrderSchema.index({ totalAmount: 1 });
-OrderSchema.index({ orderType: 1 }); // Added for walk-in orders
+OrderSchema.index({ orderType: 1 });
 
 module.exports = mongoose.model('Order', OrderSchema);

@@ -5,7 +5,30 @@ const xss = require('xss-clean');
 const hpp = require('hpp');
 const compression = require('compression');
 
-// Security middleware setup
+// Stricter rate limit for auth routes
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 5, // 5 attempts per window
+    message: {
+        success: false,
+        message: 'Too many login attempts, please try again later.'
+    },
+    standardHeaders: true,
+    legacyHeaders: false
+});
+
+// General API rate limiter
+const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    message: {
+        success: false,
+        message: 'Too many requests from this IP, please try again later.'
+    },
+    standardHeaders: true,
+    legacyHeaders: false
+});
+
 const securityMiddleware = (app) => {
     // Set security HTTP headers
     app.use(helmet({
@@ -16,7 +39,7 @@ const securityMiddleware = (app) => {
                 scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
                 fontSrc: ["'self'", "https://fonts.gstatic.com"],
                 imgSrc: ["'self'", "data:", "https:", "http:"],
-                connectSrc: ["'self'", "https://smart-waiter.onrender.com", "ws://smart-waiter.onrender.com", "wss://smart-waiter.onrender.com"]
+                connectSrc: ["'self'", process.env.BACKEND_URL || "https://smart-waiter-backend.onrender.com"]
             }
         },
         crossOriginEmbedderPolicy: false
@@ -25,26 +48,16 @@ const securityMiddleware = (app) => {
     // Compression
     app.use(compression());
     
-    // Rate limiting
-    const limiter = rateLimit({
-        windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
-        max: parseInt(process.env.RATE_LIMIT_MAX) || 100,
-        message: {
-            success: false,
-            message: 'Too many requests from this IP, please try again later.'
-        },
-        standardHeaders: true,
-        legacyHeaders: false
-    });
-    
-    // Apply rate limiting to API routes
-    app.use('/api', limiter);
+    // Apply rate limiting
+    app.use('/api/auth/login', authLimiter);
+    app.use('/api/auth/register', authLimiter);
+    app.use('/api', apiLimiter);
     
     // Data sanitization against NoSQL query injection
     app.use(mongoSanitize({
         replaceWith: '_',
         onSanitize: ({ req, key }) => {
-            console.warn(`Attempted NoSQL injection: ${key}`, req.body);
+            console.warn(`⚠️ Attempted NoSQL injection: ${key}`);
         }
     }));
     
@@ -59,18 +72,19 @@ const securityMiddleware = (app) => {
             'category',
             'sort',
             'limit',
-            'page'
+            'page',
+            'status',
+            'tableNumber'
         ]
     }));
     
-    // CORS configuration (already in server.js, but adding additional headers)
+    // Additional security headers
     app.use((req, res, next) => {
         res.header('X-Content-Type-Options', 'nosniff');
         res.header('X-Frame-Options', 'DENY');
         res.header('X-XSS-Protection', '1; mode=block');
         res.header('Referrer-Policy', 'strict-origin-when-cross-origin');
         res.header('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
-        
         next();
     });
 };

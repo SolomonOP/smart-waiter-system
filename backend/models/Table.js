@@ -1,5 +1,62 @@
 const mongoose = require('mongoose');
 
+const ServiceRequestSubSchema = new mongoose.Schema({
+    type: {
+        type: String,
+        enum: ['water', 'cleaning', 'bill', 'cutlery', 'napkin', 'extra_sauce', 'other', 'chef_attention'],
+        required: true
+    },
+    description: {
+        type: String,
+        default: ''
+    },
+    customerName: {
+        type: String,
+        default: 'Customer'
+    },
+    customerId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    },
+    status: {
+        type: String,
+        enum: ['pending', 'acknowledged', 'completed', 'cancelled'],
+        default: 'pending'
+    },
+    priority: {
+        type: String,
+        enum: ['urgent', 'high', 'normal', 'low'],
+        default: 'normal'
+    },
+    assignedTo: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    },
+    assignedToName: {
+        type: String
+    },
+    notes: {
+        type: String
+    },
+    completionNotes: {
+        type: String
+    },
+    acknowledgedAt: {
+        type: Date
+    },
+    completedAt: {
+        type: Date
+    },
+    createdAt: {
+        type: Date,
+        default: Date.now
+    },
+    updatedAt: {
+        type: Date,
+        default: Date.now
+    }
+});
+
 const TableSchema = new mongoose.Schema({
     tableNumber: {
         type: Number,
@@ -38,67 +95,7 @@ const TableSchema = new mongoose.Schema({
     customerName: {
         type: String
     },
-    // Service requests array
-    serviceRequests: [{
-        type: {
-            type: String,
-            enum: ['water', 'cleaning', 'bill', 'cutlery', 'napkin', 'extra_sauce', 'other', 'chef_attention'],
-            required: true
-        },
-        tableNumber: {
-            type: Number,
-            required: true
-        },
-        description: {
-            type: String,
-            default: ''
-        },
-        customerName: {
-            type: String,
-            default: 'Customer'
-        },
-        customerId: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'User'
-        },
-        status: {
-            type: String,
-            enum: ['pending', 'acknowledged', 'completed', 'cancelled'],
-            default: 'pending'
-        },
-        priority: {
-            type: String,
-            enum: ['urgent', 'high', 'normal', 'low'],
-            default: 'normal'
-        },
-        assignedTo: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'User'
-        },
-        assignedToName: {
-            type: String
-        },
-        notes: {
-            type: String
-        },
-        completionNotes: {
-            type: String
-        },
-        acknowledgedAt: {
-            type: Date
-        },
-        completedAt: {
-            type: Date
-        },
-        createdAt: {
-            type: Date,
-            default: Date.now
-        },
-        updatedAt: {
-            type: Date,
-            default: Date.now
-        }
-    }],
+    serviceRequests: [ServiceRequestSubSchema],
     createdAt: {
         type: Date,
         default: Date.now
@@ -119,7 +116,7 @@ TableSchema.virtual('pendingRequests').get(function() {
 TableSchema.virtual('activeRequests').get(function() {
     if (!this.serviceRequests) return [];
     return this.serviceRequests.filter(req => 
-        ['pending', 'acknowledged', 'in-progress'].includes(req.status)
+        ['pending', 'acknowledged'].includes(req.status)
     );
 });
 

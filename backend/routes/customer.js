@@ -12,11 +12,7 @@ router.get('/menu', async (req, res) => {
     try {
         const { category, available = true } = req.query;
         
-        let query = {};
-        
-        if (available === 'true' || available === true) {
-            query.available = true;
-        }
+        let query = { available: true };  // FIXED: Use 'available'
         
         if (category) {
             query.category = category;
@@ -80,18 +76,12 @@ router.get('/menu/:id', async (req, res) => {
 });
 
 // @route   POST /api/customer/order
-// @desc    Place a new order - SIMPLIFIED VERSION
+// @desc    Place a new order
 // @access  Private
 router.post('/order', auth, async (req, res) => {
     try {
         const { tableNumber, items, instructions, customerName, customerEmail } = req.body;
         
-        console.log('=== ORDER REQUEST ===');
-        console.log('Table:', tableNumber);
-        console.log('Items:', JSON.stringify(items, null, 2));
-        console.log('=====================');
-        
-        // Basic validation
         if (!tableNumber || tableNumber < 1) {
             return res.status(400).json({
                 success: false,
@@ -106,7 +96,6 @@ router.post('/order', auth, async (req, res) => {
             });
         }
         
-        // Check table
         const table = await Table.findOne({ tableNumber: parseInt(tableNumber) });
         if (!table) {
             return res.status(400).json({
@@ -115,77 +104,45 @@ router.post('/order', auth, async (req, res) => {
             });
         }
         
-        // Validate and process menu items
         const orderItems = [];
         let totalAmount = 0;
         
         for (const item of items) {
-            try {
-                // Skip if no menuItem ID
-                if (!item.menuItem) {
-                    return res.status(400).json({
-                        success: false,
-                        message: `Menu item ID is missing for "${item.name}"`
-                    });
-                }
-                
-                // Try to find menu item
-                let menuItem;
-                
-                // First try by ID
-                try {
-                    menuItem = await MenuItem.findById(item.menuItem);
-                } catch (idError) {
-                    console.log('ID lookup failed:', idError.message);
-                }
-                
-                // If not found by ID, try by name
-                if (!menuItem && item.name) {
-                    menuItem = await MenuItem.findOne({ 
-                        name: { $regex: new RegExp(item.name, 'i') } 
-                    });
-                    
-                    if (menuItem) {
-                        console.log(`Found menu item by name: ${item.name}`);
-                    }
-                }
-                
-                // If still not found, return error
-                if (!menuItem) {
-                    return res.status(400).json({
-                        success: false,
-                        message: `Menu item "${item.name}" not found`
-                    });
-                }
-                
-                if (!menuItem.available) {
-                    return res.status(400).json({
-                        success: false,
-                        message: `${menuItem.name} is currently unavailable`
-                    });
-                }
-                
-                const itemTotal = menuItem.price * item.quantity;
-                totalAmount += itemTotal;
-                
-                orderItems.push({
-                    menuItem: menuItem._id,
-                    name: menuItem.name,
-                    price: menuItem.price,
-                    quantity: item.quantity,
-                    itemTotal: itemTotal
-                });
-                
-            } catch (error) {
-                console.error('Error processing menu item:', error);
+            if (!item.menuItem) {
                 return res.status(400).json({
                     success: false,
-                    message: `Error with item: ${item.name}`
+                    message: `Menu item ID is missing for "${item.name}"`
                 });
             }
+            
+            const menuItem = await MenuItem.findById(item.menuItem);
+            
+            if (!menuItem) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Menu item "${item.name}" not found`
+                });
+            }
+            
+            if (!menuItem.available) {  // FIXED: Use 'available'
+                return res.status(400).json({
+                    success: false,
+                    message: `${menuItem.name} is currently unavailable`
+                });
+            }
+            
+            const itemTotal = menuItem.price * item.quantity;
+            totalAmount += itemTotal;
+            
+            orderItems.push({
+                menuItem: menuItem._id,
+                name: menuItem.name,
+                price: menuItem.price,
+                quantity: item.quantity,
+                itemTotal: itemTotal
+            });
         }
         
-        // Generate order number
         const now = new Date();
         const year = now.getFullYear().toString().slice(-2);
         const month = (now.getMonth() + 1).toString().padStart(2, '0');
@@ -193,10 +150,8 @@ router.post('/order', auth, async (req, res) => {
         const timestamp = Date.now().toString().slice(-6);
         const orderNumber = `ORD${year}${month}${day}${timestamp}`;
         
-        // Get customer info
         const customer = await User.findById(req.userId);
         
-        // Create order
         const orderData = {
             orderNumber: orderNumber,
             tableNumber: parseInt(tableNumber),
@@ -207,37 +162,19 @@ router.post('/order', auth, async (req, res) => {
             subtotal: totalAmount,
             totalAmount: totalAmount,
             specialInstructions: instructions || '',
-            estimatedPrepTime: 15
+            estimatedPrepTime: 15,
+            status: 'pending'
         };
         
-        console.log('Creating order:', orderData);
-        
         const order = new Order(orderData);
+        await order.save();
         
-        try {
-            await order.save();
-            console.log('Order saved successfully:', order._id);
-        } catch (saveError) {
-            console.error('Save error:', saveError);
-            
-            // Handle duplicate order number
-            if (saveError.code === 11000) {
-                const newTimestamp = Date.now().toString().slice(-6);
-                order.orderNumber = `ORD${year}${month}${day}${newTimestamp}`;
-                await order.save();
-            } else {
-                throw saveError;
-            }
-        }
-        
-        // Update table
         table.status = 'occupied';
         table.currentOrder = order._id;
         table.currentCustomer = req.userId;
         table.customerName = orderData.customerName;
         await table.save();
         
-        // Real-time notification
         const io = req.app.get('io');
         if (io) {
             io.to('role:chef').emit('new-order', {
@@ -266,11 +203,7 @@ router.post('/order', auth, async (req, res) => {
         });
         
     } catch (error) {
-        console.error('=== ORDER ERROR ===');
-        console.error('Error:', error);
-        console.error('Stack:', error.stack);
-        console.error('===================');
-        
+        console.error('Order error:', error);
         res.status(500).json({
             success: false,
             message: 'Server error while placing order',
@@ -339,7 +272,6 @@ router.get('/orders/:id', auth, async (req, res) => {
             });
         }
         
-        // Check authorization
         const isAuthorized = order.customer && order.customer.toString() === req.userId;
         
         if (!isAuthorized && req.userRole !== 'admin' && req.userRole !== 'chef') {
@@ -404,51 +336,33 @@ const validateTable = async (req, res, next) => {
 // @desc    Request service (water, cleaning, bill, etc.)
 // @access  Private
 router.post('/service-request', auth, async (req, res) => {
-    console.log('=== SERVICE REQUEST START ===');
-    console.log('Request body:', req.body);
-    console.log('User ID:', req.userId);
-    
     try {
         const { tableNumber, type, description, customerName } = req.body;
         
-        // Basic validation
         if (!tableNumber || tableNumber < 1) {
-            console.log('Invalid table number');
             return res.status(400).json({
                 success: false,
                 message: 'Valid table number is required'
             });
         }
         
-        // Updated valid types to match Table schema
         const validTypes = ['water', 'cleaning', 'bill', 'cutlery', 'napkin', 'extra_sauce', 'other', 'chef_attention'];
         if (!type || !validTypes.includes(type)) {
-            console.log('Invalid service type:', type);
             return res.status(400).json({
                 success: false,
                 message: `Invalid service type. Valid types are: ${validTypes.join(', ')}`
             });
         }
         
-        // Get customer info
         let customer = customerName;
         if (!customer) {
-            try {
-                const user = await User.findById(req.userId);
-                customer = user ? user.firstName + ' ' + user.lastName : 'Customer';
-            } catch (userError) {
-                console.log('User lookup error:', userError.message);
-                customer = 'Customer';
-            }
+            const user = await User.findById(req.userId);
+            customer = user ? user.firstName + ' ' + user.lastName : 'Customer';
         }
         
-        console.log('Processing for table:', tableNumber, 'customer:', customer);
-        
-        // Find or create the table
         let table = await Table.findOne({ tableNumber: parseInt(tableNumber) });
         
         if (!table) {
-            console.log(`Creating new table entry for table ${tableNumber}`);
             table = new Table({
                 tableNumber: parseInt(tableNumber),
                 status: 'occupied',
@@ -457,15 +371,12 @@ router.post('/service-request', auth, async (req, res) => {
             });
         }
         
-        // Initialize serviceRequests array if it doesn't exist
         if (!table.serviceRequests) {
             table.serviceRequests = [];
         }
         
-        // Create service request object
         const serviceRequestData = {
             type: type,
-            tableNumber: parseInt(tableNumber),
             description: description || `${getServiceTypeName(type)} request from table ${tableNumber}`,
             customerName: customer,
             customerId: req.userId,
@@ -475,33 +386,13 @@ router.post('/service-request', auth, async (req, res) => {
             updatedAt: new Date()
         };
         
-        console.log('Creating service request:', serviceRequestData);
-        
-        // Add the service request to the table
         table.serviceRequests.push(serviceRequestData);
-        
-        try {
-            // Save with validation disabled for now to avoid issues
-            await table.save({ validateBeforeSave: false });
-            console.log('Table saved with new service request');
-        } catch (saveError) {
-            console.error('Error saving table with service request:', saveError);
-            return res.status(500).json({
-                success: false,
-                message: 'Failed to save service request',
-                error: saveError.message
-            });
-        }
+        await table.save({ validateBeforeSave: false });
         
         const savedRequest = table.serviceRequests[table.serviceRequests.length - 1];
-        console.log('Service request saved:', savedRequest);
         
-        // Real-time notification
         const io = req.app.get('io');
         if (io) {
-            console.log('Emitting socket events...');
-            
-            // Notify chefs
             io.to('role:chef').emit('new-service-request', {
                 requestId: savedRequest._id,
                 type: type,
@@ -511,18 +402,7 @@ router.post('/service-request', auth, async (req, res) => {
                 priority: serviceRequestData.priority,
                 timestamp: new Date().toISOString()
             });
-            
-            // Notify the specific table
-            io.to(`table:${tableNumber}`).emit('service-request-confirmation', {
-                type: type,
-                tableNumber: tableNumber,
-                message: 'Your service request has been received',
-                requestId: savedRequest._id,
-                estimatedResponse: '5-10 minutes'
-            });
         }
-        
-        console.log('=== SERVICE REQUEST COMPLETE ===');
         
         res.json({
             success: true,
@@ -534,17 +414,12 @@ router.post('/service-request', auth, async (req, res) => {
                 description: savedRequest.description,
                 status: savedRequest.status,
                 priority: savedRequest.priority,
-                createdAt: savedRequest.createdAt,
-                estimatedResponse: '5-10 minutes'
+                createdAt: savedRequest.createdAt
             }
         });
         
     } catch (error) {
-        console.error('=== SERVICE REQUEST ERROR ===');
-        console.error('Error:', error);
-        console.error('Error name:', error.name);
-        console.error('Error message:', error.message);
-        
+        console.error('Service request error:', error);
         res.status(500).json({
             success: false,
             message: 'Server error while processing service request',
@@ -558,12 +433,10 @@ router.post('/service-request', auth, async (req, res) => {
 // @access  Private
 router.get('/service-requests', auth, async (req, res) => {
     try {
-        // Get all tables where the customer has service requests
         const tables = await Table.find({
             'serviceRequests.customerId': req.userId
         }).select('tableNumber serviceRequests');
         
-        // Extract and filter service requests for this customer
         const customerRequests = [];
         tables.forEach(table => {
             table.serviceRequests.forEach(request => {
@@ -585,7 +458,6 @@ router.get('/service-requests', auth, async (req, res) => {
             });
         });
         
-        // Sort by creation time (newest first)
         customerRequests.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         
         res.json({
@@ -634,12 +506,10 @@ function getServicePriority(type) {
 // @access  Public
 router.get('/debug', async (req, res) => {
     try {
-        // Test database connection
         const tableCount = await Table.countDocuments();
         const menuCount = await MenuItem.countDocuments();
         const orderCount = await Order.countDocuments();
         
-        // Get some sample service requests
         const tablesWithRequests = await Table.find({
             'serviceRequests.0': { $exists: true }
         }).select('tableNumber serviceRequests');
@@ -660,7 +530,6 @@ router.get('/debug', async (req, res) => {
             });
         });
         
-        // Sort by creation time and limit
         recentServiceRequests.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         recentServiceRequests = recentServiceRequests.slice(0, 10);
         
@@ -705,7 +574,6 @@ router.post('/cancel-order/:id', auth, async (req, res) => {
             });
         }
         
-        // Check authorization
         const isAuthorized = order.customer && order.customer.toString() === req.userId;
         
         if (!isAuthorized) {
@@ -715,7 +583,6 @@ router.post('/cancel-order/:id', auth, async (req, res) => {
             });
         }
         
-        // Check if order can be cancelled
         if (!['pending', 'confirmed'].includes(order.status)) {
             return res.status(400).json({
                 success: false,
@@ -723,12 +590,10 @@ router.post('/cancel-order/:id', auth, async (req, res) => {
             });
         }
         
-        // Update order
         order.status = 'cancelled';
         order.cancelledAt = new Date();
         await order.save();
         
-        // Update table if no other active orders
         const activeOrder = await Order.findOne({
             tableNumber: order.tableNumber,
             status: { $nin: ['completed', 'cancelled', 'rejected'] }
@@ -787,7 +652,6 @@ router.post('/feedback/:id', auth, [
             });
         }
         
-        // Check authorization
         const isAuthorized = order.customer && order.customer.toString() === req.userId;
         
         if (!isAuthorized) {
@@ -797,7 +661,6 @@ router.post('/feedback/:id', auth, [
             });
         }
         
-        // Check if order is completed
         if (order.status !== 'completed') {
             return res.status(400).json({
                 success: false,
@@ -805,7 +668,6 @@ router.post('/feedback/:id', auth, [
             });
         }
         
-        // Update order
         order.rating = rating;
         order.feedback = feedback;
         await order.save();
@@ -893,24 +755,16 @@ router.post('/menu/seed', async (req, res) => {
         });
     }
 });
-
 // @route   GET /api/customer/tables
 // @desc    Get available tables for customers
-// @access  Private (Customer)
+// @access  Private
 router.get('/tables', auth, async (req, res) => {
     try {
-        // Get all tables that are active
         const tables = await Table.find({ 
             isActive: true
         })
         .sort({ tableNumber: 1 })
         .select('tableNumber capacity location section status');
-        
-        console.log('Available tables for customer:', tables.map(t => ({
-            number: t.tableNumber,
-            status: t.status,
-            capacity: t.capacity
-        })));
         
         res.json({
             success: true,

@@ -4,16 +4,13 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 
-// ==================== LOGIN ENDPOINT ====================
+// @route   POST /api/auth/login
+// @desc    Authenticate user & get token
+// @access  Public
 router.post('/login', async (req, res) => {
     try {
-        console.log('=== LOGIN REQUEST ===');
-        console.log('Email:', req.body.email);
-        console.log('Password length:', req.body.password ? req.body.password.length : 0);
-        
         const { email, password } = req.body;
         
-        // Validate input
         if (!email || !password) {
             return res.status(400).json({
                 success: false,
@@ -23,72 +20,77 @@ router.post('/login', async (req, res) => {
         
         const normalizedEmail = email.toLowerCase().trim();
         
-        // Check demo accounts first
+        // Check demo accounts
         const demoAccounts = [
-            {email: 'admin@demo.com', password: '123456', role: 'admin'},
-            {email: 'chef@demo.com', password: '123456', role: 'chef'},
-            {email: 'customer@demo.com', password: '123456', role: 'customer'}
+            {email: 'admin@demo.com', password: '123456', role: 'admin', firstName: 'Admin', lastName: 'Demo'},
+            {email: 'chef@demo.com', password: '123456', role: 'chef', firstName: 'Master', lastName: 'Chef'},
+            {email: 'customer@demo.com', password: '123456', role: 'customer', firstName: 'John', lastName: 'Doe'}
         ];
         
         const demo = demoAccounts.find(d => d.email === normalizedEmail);
-        if (demo) {
-            console.log('✅ Demo account found:', demo.role);
-            if (password === demo.password) {
-                const token = jwt.sign(
-                    {email: demo.email, role: demo.role, isDemo: true},
-                    process.env.JWT_SECRET || 'smartwaiter_production_secret_2024',
-                    {expiresIn: '7d'}
-                );
-                return res.json({
-                    success: true, 
-                    token, 
-                    user: {
-                        email: demo.email, 
-                        role: demo.role,
-                        firstName: demo.role.charAt(0).toUpperCase() + demo.role.slice(1),
-                        lastName: 'Demo'
-                    }
-                });
-            }
+        if (demo && password === demo.password) {
+            const token = jwt.sign(
+                {
+                    userId: demo.email,
+                    email: demo.email,
+                    role: demo.role,
+                    firstName: demo.firstName,
+                    lastName: demo.lastName,
+                    isDemo: true
+                },
+                process.env.JWT_SECRET,
+                {expiresIn: '7d'}
+            );
+            
+            return res.json({
+                success: true, 
+                token, 
+                user: {
+                    email: demo.email, 
+                    role: demo.role,
+                    firstName: demo.firstName,
+                    lastName: demo.lastName,
+                    isDemo: true
+                }
+            });
         }
         
         // Find user in database
-        console.log('🔍 Searching for user in database:', normalizedEmail);
         const user = await User.findOne({ email: normalizedEmail });
         
         if (!user) {
-            console.log('❌ User not found in database');
             return res.status(401).json({
                 success: false, 
                 message: 'Invalid email or password'
             });
         }
         
-        console.log('✅ User found:', user.email);
-        console.log('🔑 Comparing passwords...');
+        if (!user.isActive) {
+            return res.status(401).json({
+                success: false,
+                message: 'Account is deactivated. Please contact admin.'
+            });
+        }
         
-        // Use the model method to compare password
         const isMatch = await user.comparePassword(password);
         
         if (!isMatch) {
-            console.log('❌ Password does not match');
+            user.failedLoginAttempts = (user.failedLoginAttempts || 0) + 1;
+            user.lastFailedLogin = new Date();
+            await user.save();
+            
             return res.status(401).json({
                 success: false, 
                 message: 'Invalid email or password'
             });
         }
         
-        console.log('✅ Password matched');
-        
-        // Update last login
+        // Reset failed attempts on successful login
+        user.failedLoginAttempts = 0;
         user.lastLogin = new Date();
         await user.save();
         
-        // Generate token using model method
         const token = user.generateAuthToken();
-        
-        console.log('🎫 Login successful for user:', user.email);
-        console.log('=== LOGIN COMPLETE ===');
         
         res.json({
             success: true,
@@ -105,36 +107,25 @@ router.post('/login', async (req, res) => {
         });
         
     } catch (error) {
-        console.error('❌ LOGIN ERROR:');
-        console.error('Message:', error.message);
-        console.error('Stack:', error.stack);
-        
+        console.error('Login error:', error);
         res.status(500).json({
             success: false,
-            message: 'Server error during login',
-            error: process.env.NODE_ENV === 'production' ? undefined : error.message
+            message: 'Server error during login'
         });
     }
 });
 
-// ==================== REGISTER ENDPOINT ====================
+// @route   POST /api/auth/register
+// @desc    Register a new user
+// @access  Public
 router.post('/register', async (req, res) => {
     try {
-        console.log('=== REGISTER REQUEST ===');
-        console.log('Registration data:', {
-            email: req.body.email,
-            firstName: req.body.firstName,
-            lastName: req.body.lastName,
-            phone: req.body.phone
-        });
-        
         const { firstName, lastName, email, password, phone } = req.body;
         
-        // Validate required fields
         if (!email || !password || !firstName || !lastName || !phone) {
             return res.status(400).json({
                 success: false,
-                message: 'Please provide all required fields: firstName, lastName, email, password, phone'
+                message: 'Please provide all required fields'
             });
         }
         
@@ -156,21 +147,13 @@ router.post('/register', async (req, res) => {
             email: normalizedEmail,
             password,
             phone,
-            role: 'customer'
+            role: 'customer',
+            isActive: true
         });
         
-        console.log('💾 Saving user to database...');
-        
-        // Save user (password will be hashed automatically by pre-save hook)
         await newUser.save();
         
-        console.log('✅ User saved successfully:', newUser.email);
-        
-        // Generate token
         const token = newUser.generateAuthToken();
-        
-        console.log('🎫 Registration successful');
-        console.log('=== REGISTER COMPLETE ===');
         
         res.status(201).json({
             success: true,
@@ -188,34 +171,85 @@ router.post('/register', async (req, res) => {
         });
         
     } catch (error) {
-        console.error('❌ REGISTER ERROR:');
-        console.error('Message:', error.message);
-        console.error('Stack:', error.stack);
+        console.error('Registration error:', error);
         
         let errorMessage = 'Registration failed. Please try again.';
         let statusCode = 500;
         
-        // Handle validation errors
         if (error.name === 'ValidationError') {
             errorMessage = Object.values(error.errors).map(e => e.message).join(', ');
             statusCode = 400;
-        }
-        
-        // Handle duplicate email error
-        if (error.code === 11000) {
+        } else if (error.code === 11000) {
             errorMessage = 'Email already registered. Please login instead.';
             statusCode = 409;
         }
         
         res.status(statusCode).json({
             success: false,
-            message: errorMessage,
-            error: process.env.NODE_ENV === 'production' ? undefined : error.message
+            message: errorMessage
         });
     }
 });
 
-// ==================== FORGOT PASSWORD ====================
+// @route   POST /api/auth/logout
+// @desc    Logout user
+// @access  Private
+router.post('/logout', (req, res) => {
+    res.json({
+        success: true,
+        message: 'Logged out successfully'
+    });
+});
+
+// @route   GET /api/auth/verify-token
+// @desc    Verify token validity
+// @access  Public
+router.get('/verify-token', (req, res) => {
+    try {
+        const authHeader = req.header('Authorization');
+        
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return res.status(401).json({
+                success: false,
+                message: 'No token provided',
+                valid: false
+            });
+        }
+        
+        const token = authHeader.replace('Bearer ', '');
+        
+        if (token.startsWith('demo_')) {
+            return res.json({
+                success: true,
+                valid: true,
+                isDemo: true
+            });
+        }
+        
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        
+        res.json({
+            success: true,
+            valid: true,
+            user: {
+                userId: decoded.userId,
+                email: decoded.email,
+                role: decoded.role
+            }
+        });
+        
+    } catch (error) {
+        res.status(401).json({
+            success: false,
+            valid: false,
+            message: 'Invalid or expired token'
+        });
+    }
+});
+
+// @route   POST /api/auth/forgot-password
+// @desc    Send password reset email
+// @access  Public
 router.post('/forgot-password', async (req, res) => {
     try {
         const { email } = req.body;
@@ -231,28 +265,25 @@ router.post('/forgot-password', async (req, res) => {
         const user = await User.findOne({ email: normalizedEmail });
         
         if (!user) {
-            // For security, don't reveal if email exists
             return res.json({
                 success: true,
                 message: 'If this email exists, you will receive a password reset link.'
             });
         }
         
-        // Generate reset token
         const resetToken = user.generateResetPasswordToken();
         await user.save();
         
-        // In production, you would send an email here
-        console.log('📧 Password reset token for', user.email + ':', resetToken);
+        console.log('Password reset token for', user.email + ':', resetToken);
         
         res.json({
             success: true,
             message: 'Password reset link sent to your email.',
-            resetToken // Only for testing, remove in production
+            resetToken: process.env.NODE_ENV === 'development' ? resetToken : undefined
         });
         
     } catch (error) {
-        console.error('❌ Forgot password error:', error);
+        console.error('Forgot password error:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to process password reset request'
@@ -260,7 +291,9 @@ router.post('/forgot-password', async (req, res) => {
     }
 });
 
-// ==================== GET CURRENT USER ====================
+// @route   GET /api/auth/me
+// @desc    Get current user
+// @access  Private
 router.get('/me', async (req, res) => {
     try {
         const authHeader = req.header('Authorization');
@@ -274,8 +307,7 @@ router.get('/me', async (req, res) => {
         
         const token = authHeader.replace('Bearer ', '');
         
-        // Verify token
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'smartwaiter_production_secret_2024');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
         
         if (decoded.isDemo) {
             return res.json({
@@ -283,14 +315,13 @@ router.get('/me', async (req, res) => {
                 user: {
                     email: decoded.email,
                     role: decoded.role,
-                    firstName: decoded.role.charAt(0).toUpperCase() + decoded.role.slice(1),
-                    lastName: 'Demo',
+                    firstName: decoded.firstName,
+                    lastName: decoded.lastName,
                     isDemo: true
                 }
             });
         }
         
-        // Find user in database
         const user = await User.findById(decoded.userId).select('-password');
         
         if (!user) {
@@ -315,7 +346,7 @@ router.get('/me', async (req, res) => {
         });
         
     } catch (error) {
-        console.error('❌ Get user error:', error);
+        console.error('Get user error:', error);
         
         if (error.name === 'JsonWebTokenError') {
             return res.status(401).json({
@@ -338,10 +369,56 @@ router.get('/me', async (req, res) => {
     }
 });
 
-// ==================== HEALTH CHECK ====================
+// @route   POST /api/auth/reset-password
+// @desc    Reset password with token
+// @access  Public
+router.post('/reset-password', async (req, res) => {
+    try {
+        const { token, newPassword } = req.body;
+        
+        if (!token || !newPassword) {
+            return res.status(400).json({
+                success: false,
+                message: 'Token and new password are required'
+            });
+        }
+        
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        
+        const user = await User.findById(decoded.userId);
+        
+        if (!user || user.resetPasswordToken !== token || user.resetPasswordExpire < Date.now()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid or expired reset token'
+            });
+        }
+        
+        user.password = newPassword;
+        user.resetPasswordToken = undefined;
+        user.resetPasswordExpire = undefined;
+        await user.save();
+        
+        res.json({
+            success: true,
+            message: 'Password reset successful. You can now login with your new password.'
+        });
+        
+    } catch (error) {
+        console.error('Reset password error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to reset password'
+        });
+    }
+});
+
+// @route   GET /api/auth/health
+// @desc    Health check
+// @access  Public
 router.get('/health', (req, res) => {
     res.json({
-        success: true, 
+        success: true,
         message: 'Auth service is running',
         timestamp: new Date().toISOString()
     });

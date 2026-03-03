@@ -40,7 +40,7 @@ const MenuItemSchema = new mongoose.Schema({
     images: [{
         type: String
     }],
-    available: {
+    available: {  // CONSISTENT: Use 'available' everywhere
         type: Boolean,
         default: true
     },

@@ -29,7 +29,6 @@ const UserSchema = new mongoose.Schema({
         type: String,
         required: [true, 'Password is required'],
         minlength: [6, 'Password must be at least 6 characters']
-        // REMOVED: select: false - This was causing the issue!
     },
     phone: {
         type: String,
@@ -90,17 +89,13 @@ UserSchema.virtual('fullName').get(function() {
 
 // Hash password before saving
 UserSchema.pre('save', async function(next) {
-    // Only hash the password if it's modified (or new)
     if (!this.isModified('password')) return next();
     
     try {
-        console.log('🔐 Hashing password for user:', this.email);
         const salt = await bcrypt.genSalt(12);
         this.password = await bcrypt.hash(this.password, salt);
-        console.log('✅ Password hashed successfully');
         next();
     } catch (error) {
-        console.error('❌ Password hashing error:', error);
         next(error);
     }
 });
@@ -114,12 +109,8 @@ UserSchema.pre('save', function(next) {
 // Method to compare password
 UserSchema.methods.comparePassword = async function(enteredPassword) {
     try {
-        console.log('🔑 Comparing password for user:', this.email);
-        const result = await bcrypt.compare(enteredPassword, this.password);
-        console.log('✅ Bcrypt compare result:', result);
-        return result;
+        return await bcrypt.compare(enteredPassword, this.password);
     } catch (error) {
-        console.error('❌ Password comparison error:', error);
         return false;
     }
 };
@@ -127,7 +118,6 @@ UserSchema.methods.comparePassword = async function(enteredPassword) {
 // Method to generate JWT token
 UserSchema.methods.generateAuthToken = function() {
     try {
-        console.log('🎫 Generating auth token for user:', this.email);
         const token = jwt.sign(
             { 
                 userId: this._id, 
@@ -136,13 +126,11 @@ UserSchema.methods.generateAuthToken = function() {
                 firstName: this.firstName,
                 lastName: this.lastName
             },
-            process.env.JWT_SECRET || 'smartwaiter_production_secret_2024',
+            process.env.JWT_SECRET,
             { expiresIn: process.env.JWT_EXPIRE || '7d' }
         );
-        console.log('✅ Token generated');
         return token;
     } catch (error) {
-        console.error('❌ Token generation error:', error);
         throw error;
     }
 };
@@ -152,17 +140,15 @@ UserSchema.methods.generateResetPasswordToken = function() {
     try {
         const resetToken = jwt.sign(
             { userId: this._id },
-            process.env.JWT_SECRET || 'smartwaiter_production_secret_2024',
+            process.env.JWT_SECRET,
             { expiresIn: '1h' }
         );
         
         this.resetPasswordToken = resetToken;
-        this.resetPasswordExpire = Date.now() + 3600000; // 1 hour
+        this.resetPasswordExpire = Date.now() + 3600000;
         
-        console.log('🔑 Generated reset token for user:', this.email);
         return resetToken;
     } catch (error) {
-        console.error('❌ Reset token generation error:', error);
         throw error;
     }
 };

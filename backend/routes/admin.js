@@ -275,12 +275,12 @@ router.get('/menu', auth, isAdmin, async (req, res) => {
         }
         
         if (available !== undefined) {
-            query.isAvailable = available === 'true';
+            query.available = available === 'true';  // FIXED: Use 'available'
         }
         
         const menuItems = await MenuItem.find(query)
             .sort({ category: 1, name: 1 })
-            .select('name description price category isAvailable preparationTime image orderCount rating');
+            .select('name description price category available preparationTime image orderCount rating');
         
         res.json({
             success: true,
@@ -305,15 +305,14 @@ router.post('/menu', auth, isAdmin, [
     check('description', 'Description is required').optional().trim().escape(),
     check('price', 'Valid price is required').isFloat({ min: 0 }),
     check('category', 'Valid category is required').isIn([
-        'appetizer', 'main', 'dessert', 'drink', 'soup', 'salad'
+        'appetizer', 'main', 'dessert', 'drink', 'soup', 'salad', 'beverage'
     ]),
     check('preparationTime', 'Preparation time must be a number').optional().isInt({ min: 1 }),
-    check('isAvailable', 'isAvailable must be boolean').optional().isBoolean()
+    check('available', 'Available must be boolean').optional().isBoolean()
 ], async (req, res) => {
     try {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
-            console.log('Validation errors:', errors.array());
             return res.status(400).json({
                 success: false,
                 errors: errors.array()
@@ -325,26 +324,22 @@ router.post('/menu', auth, isAdmin, [
             description = '', 
             price, 
             category, 
-            isAvailable = true,
+            available = true,  // FIXED: Use 'available' consistently
             preparationTime = 15,
-            image = 'https://via.placeholder.com/400x300/667eea/ffffff?text=' + encodeURIComponent(name)
+            image = `https://via.placeholder.com/400x300/667eea/ffffff?text=${encodeURIComponent(name)}`
         } = req.body;
-        
-        console.log('Creating menu item:', { name, price, category, isAvailable });
         
         const menuItem = new MenuItem({
             name,
             description,
             price: parseFloat(price),
             category,
-            isAvailable: isAvailable === true || isAvailable === 'true',
+            available: available === true || available === 'true',  // FIXED: Use 'available'
             preparationTime: parseInt(preparationTime),
             image
         });
         
         await menuItem.save();
-        
-        console.log('Menu item created:', menuItem._id);
         
         res.status(201).json({
             success: true,
@@ -397,9 +392,9 @@ router.put('/menu/:id', auth, isAdmin, [
     check('description', 'Description is required').optional().trim().escape(),
     check('price', 'Valid price is required').optional().isFloat({ min: 0 }),
     check('category', 'Valid category is required').optional().isIn([
-        'appetizer', 'main', 'dessert', 'drink', 'soup', 'salad'
+        'appetizer', 'main', 'dessert', 'drink', 'soup', 'salad', 'beverage'
     ]),
-    check('isAvailable', 'isAvailable must be boolean').optional().isBoolean()
+    check('available', 'Available must be boolean').optional().isBoolean()  // FIXED
 ], async (req, res) => {
     try {
         const errors = validationResult(req);
@@ -422,9 +417,9 @@ router.put('/menu/:id', auth, isAdmin, [
         // Update fields
         const updates = req.body;
         
-        // Handle checkbox value
-        if (updates.isAvailable !== undefined) {
-            updates.isAvailable = updates.isAvailable === true || updates.isAvailable === 'true';
+        // Handle checkbox value for available
+        if (updates.available !== undefined) {
+            updates.available = updates.available === true || updates.available === 'true';
         }
         
         // Remove restricted fields
