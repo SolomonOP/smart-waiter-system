@@ -1533,34 +1533,39 @@
             Toast.show('Disconnected from live updates', 'warning');
         });
 
-        socket.on('new-service-request', (data) => {
+        // In initSocket function, update these handlers:
+
+socket.on('new-service-request', (data) => {
     console.log('New service request received:', data);
     
-    // Play notification sound
-    playNotificationSound();
-    
-    // Show notification
+    //playNotificationSound();
     Toast.show(`New ${getServiceName(data.type)} request from Table ${data.tableNumber}`, 'warning');
     
-    // Reload service requests
+    // Reload everything
     loadServiceRequests();
+    if (document.getElementById('dashboardSection').style.display === 'block') {
+        loadDashboard(); // This will update recent requests
+    }
     
-    // Update notification badge
     updateNotificationBadges();
 });
 
 socket.on('service-request-updated', (data) => {
     console.log('Service request updated:', data);
     
-    // If this request was assigned to someone else, reload to update
-    if (data.assignedTo !== user.firstName + ' ' + user.lastName) {
-        loadServiceRequests();
+    // Reload to show accepted requests in recent
+    loadServiceRequests();
+    if (document.getElementById('dashboardSection').style.display === 'block') {
+        loadDashboard();
     }
 });
 
 socket.on('service-request-removed', (data) => {
     console.log('Service request removed:', data);
     loadServiceRequests();
+    if (document.getElementById('dashboardSection').style.display === 'block') {
+        loadDashboard();
+    }
 });
 
 // Add notification sound function
@@ -1733,8 +1738,8 @@ socket.on('order-status-update', async (data) => {
             }
         }
 
-        // Dashboard Functions
-        async function loadDashboard() {
+        // Update the loadDashboard function to refresh recent requests after any changes
+async function loadDashboard() {
     try {
         Loading.show();
         
@@ -1743,7 +1748,7 @@ socket.on('order-status-update', async (data) => {
         if (response.success) {
             const { stats, recentOrders, serviceRequests } = response;
             
-            // Update statistics - make sure to include finished count
+            // Update statistics
             document.getElementById('pendingCount').textContent = stats.pending || 0;
             document.getElementById('preparingCount').textContent = stats.preparing || 0;
             document.getElementById('readyCount').textContent = stats.ready || 0;
@@ -1752,14 +1757,15 @@ socket.on('order-status-update', async (data) => {
             // Update notification badges
             const totalPending = (stats.pending || 0) + (stats.preparing || 0) + (stats.ready || 0) + (stats.finished || 0);
             document.getElementById('pendingOrdersBadge').textContent = totalPending;
-            document.getElementById('serviceRequestsBadge').textContent = serviceRequests.length || 0;
+            document.getElementById('serviceRequestsBadge').textContent = 
+                (pendingServiceRequests?.length || 0) + (myServiceRequests?.length || 0);
             document.getElementById('dashboardBadge').textContent = 
-                totalPending + (serviceRequests.length || 0);
+                totalPending + (pendingServiceRequests?.length || 0) + (myServiceRequests?.length || 0);
             
             // Update recent orders
             updateRecentOrders(recentOrders);
             
-            // Update recent service requests
+            // Update recent service requests (now shows both pending and accepted)
             updateRecentServiceRequests(serviceRequests);
         }
         
@@ -1859,46 +1865,73 @@ socket.on('order-status-update', async (data) => {
     container.innerHTML = html;
 }
 
-        function updateRecentServiceRequests(requests) {
-            const container = document.getElementById('recentServiceRequests');
-            
-            if (!requests || requests.length === 0) {
-                container.innerHTML = `
-                    <div class="empty-state">
-                        <i class="fas fa-concierge-bell"></i>
-                        <h5>No service requests</h5>
-                        <p>Service requests will appear here</p>
-                    </div>
-                `;
-                return;
-            }
-            
-            let html = '';
-            requests.forEach(request => {
-                const icon = getServiceIcon(request.type);
-                const serviceName = getServiceName(request.type);
-                
-                html += `
-                    <div class="activity-item service-request-card p-3 mb-2">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div>
-                                <h6 class="mb-1">${serviceName}</h6>
-                                <p class="mb-0 small">Table ${request.table?.tableNumber || request.tableNumber}</p>
-                                <small class="text-muted">${request.description || 'No description'}</small>
-                            </div>
-                            <div>
-                                <button class="btn btn-sm btn-primary" onclick="assignServiceRequest('${request._id}')">
-                                    <i class="fas fa-user-check me-1"></i>Accept
-                                </button>
-                            </div>
+        // Replace your updateRecentServiceRequests function (around line 1750)
+function updateRecentServiceRequests(requests) {
+    const container = document.getElementById('recentServiceRequests');
+    
+    // Combine pending and my accepted requests for recent view
+    const recentRequests = [
+        ...(pendingServiceRequests || []),
+        ...(myServiceRequests || []).filter(req => req.status === 'acknowledged')
+    ];
+    
+    // Sort by creation date (newest first) and take top 5
+    const sortedRecent = recentRequests
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .slice(0, 5);
+    
+    if (sortedRecent.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-concierge-bell"></i>
+                <h5>No service requests</h5>
+                <p>Service requests will appear here</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    sortedRecent.forEach(request => {
+        const icon = getServiceIcon(request.type);
+        const serviceName = getServiceName(request.type);
+        const statusColor = request.status === 'pending' ? 'warning' : 'info';
+        const statusText = request.status === 'pending' ? 'Pending' : 'Accepted';
+        
+        html += `
+            <div class="activity-item service-request-card p-3 mb-2 border-start border-${statusColor} border-4">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="d-flex align-items-center mb-1">
+                            <i class="${icon} me-2 text-${statusColor}"></i>
+                            <h6 class="mb-0">${serviceName}</h6>
+                            <span class="badge bg-${statusColor} ms-2">${statusText}</span>
                         </div>
-                        <small class="activity-time">${FormatUtils.formatTime(request.createdAt)}</small>
+                        <p class="mb-0 small">
+                            <i class="fas fa-chair me-1"></i>Table ${request.tableNumber} • 
+                            <i class="fas fa-user me-1"></i>${request.customerName || 'Customer'}
+                        </p>
+                        <small class="text-muted d-block mt-1">${request.description || 'No description'}</small>
                     </div>
-                `;
-            });
-            
-            container.innerHTML = html;
-        }
+                    <div class="d-flex flex-column align-items-end">
+                        <small class="activity-time text-muted">${FormatUtils.formatTime(request.createdAt)}</small>
+                        ${request.status === 'pending' ? `
+                            <button class="btn btn-sm btn-primary mt-2" onclick="assignServiceRequest('${request._id}')">
+                                <i class="fas fa-user-check me-1"></i>Accept
+                            </button>
+                        ` : request.status === 'acknowledged' && request.assignedTo === user?.id ? `
+                            <button class="btn btn-sm btn-success mt-2" onclick="completeServiceRequest('${request._id}')">
+                                <i class="fas fa-check-circle me-1"></i>Complete
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
 
         async function loadOrders() {
             try {
