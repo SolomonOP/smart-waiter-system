@@ -2544,9 +2544,6 @@ async function completeOrder(orderId) {
         // Load pending requests
         const pendingResponse = await API.get(CONFIG.API_ENDPOINTS.SERVICE_REQUESTS);
         
-        // Load all requests for history
-        const allResponse = await API.get(CONFIG.API_ENDPOINTS.SERVICE_REQUESTS_ALL + '?limit=50');
-        
         if (pendingResponse.success && allResponse.success) {
             // Store all requests
             allServiceRequests = allResponse.serviceRequests || [];
