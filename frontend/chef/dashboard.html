@@ -2496,7 +2496,7 @@ async function updateMenuItemStatus(itemId, isAvailable) {
             }
         }
 
-        // Update the loadServiceRequests function (around line 2500)
+        // Replace your loadServiceRequests function
 async function loadServiceRequests() {
     try {
         Loading.show();
@@ -2508,15 +2508,17 @@ async function loadServiceRequests() {
         console.log('Service requests response:', response);
         
         if (response.success) {
-            // Store requests - COMPLETED should NOT be in myServiceRequests
+            // Store pending requests (status = pending)
             pendingServiceRequests = response.pending || [];
             
-            // Only show acknowledged requests that are NOT completed
+            // Store my acknowledged requests (status = acknowledged, assigned to current chef)
+            // These are the ones that should show with "Mark Complete" button
             myServiceRequests = (response.myRequests || []).filter(req => 
-                req.status === 'acknowledged' && !req.completedAt
+                req.status === 'acknowledged' && 
+                req.assignedTo === user?.id
             );
             
-            // Store completed separately (for history)
+            // Store completed requests (for history, but won't be shown in main tabs)
             completedServiceRequests = response.completed || [];
             
             // Update allServiceRequests for reference
@@ -2630,7 +2632,6 @@ function renderPendingRequests() {
                         
                         <div class="d-grid gap-2">
                             <button class="btn btn-primary" onclick="assignServiceRequest('${request._id}')">
-
                                 <i class="fas fa-user-check me-2"></i>Accept
                             </button>
                             <button class="btn btn-outline-secondary" onclick="viewServiceRequestDetails('${request._id}')">
@@ -2649,12 +2650,12 @@ function renderPendingRequests() {
 function renderMyRequests() {
     const container = document.getElementById('myRequestsList');
     
-    // Filter to ensure only acknowledged (not completed) requests show
-    const activeAssignedRequests = myServiceRequests.filter(req => 
+    // Show only acknowledged requests (not completed)
+    const activeRequests = myServiceRequests.filter(req => 
         req.status === 'acknowledged' && !req.completedAt
     );
     
-    if (activeAssignedRequests.length === 0) {
+    if (activeRequests.length === 0) {
         container.innerHTML = `
             <div class="col-12">
                 <div class="no-requests">
@@ -2668,7 +2669,7 @@ function renderMyRequests() {
     }
     
     let html = '';
-    activeAssignedRequests.forEach(request => {
+    activeRequests.forEach(request => {
         const serviceIcon = getServiceIcon(request.type);
         const serviceName = getServiceName(request.type);
         
@@ -2844,7 +2845,7 @@ async function assignServiceRequest(requestId) {
 }
 
 
-// Update the completeServiceRequest function (around line 2870)
+// Replace your completeServiceRequest function with this
 async function completeServiceRequest(requestId) {
     try {
         const notes = prompt('Add completion notes (optional):');
@@ -2855,7 +2856,7 @@ async function completeServiceRequest(requestId) {
         
         Loading.show('Completing request...');
         
-        console.log('Comly completing request:', requestId);
+        console.log('Completing request:', requestId);
         
         const response = await API.put(
             `/api/service-requests/${requestId}/complete`,
@@ -2869,14 +2870,22 @@ async function completeServiceRequest(requestId) {
         if (response.success) {
             Toast.show('Service request completed successfully!', 'success');
             
-            // Remove the completed request from local arrays immediately
-            // This gives instant UI feedback before reloading
-            const requestIndex = myServiceRequests.findIndex(req => req._id === requestId);
-            if (requestIndex !== -1) {
-                myServiceRequests.splice(requestIndex, 1);
+            // Remove the completed request from ALL local arrays
+            // This ensures it disappears immediately
+            
+            // Remove from myServiceRequests
+            const myIndex = myServiceRequests.findIndex(req => req._id === requestId);
+            if (myIndex !== -1) {
+                myServiceRequests.splice(myIndex, 1);
             }
             
-            // Also remove from allServiceRequests if it exists there
+            // Remove from pendingServiceRequests (just in case)
+            const pendingIndex = pendingServiceRequests.findIndex(req => req._id === requestId);
+            if (pendingIndex !== -1) {
+                pendingServiceRequests.splice(pendingIndex, 1);
+            }
+            
+            // Remove from allServiceRequests
             const allIndex = allServiceRequests.findIndex(req => req._id === requestId);
             if (allIndex !== -1) {
                 allServiceRequests.splice(allIndex, 1);
@@ -2884,18 +2893,22 @@ async function completeServiceRequest(requestId) {
             
             // Update UI immediately
             renderMyRequests();
+            renderPendingRequests();
             renderAllRequests();
             updateServiceRequestStats();
             updateNotificationBadges();
             
-            // Then reload from server to ensure sync
-            setTimeout(() => {
-                loadServiceRequests();
-            }, 500);
-            
-            // Also reload dashboard to update badge counts
+            // Also reload dashboard to update counts
             if (document.getElementById('dashboardSection').style.display === 'block') {
                 loadDashboard();
+            }
+            
+            // Emit socket event to notify customer
+            if (socket) {
+                socket.emit('service-request-completed', {
+                    requestId: requestId,
+                    tableNumber: response.request?.tableNumber
+                });
             }
         }
         
