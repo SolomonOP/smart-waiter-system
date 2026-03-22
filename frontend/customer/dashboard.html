@@ -1765,6 +1765,42 @@ socket.on('service-request-completed', (data) => {
             };
             return serviceNames[type] || type;
         }
+
+        // Add these missing functions to your customer dashboard
+
+function getOrderStatusColor(status) {
+    switch(status) {
+        case 'pending': return 'warning';
+        case 'confirmed': return 'info';
+        case 'preparing': return 'info';
+        case 'ready': return 'success';
+        case 'finished': return 'primary';
+        case 'completed': return 'secondary';
+        case 'cancelled': return 'danger';
+        case 'rejected': return 'danger';
+        default: return 'dark';
+    }
+}
+
+function getServiceStatusColor(status) {
+    switch(status) {
+        case 'pending': return 'warning';
+        case 'acknowledged': return 'info';
+        case 'completed': return 'success';
+        case 'cancelled': return 'secondary';
+        default: return 'dark';
+    }
+}
+
+function getServiceStatusIcon(status) {
+    switch(status) {
+        case 'pending': return 'fas fa-clock';
+        case 'acknowledged': return 'fas fa-user-check';
+        case 'completed': return 'fas fa-check-circle';
+        case 'cancelled': return 'fas fa-times-circle';
+        default: return 'fas fa-question-circle';
+    }
+}
         
         // Load order status
         async function loadOrderStatus() {
